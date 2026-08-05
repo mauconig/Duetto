@@ -1,0 +1,26 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #f2d6d4 0%, #fdf3f2 34%, #fdf7f6 100%) fixed;
+  min-height: 100vh;
+  color: #33191c;
+  font-family: 'Nunito', system-ui, sans-serif;
+}
+
+a {
+  color: #a32f42;
+}
+a:hover {
+  color: #8a2333;
+}
+
+input::placeholder {
+  color: #c4a0a2;
+}
+
+#root {
+  min-height: 100vh;
+}
