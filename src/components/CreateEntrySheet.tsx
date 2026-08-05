@@ -25,7 +25,9 @@ export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
   const [nota, setNota] = useState('')
   const [fotos, setFotos] = useState<File[]>([])
   const [guardando, setGuardando] = useState(false)
+  const [sinMetadata, setSinMetadata] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const avisoTimeout = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -45,7 +47,13 @@ export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
     Promise.all(fotos.map(readExifDate)).then((resultados) => {
       if (cancelled) return
       const fechas = resultados.filter((d): d is string => !!d).sort()
-      if (fechas.length === 0) return
+      if (fechas.length === 0) {
+        setSinMetadata(true)
+        window.clearTimeout(avisoTimeout.current)
+        avisoTimeout.current = window.setTimeout(() => setSinMetadata(false), 5000)
+        return
+      }
+      setSinMetadata(false)
       const min = fechas[0]
       const max = fechas[fechas.length - 1]
       setFecha(min)
@@ -59,6 +67,8 @@ export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
       cancelled = true
     }
   }, [fotos, fechaManual])
+
+  useEffect(() => () => window.clearTimeout(avisoTimeout.current), [])
 
   function agregarFotos(lista: FileList | null) {
     if (!lista) return
@@ -123,6 +133,7 @@ export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
               required
             />
             {fechaDetectada && !fechaManual && <span className="sheet__hint">Detectada de tus fotos</span>}
+            {sinMetadata && <span className="sheet__toast">No se pudo encontrar la fecha en las fotos</span>}
           </label>
 
           <label className="sheet__checkbox">
