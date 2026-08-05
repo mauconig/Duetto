@@ -29,7 +29,7 @@ export function Profile({ nombres, inicial1, inicial2, fechaInicioTexto, diasJun
         </div>
         <div className="stat-card">
           <div className="stat-card__num">{numAlbumes}</div>
-          <div className="stat-card__label">álbumes</div>
+          <div className="stat-card__label">recuerdos</div>
         </div>
         <div className="stat-card">
           <div className="stat-card__num">{numIdeas}</div>

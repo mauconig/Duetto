@@ -254,18 +254,39 @@ h2 {
   background: #fff;
   box-shadow: 0 8px 24px rgba(176, 50, 70, 0.1);
 }
+.mini-card--album {
+  cursor: pointer;
+}
 .mini-card__image {
-  height: 92px;
+  height: 150px;
   position: relative;
 }
-.mini-card__body {
-  cursor: pointer;
-  padding: 12px 14px;
+.mini-card__fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.mini-card__kicker {
-  font-size: 11px;
+.mini-card__overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(51, 25, 28, 0), rgba(51, 25, 28, 0.6) 75%);
+  padding: 24px 12px 10px;
+  color: #fff;
+}
+.mini-card__overlay-kicker {
+  font-size: 10px;
   font-weight: 700;
-  color: #a5737a;
+  opacity: 0.85;
+}
+.mini-card__overlay-meta {
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  margin-top: 2px;
 }
 .mini-card__title {
   font-family: 'Quicksand', sans-serif;
@@ -288,6 +309,86 @@ h2 {
   font-size: 12px;
   font-weight: 700;
   color: #a32f42;
+}
+
+/* ── Home: memory + idea teaser cards ────────────────────────── */
+
+.memory-card {
+  cursor: pointer;
+  display: flex;
+  gap: 14px;
+  background: #fff;
+  border-radius: 24px;
+  padding: 14px;
+  box-shadow: 0 8px 24px rgba(176, 50, 70, 0.1);
+}
+.memory-card__thumb {
+  width: 84px;
+  height: 84px;
+  border-radius: 18px;
+  overflow: hidden;
+  flex: none;
+  position: relative;
+}
+.memory-card__fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.memory-card__body {
+  flex: 1;
+  min-width: 0;
+}
+.memory-card__kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a32f42;
+}
+.memory-card__fecha {
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  margin-top: 4px;
+}
+
+.idea-teaser-card {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border-radius: 24px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(176, 50, 70, 0.1);
+}
+.idea-teaser-card__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #f8e3e4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.idea-teaser-card__body {
+  flex: 1;
+  min-width: 0;
+}
+.idea-teaser-card__kicker {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a5737a;
+}
+.idea-teaser-card__text {
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  margin-top: 2px;
 }
 
 /* ── Image slot ───────────────────────────────────────────────── */
@@ -355,80 +456,8 @@ h2 {
   box-shadow: 0 6px 16px rgba(176, 50, 70, 0.35);
 }
 
-/* ── Albums ───────────────────────────────────────────────────── */
+/* ── Albums timeline ──────────────────────────────────────────── */
 
-.album-card {
-  border-radius: 26px;
-  overflow: hidden;
-  position: relative;
-  height: 170px;
-  box-shadow: 0 10px 26px rgba(176, 50, 70, 0.14);
-  margin-bottom: 2px;
-}
-.album-card__photo {
-  position: absolute;
-  inset: 0;
-}
-.album-card__blank {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.album-card__count {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #a32f42;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 4px 11px;
-  border-radius: 99px;
-  pointer-events: none;
-}
-.album-card__overlay {
-  cursor: pointer;
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 54%;
-  background: linear-gradient(180deg, rgba(51, 25, 28, 0), rgba(51, 25, 28, 0.55) 70%);
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 0 18px 14px;
-  color: #fff;
-}
-.album-card__overlay-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.album-card__title {
-  font-family: 'Quicksand', sans-serif;
-  font-weight: 700;
-  font-size: 20px;
-}
-.album-card__meta {
-  font-size: 12px;
-  font-weight: 700;
-  opacity: 0.85;
-}
-.album-card__chevron {
-  flex: none;
-}
-
-/* ── Album detail / timeline ─────────────────────────────────── */
-
-.detail-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 .back-btn {
   border: none;
   cursor: pointer;
@@ -442,17 +471,6 @@ h2 {
   justify-content: center;
   box-shadow: 0 4px 14px rgba(176, 50, 70, 0.15);
   flex: none;
-}
-.detail-header__title {
-  font-family: 'Quicksand', sans-serif;
-  font-weight: 700;
-  font-size: 22px;
-  line-height: 1.1;
-}
-.detail-header__meta {
-  font-size: 12px;
-  font-weight: 700;
-  color: #a5737a;
 }
 
 .timeline {
@@ -494,29 +512,13 @@ h2 {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #a32f42;
+  margin-bottom: 8px;
 }
-.timeline__lugar {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-family: 'Quicksand', sans-serif;
-  font-weight: 700;
-  font-size: 17px;
-  margin: 3px 0 4px;
-}
-.timeline__nota {
-  font-size: 14px;
-  color: #6d4249;
-  margin: 0 0 10px;
-  font-weight: 600;
-}
-.timeline__photos {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+.timeline__photo {
+  width: 100%;
+  height: 160px;
 }
 .timeline__photo-fallback {
-  height: 90px;
   border-radius: 18px;
   display: flex;
   align-items: center;

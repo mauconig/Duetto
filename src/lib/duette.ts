@@ -1,3 +1,5 @@
+import type { Album } from '../types'
+
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
@@ -85,4 +87,22 @@ export function ruedaFondo(ideas: string[]): string {
 
 export function truncarEtiqueta(t: string): string {
   return t.length > 17 ? t.slice(0, 16) + '…' : t
+}
+
+/** Stable-for-the-day pick, seeded by day-of-year, so it doesn't
+ * re-randomize on every render/navigation within the same day. */
+export function pickDaily<T>(list: T[], hoy: Date): T | null {
+  if (!list.length) return null
+  const dayIndex = Math.floor(hoy.getTime() / 864e5)
+  return list[dayIndex % list.length]
+}
+
+export function sortByFecha(albumes: Album[]): Album[] {
+  return [...albumes].sort((a, b) => parseFecha(a.fecha).getTime() - parseFecha(b.fecha).getTime())
+}
+
+export function formatFechaEntrada(album: Album): string {
+  const inicio = formatFecha(parseFecha(album.fecha))
+  if (!album.fechaFin) return inicio
+  return `${inicio} – ${formatFecha(parseFecha(album.fechaFin))}`
 }

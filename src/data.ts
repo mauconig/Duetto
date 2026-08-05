@@ -14,78 +14,17 @@ export const ideasIniciales = [
 ]
 
 export const albumes: Album[] = [
+  { id: 'primer-cita', fecha: '2024-02-14', conFoto: true, fondo: 'linear-gradient(135deg, #cf6a78, #a32f42)' },
+  { id: 'feria-libro', fecha: '2024-05-03', conFoto: false, fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)' },
+  { id: 'un-anio', fecha: '2025-02-14', conFoto: false, fondo: 'linear-gradient(135deg, #e0a08a, #c26550)' },
   {
-    id: 'primer-anio',
-    titulo: 'Nuestro primer año',
-    meta: 'Feb 2024 – Feb 2025',
-    fotos: '24 fotos',
-    conFoto: true,
-    fondo: 'linear-gradient(135deg, #cf6a78, #a32f42)',
-    momentos: [
-      {
-        fecha: '14 feb 2024',
-        lugar: 'El café donde empezó todo',
-        nota: 'Primera cita oficial. Nos quedamos hasta que cerraron.',
-        conFoto: true,
-        fondo: 'linear-gradient(135deg, #cf6a78, #a32f42)',
-      },
-      {
-        fecha: '3 may 2024',
-        lugar: 'Feria del libro',
-        nota: 'Cada uno eligió un libro para el otro.',
-        conFoto: false,
-        fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)',
-      },
-      {
-        fecha: '14 feb 2025',
-        lugar: 'Mirador del parque',
-        nota: 'Un año. Picnic al atardecer y promesas nuevas.',
-        conFoto: false,
-        fondo: 'linear-gradient(135deg, #e0a08a, #c26550)',
-      },
-    ],
-  },
-  {
-    id: 'escapada-costa',
-    titulo: 'Escapada a la costa',
-    meta: 'Oct 2025',
-    fotos: '12 fotos',
+    id: 'costa',
+    fecha: '2025-10-10',
+    fechaFin: '2025-10-12',
     conFoto: false,
     fondo: 'linear-gradient(135deg, #d98b78, #b0503c)',
-    momentos: [
-      {
-        fecha: '10 oct 2025',
-        lugar: 'Playa norte',
-        nota: 'Tres días sin planes. Los mejores.',
-        conFoto: false,
-        fondo: 'linear-gradient(135deg, #d98b78, #b0503c)',
-      },
-      {
-        fecha: '12 oct 2025',
-        lugar: 'Faro viejo',
-        nota: 'Subimos los 210 escalones. Valió la pena.',
-        conFoto: false,
-        fondo: 'linear-gradient(135deg, #e0a08a, #c26550)',
-      },
-    ],
   },
-  {
-    id: 'dias-de-casa',
-    titulo: 'Días de casa',
-    meta: 'En curso',
-    fotos: '8 fotos',
-    conFoto: false,
-    fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)',
-    momentos: [
-      {
-        fecha: '18 jul 2026',
-        lugar: 'Nuestra cocina',
-        nota: 'El pan salió mal. La tarde salió perfecta.',
-        conFoto: false,
-        fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)',
-      },
-    ],
-  },
+  { id: 'casa', fecha: '2026-07-18', conFoto: false, fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)' },
 ]
 
 export const articulos: Articulo[] = [

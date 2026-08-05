@@ -3,18 +3,25 @@ import './App.css'
 import { BottomNav } from './components/BottomNav'
 import { Home } from './screens/Home'
 import { Albums } from './screens/Albums'
-import { AlbumDetail } from './screens/AlbumDetail'
 import { Roulette } from './screens/Roulette'
 import { Articles } from './screens/Articles'
 import { ArticleDetail } from './screens/ArticleDetail'
 import { Profile } from './screens/Profile'
 import { albumes, articulos, fechaAniversario, ideasIniciales, nombres, proximoHito } from './data'
 import type { Album, Articulo, Tab } from './types'
-import { calcularEdad, calcularHito, diasJuntos, formatFecha, formatFechaHoy, parseFecha } from './lib/duette'
+import {
+  calcularEdad,
+  calcularHito,
+  diasJuntos,
+  formatFecha,
+  formatFechaHoy,
+  parseFecha,
+  pickDaily,
+  sortByFecha,
+} from './lib/duette'
 
 function App() {
   const [tab, setTab] = useState<Tab>('inicio')
-  const [album, setAlbum] = useState<Album | null>(null)
   const [articulo, setArticulo] = useState<Articulo | null>(null)
   const [ideas, setIdeas] = useState<string[]>(ideasIniciales)
   const [nuevaIdea, setNuevaIdea] = useState('')
@@ -32,13 +39,16 @@ function App() {
   const partes = nombres.split('&').map((s) => s.trim())
   const inicial1 = (partes[0] || 'S')[0]
   const inicial2 = (partes[1] || 'A')[0]
+  const recuerdo = pickDaily(albumes, hoy)
+  const ideaSugerida = pickDaily(ideas, hoy)
+  const ultimoAlbum = sortByFecha(albumes).at(-1) as Album
+  const albumFotoId = ultimoAlbum.conFoto ? `album-cover-${ultimoAlbum.id}` : null
 
   function irInicio() {
     setTab('inicio')
   }
   function irAlbumes() {
     setTab('albumes')
-    setAlbum(null)
   }
   function irRuleta() {
     setTab('ruleta')
@@ -49,6 +59,10 @@ function App() {
   }
   function irPerfil() {
     setTab('perfil')
+  }
+
+  function abrirRecuerdo(_r: Album) {
+    setTab('albumes')
   }
 
   function girar() {
@@ -91,16 +105,19 @@ function App() {
             fechaInicioTexto={formatFecha(ini)}
             edad={edad}
             hito={hito}
-            ultimoAlbum={albumes[0]}
+            ultimoAlbum={ultimoAlbum}
+            albumFotoId={albumFotoId}
             articuloDelDia={articulos[0]}
+            recuerdo={recuerdo}
+            ideaSugerida={ideaSugerida}
             onIrRuleta={irRuleta}
             onIrAlbumes={irAlbumes}
             onIrArticulos={irArticulos}
+            onAbrirRecuerdo={abrirRecuerdo}
           />
         )}
 
-        {tab === 'albumes' && !album && <Albums albumes={albumes} onAbrir={setAlbum} />}
-        {tab === 'albumes' && album && <AlbumDetail album={album} onVolver={() => setAlbum(null)} />}
+        {tab === 'albumes' && <Albums albumes={albumes} />}
 
         {tab === 'ruleta' && (
           <Roulette

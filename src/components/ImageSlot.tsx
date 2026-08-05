@@ -63,7 +63,7 @@ export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'F
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
       role="button"
-      aria-label={placeholder}
+      aria-label={placeholder || 'Subir foto'}
     >
       {src ? (
         <img src={src} alt="" className="image-slot__img" />
@@ -74,7 +74,7 @@ export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'F
             <circle cx="8.5" cy="8.5" r="1.5" />
             <path d="m21 15-5-5L5 21" />
           </svg>
-          <span className="image-slot__caption">{placeholder}</span>
+          {placeholder && <span className="image-slot__caption">{placeholder}</span>}
         </div>
       )}
       <input

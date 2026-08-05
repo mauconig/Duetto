@@ -1,7 +1,7 @@
 import { ImageSlot } from '../components/ImageSlot'
 import type { Album, Articulo } from '../types'
 import type { Edad, Hito } from '../lib/duette'
-import { pad } from '../lib/duette'
+import { formatFechaEntrada, pad } from '../lib/duette'
 
 interface HomeProps {
   nombres: string
@@ -12,10 +12,14 @@ interface HomeProps {
   edad: Edad
   hito: Hito
   ultimoAlbum: Album
+  albumFotoId: string | null
   articuloDelDia: Articulo
+  recuerdo: Album | null
+  ideaSugerida: string | null
   onIrRuleta: () => void
   onIrAlbumes: () => void
   onIrArticulos: () => void
+  onAbrirRecuerdo: (recuerdo: Album) => void
 }
 
 export function Home({
@@ -27,10 +31,14 @@ export function Home({
   edad,
   hito,
   ultimoAlbum,
+  albumFotoId,
   articuloDelDia,
+  recuerdo,
+  ideaSugerida,
   onIrRuleta,
   onIrAlbumes,
   onIrArticulos,
+  onAbrirRecuerdo,
 }: HomeProps) {
   return (
     <div className="screen">
@@ -104,13 +112,23 @@ export function Home({
       </button>
 
       <div className="grid-2">
-        <div className="mini-card">
+        <div className="mini-card mini-card--album" onClick={onIrAlbumes} role="button">
           <div className="mini-card__image">
-            <ImageSlot id="home-ultimo-album" shape="rect" placeholder="Foto del álbum" />
-          </div>
-          <div className="mini-card__body" onClick={onIrAlbumes} role="button">
-            <div className="mini-card__kicker">Último álbum</div>
-            <div className="mini-card__title">{ultimoAlbum.titulo}</div>
+            {albumFotoId ? (
+              <ImageSlot id={albumFotoId} shape="rect" placeholder="" />
+            ) : (
+              <div className="mini-card__fallback" style={{ background: ultimoAlbum.fondo }}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="4" />
+                  <circle cx="9" cy="9" r="2" />
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                </svg>
+              </div>
+            )}
+            <div className="mini-card__overlay">
+              <div className="mini-card__overlay-kicker">Último álbum</div>
+              <div className="mini-card__overlay-meta">{formatFechaEntrada(ultimoAlbum)}</div>
+            </div>
           </div>
         </div>
         <div className="mini-card mini-card--article" onClick={onIrArticulos} role="button">
@@ -119,6 +137,49 @@ export function Home({
           <div className="mini-card__meta">{articuloDelDia.min} min de lectura</div>
         </div>
       </div>
+
+      {recuerdo && (
+        <div className="memory-card" onClick={() => onAbrirRecuerdo(recuerdo)} role="button">
+          <div className="memory-card__thumb">
+            {recuerdo.conFoto ? (
+              <ImageSlot id={`album-cover-${recuerdo.id}`} shape="rect" placeholder="Foto" />
+            ) : (
+              <div className="memory-card__fallback" style={{ background: recuerdo.fondo }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="4" />
+                  <circle cx="9" cy="9" r="2" />
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                </svg>
+              </div>
+            )}
+          </div>
+          <div className="memory-card__body">
+            <div className="memory-card__kicker">Recuerdo del día</div>
+            <div className="memory-card__fecha">{formatFechaEntrada(recuerdo)}</div>
+          </div>
+        </div>
+      )}
+
+      {ideaSugerida && (
+        <div className="idea-teaser-card" onClick={onIrRuleta} role="button">
+          <div className="idea-teaser-card__icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b03246" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="2.5" />
+              <path d="M12 2v7.5" />
+              <path d="m19 17-4.9-2.8" />
+              <path d="m5 17 4.9-2.8" />
+            </svg>
+          </div>
+          <div className="idea-teaser-card__body">
+            <div className="idea-teaser-card__kicker">Idea para la próxima cita</div>
+            <div className="idea-teaser-card__text">{ideaSugerida}</div>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d3adaf" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </div>
+      )}
     </div>
   )
 }
