@@ -142,22 +142,22 @@ export function Home({
 
       {recuerdo && (
         <div className="memory-card" onClick={() => onAbrirRecuerdo(recuerdo)} role="button">
-          <div className="memory-card__thumb">
+          <div className="memory-card__photo">
             {recuerdoFoto ? (
-              <ImageSlot id={recuerdoFoto.id} src={recuerdoFoto.src} shape="rect" placeholder="Foto" />
+              <ImageSlot id={recuerdoFoto.id} src={recuerdoFoto.src} shape="rect" placeholder="" />
             ) : (
               <div className="memory-card__fallback" style={{ background: recuerdo.fondo }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="18" height="18" rx="4" />
                   <circle cx="9" cy="9" r="2" />
                   <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                 </svg>
               </div>
             )}
-          </div>
-          <div className="memory-card__body">
-            <div className="memory-card__kicker">Recuerdo del día</div>
-            <div className="memory-card__fecha">{formatFechaEntrada(recuerdo)}</div>
+            <div className="memory-card__overlay">
+              <div className="memory-card__kicker">Recuerdo del día</div>
+              <div className="memory-card__fecha">{formatFechaEntrada(recuerdo)}</div>
+            </div>
           </div>
         </div>
       )}

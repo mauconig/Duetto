@@ -35,6 +35,7 @@ interface ImageSlotProps {
 export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'Foto', src, className, style }: ImageSlotProps) {
   const [uploaded, setUploaded] = useState<string | null>(null)
   const [over, setOver] = useState(false)
+  const [lightbox, setLightbox] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -58,9 +59,12 @@ export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'F
 
   return (
     <div
-      className={`image-slot image-slot--${shape}${over ? ' image-slot--over' : ''}${className ? ' ' + className : ''}`}
+      className={`image-slot image-slot--${shape}${displaySrc ? '' : ' image-slot--empty'}${over ? ' image-slot--over' : ''}${className ? ' ' + className : ''}`}
       style={{ ...style, borderRadius: shape === 'rounded' ? radius : undefined }}
-      onClick={() => inputRef.current?.click()}
+      onClick={(e) => {
+        e.stopPropagation()
+        displaySrc ? setLightbox(true) : inputRef.current?.click()
+      }}
       onDragOver={(e) => {
         e.preventDefault()
         setOver(true)
@@ -68,7 +72,7 @@ export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'F
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
       role="button"
-      aria-label={placeholder || 'Subir foto'}
+      aria-label={displaySrc ? 'Ver foto' : placeholder || 'Subir foto'}
     >
       {displaySrc ? (
         <img src={displaySrc} alt="" className="image-slot__img" />
@@ -92,6 +96,42 @@ export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'F
           e.target.value = ''
         }}
       />
+      {lightbox && displaySrc && (
+        <div
+          className="image-slot__lightbox"
+          onClick={(e) => {
+            e.stopPropagation()
+            setLightbox(false)
+          }}
+        >
+          <button
+            type="button"
+            className="image-slot__lightbox-close"
+            aria-label="Cerrar"
+            onClick={(e) => {
+              e.stopPropagation()
+              setLightbox(false)
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M6 6 18 18" />
+              <path d="M18 6 6 18" />
+            </svg>
+          </button>
+          <img src={displaySrc} alt="" className="image-slot__lightbox-img" onClick={(e) => e.stopPropagation()} />
+          <button
+            type="button"
+            className="image-slot__lightbox-replace"
+            onClick={(e) => {
+              e.stopPropagation()
+              setLightbox(false)
+              inputRef.current?.click()
+            }}
+          >
+            Reemplazar foto
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -315,19 +315,13 @@ h2 {
 
 .memory-card {
   cursor: pointer;
-  display: flex;
-  gap: 14px;
   background: #fff;
   border-radius: 24px;
-  padding: 14px;
+  overflow: hidden;
   box-shadow: 0 8px 24px rgba(176, 50, 70, 0.1);
 }
-.memory-card__thumb {
-  width: 84px;
-  height: 84px;
-  border-radius: 18px;
-  overflow: hidden;
-  flex: none;
+.memory-card__photo {
+  height: 220px;
   position: relative;
 }
 .memory-card__fallback {
@@ -337,21 +331,26 @@ h2 {
   align-items: center;
   justify-content: center;
 }
-.memory-card__body {
-  flex: 1;
-  min-width: 0;
+.memory-card__overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(51, 25, 28, 0), rgba(51, 25, 28, 0.68) 70%);
+  padding: 36px 16px 14px;
+  color: #fff;
 }
 .memory-card__kicker {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #a32f42;
+  opacity: 0.9;
 }
 .memory-card__fecha {
   font-family: 'Quicksand', sans-serif;
   font-weight: 700;
-  font-size: 17px;
+  font-size: 19px;
   margin-top: 4px;
 }
 
@@ -400,6 +399,8 @@ h2 {
   cursor: pointer;
   overflow: hidden;
   background: rgba(176, 50, 70, 0.06);
+}
+.image-slot--empty {
   border: 1.5px dashed rgba(176, 50, 70, 0.28);
 }
 .image-slot--rect {
@@ -433,6 +434,51 @@ h2 {
 .image-slot__caption {
   font-size: 11px;
   font-weight: 700;
+}
+.image-slot__lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(20, 8, 10, 0.88);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  cursor: default;
+}
+.image-slot__lightbox-img {
+  max-width: 100%;
+  max-height: 72vh;
+  border-radius: 14px;
+  object-fit: contain;
+  cursor: default;
+}
+.image-slot__lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.image-slot__lightbox-replace {
+  border: none;
+  cursor: pointer;
+  padding: 12px 22px;
+  border-radius: 24px;
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  background: linear-gradient(135deg, #c9455a, #b03246);
+  color: #fff;
 }
 
 /* ── Albums timeline ──────────────────────────────────────────── */
