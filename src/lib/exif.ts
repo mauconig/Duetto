@@ -2,7 +2,6 @@
  * bytes needed to find DateTimeOriginal/DateTime. Returns null for
  * non-JPEGs, missing EXIF, or anything unexpected. */
 export async function readExifDate(file: File): Promise<string | null> {
-  if (file.type !== 'image/jpeg' && file.type !== 'image/jpg') return null
   try {
     const buffer = await file.slice(0, 128 * 1024).arrayBuffer()
     const view = new DataView(buffer)
