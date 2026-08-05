@@ -107,6 +107,17 @@ export function formatFechaEntrada(album: Album): string {
   return `${inicio} – ${formatFecha(parseFecha(album.fechaFin))}`
 }
 
+const FONDOS = [
+  'linear-gradient(135deg, #cf6a78, #a32f42)',
+  'linear-gradient(135deg, #a8465c, #6d1f30)',
+  'linear-gradient(135deg, #e0a08a, #c26550)',
+  'linear-gradient(135deg, #d98b78, #b0503c)',
+]
+
+export function randomFondo(): string {
+  return FONDOS[Math.floor(Math.random() * FONDOS.length)]
+}
+
 export interface PhotoSlot {
   id: string
   src?: string

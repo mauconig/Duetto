@@ -7,8 +7,9 @@ import { Roulette } from './screens/Roulette'
 import { Articles } from './screens/Articles'
 import { ArticleDetail } from './screens/ArticleDetail'
 import { Profile } from './screens/Profile'
-import { albumes, articulos, fechaAniversario, ideasIniciales, nombres, proximoHito } from './data'
+import { albumes as albumesBase, articulos, fechaAniversario, ideasIniciales, nombres, proximoHito } from './data'
 import type { Album, Articulo, Tab } from './types'
+import { loadUserEntries, saveUserEntries } from './lib/userEntries'
 import {
   calcularEdad,
   calcularHito,
@@ -29,9 +30,20 @@ function App() {
   const [rotacion, setRotacion] = useState(0)
   const [girando, setGirando] = useState(false)
   const [resultado, setResultado] = useState<string | null>(null)
+  const [entradasUsuario, setEntradasUsuario] = useState<Album[]>(() => loadUserEntries())
   const spinTimeout = useRef<number | undefined>(undefined)
 
   useEffect(() => () => window.clearTimeout(spinTimeout.current), [])
+
+  const albumes = [...albumesBase, ...entradasUsuario]
+
+  function crearEntrada(nueva: Album) {
+    setEntradasUsuario((prev) => {
+      const next = [...prev, nueva]
+      saveUserEntries(next)
+      return next
+    })
+  }
 
   const hoy = new Date()
   const ini = parseFecha(fechaAniversario)
@@ -118,7 +130,7 @@ function App() {
           />
         )}
 
-        {tab === 'albumes' && <Albums albumes={albumes} />}
+        {tab === 'albumes' && <Albums albumes={albumes} onCrear={crearEntrada} />}
 
         {tab === 'ruleta' && (
           <Roulette

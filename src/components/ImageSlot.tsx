@@ -1,24 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
-
-const MAX_DIM = 1000
-const STORAGE_PREFIX = 'duette-img:'
-
-async function toDataUrl(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file)
-  try {
-    const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height))
-    const w = Math.max(1, Math.round(bitmap.width * scale))
-    const h = Math.max(1, Math.round(bitmap.height * scale))
-    const canvas = document.createElement('canvas')
-    canvas.width = w
-    canvas.height = h
-    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h)
-    return canvas.toDataURL('image/webp', 0.85)
-  } finally {
-    bitmap.close?.()
-  }
-}
+import { fileToDataUrl, loadPhoto, storePhoto } from '../lib/photoStorage'
 
 interface ImageSlotProps {
   id: string
@@ -39,15 +21,15 @@ export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'F
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setUploaded(localStorage.getItem(STORAGE_PREFIX + id))
+    setUploaded(loadPhoto(id))
   }, [id])
 
   const displaySrc = uploaded ?? src ?? null
 
   async function ingest(file: File | undefined) {
     if (!file || !file.type.startsWith('image/')) return
-    const url = await toDataUrl(file)
-    localStorage.setItem(STORAGE_PREFIX + id, url)
+    const url = await fileToDataUrl(file)
+    storePhoto(id, url)
     setUploaded(url)
   }
 

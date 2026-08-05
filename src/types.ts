@@ -4,6 +4,7 @@ export interface Album {
   id: string
   fecha: string
   fechaFin?: string
+  nota?: string
   fotos: number
   fotoUrls?: string[]
   fondo: string

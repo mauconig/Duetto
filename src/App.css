@@ -539,6 +539,13 @@ h2 {
   color: #a32f42;
   margin-bottom: 8px;
 }
+.timeline__nota {
+  font-size: 14px;
+  font-weight: 500;
+  color: #5c3339;
+  margin: -4px 0 10px;
+  line-height: 1.35;
+}
 .timeline__photo {
   width: 100%;
   height: 160px;
@@ -996,4 +1003,203 @@ h2 {
   align-items: center;
   justify-content: center;
   box-shadow: 0 10px 24px rgba(176, 50, 70, 0.35);
+}
+
+/* ── Create entry sheet ──────────────────────────────────────── */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(20, 8, 10, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.sheet {
+  width: 100%;
+  max-width: 430px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #fff8f6;
+  border-radius: 28px 28px 0 0;
+  padding: 10px 20px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: sheet-up 0.22s ease;
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.sheet__handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(176, 50, 70, 0.2);
+  align-self: center;
+  margin-top: 6px;
+}
+.sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sheet__header h3 {
+  margin: 0;
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+}
+.sheet__close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(176, 50, 70, 0.08);
+  color: #b03246;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sheet__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.sheet__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #7a3f47;
+}
+.sheet__field input[type='date'],
+.sheet__field textarea {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  color: #33191c;
+  border: 1.5px solid rgba(176, 50, 70, 0.18);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #fff;
+}
+.sheet__field textarea {
+  resize: none;
+  min-height: 60px;
+}
+.sheet__hint {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a32f42;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.sheet__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7a3f47;
+}
+.sheet__photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.sheet__photo {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.sheet__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.sheet__photo-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(20, 8, 10, 0.6);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sheet__photo-order {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.sheet__photo-order button {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(20, 8, 10, 0.6);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sheet__photo-order button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.sheet__photo-add {
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
+  border: 1.5px dashed rgba(176, 50, 70, 0.3);
+  background: rgba(176, 50, 70, 0.05);
+  color: #b03246;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sheet__submit {
+  border: none;
+  cursor: pointer;
+  padding: 14px;
+  border-radius: 24px;
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  background: linear-gradient(135deg, #c9455a, #b03246);
+  color: #fff;
+}
+.sheet__submit:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
