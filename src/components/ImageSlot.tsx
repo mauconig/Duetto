@@ -25,24 +25,29 @@ interface ImageSlotProps {
   shape?: 'rect' | 'rounded' | 'circle'
   radius?: number
   placeholder?: string
+  /** Bundled default image shown until the user uploads their own; an
+   * upload always takes priority over this. */
+  src?: string
   className?: string
   style?: React.CSSProperties
 }
 
-export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'Foto', className, style }: ImageSlotProps) {
-  const [src, setSrc] = useState<string | null>(null)
+export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'Foto', src, className, style }: ImageSlotProps) {
+  const [uploaded, setUploaded] = useState<string | null>(null)
   const [over, setOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setSrc(localStorage.getItem(STORAGE_PREFIX + id))
+    setUploaded(localStorage.getItem(STORAGE_PREFIX + id))
   }, [id])
+
+  const displaySrc = uploaded ?? src ?? null
 
   async function ingest(file: File | undefined) {
     if (!file || !file.type.startsWith('image/')) return
     const url = await toDataUrl(file)
     localStorage.setItem(STORAGE_PREFIX + id, url)
-    setSrc(url)
+    setUploaded(url)
   }
 
   function onDrop(e: DragEvent<HTMLDivElement>) {
@@ -65,8 +70,8 @@ export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'F
       role="button"
       aria-label={placeholder || 'Subir foto'}
     >
-      {src ? (
-        <img src={src} alt="" className="image-slot__img" />
+      {displaySrc ? (
+        <img src={displaySrc} alt="" className="image-slot__img" />
       ) : (
         <div className="image-slot__empty">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

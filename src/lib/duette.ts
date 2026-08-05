@@ -107,6 +107,14 @@ export function formatFechaEntrada(album: Album): string {
   return `${inicio} – ${formatFecha(parseFecha(album.fechaFin))}`
 }
 
-export function photoSlotIds(album: Album): string[] {
-  return Array.from({ length: album.fotos }, (_, i) => `album-cover-${album.id}-${i}`)
+export interface PhotoSlot {
+  id: string
+  src?: string
+}
+
+export function photoSlots(album: Album): PhotoSlot[] {
+  return Array.from({ length: album.fotos }, (_, i) => ({
+    id: `album-cover-${album.id}-${i}`,
+    src: album.fotoUrls?.[i],
+  }))
 }

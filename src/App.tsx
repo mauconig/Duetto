@@ -16,7 +16,7 @@ import {
   formatFecha,
   formatFechaHoy,
   parseFecha,
-  photoSlotIds,
+  photoSlots,
   pickDaily,
   sortByFecha,
 } from './lib/duette'
@@ -43,7 +43,7 @@ function App() {
   const recuerdo = pickDaily(albumes, hoy)
   const ideaSugerida = pickDaily(ideas, hoy)
   const ultimoAlbum = sortByFecha(albumes).at(-1) as Album
-  const albumFotoId = photoSlotIds(ultimoAlbum)[0] ?? null
+  const albumFoto = photoSlots(ultimoAlbum)[0]
 
   function irInicio() {
     setTab('inicio')
@@ -107,7 +107,7 @@ function App() {
             edad={edad}
             hito={hito}
             ultimoAlbum={ultimoAlbum}
-            albumFotoId={albumFotoId}
+            albumFoto={albumFoto}
             articuloDelDia={articulos[0]}
             recuerdo={recuerdo}
             ideaSugerida={ideaSugerida}

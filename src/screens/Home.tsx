@@ -1,7 +1,7 @@
 import { ImageSlot } from '../components/ImageSlot'
 import type { Album, Articulo } from '../types'
-import type { Edad, Hito } from '../lib/duette'
-import { formatFechaEntrada, pad, photoSlotIds } from '../lib/duette'
+import type { Edad, Hito, PhotoSlot } from '../lib/duette'
+import { formatFechaEntrada, pad, photoSlots } from '../lib/duette'
 
 interface HomeProps {
   nombres: string
@@ -12,7 +12,7 @@ interface HomeProps {
   edad: Edad
   hito: Hito
   ultimoAlbum: Album
-  albumFotoId: string | null
+  albumFoto: PhotoSlot | undefined
   articuloDelDia: Articulo
   recuerdo: Album | null
   ideaSugerida: string | null
@@ -31,7 +31,7 @@ export function Home({
   edad,
   hito,
   ultimoAlbum,
-  albumFotoId,
+  albumFoto,
   articuloDelDia,
   recuerdo,
   ideaSugerida,
@@ -40,7 +40,7 @@ export function Home({
   onIrArticulos,
   onAbrirRecuerdo,
 }: HomeProps) {
-  const recuerdoFotoId = recuerdo ? photoSlotIds(recuerdo)[0] : undefined
+  const recuerdoFoto = recuerdo ? photoSlots(recuerdo)[0] : undefined
 
   return (
     <div className="screen">
@@ -116,8 +116,8 @@ export function Home({
       <div className="grid-2">
         <div className="mini-card mini-card--album" onClick={onIrAlbumes} role="button">
           <div className="mini-card__image">
-            {albumFotoId ? (
-              <ImageSlot id={albumFotoId} shape="rect" placeholder="" />
+            {albumFoto ? (
+              <ImageSlot id={albumFoto.id} src={albumFoto.src} shape="rect" placeholder="" />
             ) : (
               <div className="mini-card__fallback" style={{ background: ultimoAlbum.fondo }}>
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -143,8 +143,8 @@ export function Home({
       {recuerdo && (
         <div className="memory-card" onClick={() => onAbrirRecuerdo(recuerdo)} role="button">
           <div className="memory-card__thumb">
-            {recuerdoFotoId ? (
-              <ImageSlot id={recuerdoFotoId} shape="rect" placeholder="Foto" />
+            {recuerdoFoto ? (
+              <ImageSlot id={recuerdoFoto.id} src={recuerdoFoto.src} shape="rect" placeholder="Foto" />
             ) : (
               <div className="memory-card__fallback" style={{ background: recuerdo.fondo }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

@@ -435,27 +435,6 @@ h2 {
   font-weight: 700;
 }
 
-/* ── Page header / round icon button ─────────────────────────── */
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.round-icon-btn {
-  border: none;
-  cursor: pointer;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #c9455a, #b03246);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6px 16px rgba(176, 50, 70, 0.35);
-}
-
 /* ── Albums timeline ──────────────────────────────────────────── */
 
 .back-btn {
@@ -935,4 +914,40 @@ h2 {
 .nav-btn--active {
   background: #f8e3e4;
   color: #a32f42;
+}
+
+/* ── Floating action button ───────────────────────────────────── */
+
+.timeline-fab-wrap {
+  position: fixed;
+  left: 50%;
+  bottom: 108px;
+  transform: translate(-50%, 0);
+  width: calc(100% - 32px);
+  max-width: 398px;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.timeline-fab-wrap--hidden {
+  transform: translate(-50%, 90px);
+  opacity: 0;
+}
+.timeline-fab-wrap--hidden .timeline-fab {
+  pointer-events: none;
+}
+.timeline-fab {
+  pointer-events: auto;
+  border: none;
+  cursor: pointer;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c9455a, #b03246);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(176, 50, 70, 0.35);
 }
