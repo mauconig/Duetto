@@ -4,7 +4,7 @@ export interface Album {
   id: string
   fecha: string
   fechaFin?: string
-  conFoto: boolean
+  fotos: number
   fondo: string
 }
 

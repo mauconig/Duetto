@@ -1,7 +1,7 @@
 import { ImageSlot } from '../components/ImageSlot'
 import type { Album, Articulo } from '../types'
 import type { Edad, Hito } from '../lib/duette'
-import { formatFechaEntrada, pad } from '../lib/duette'
+import { formatFechaEntrada, pad, photoSlotIds } from '../lib/duette'
 
 interface HomeProps {
   nombres: string
@@ -40,6 +40,8 @@ export function Home({
   onIrArticulos,
   onAbrirRecuerdo,
 }: HomeProps) {
+  const recuerdoFotoId = recuerdo ? photoSlotIds(recuerdo)[0] : undefined
+
   return (
     <div className="screen">
       <div className="topbar">
@@ -141,8 +143,8 @@ export function Home({
       {recuerdo && (
         <div className="memory-card" onClick={() => onAbrirRecuerdo(recuerdo)} role="button">
           <div className="memory-card__thumb">
-            {recuerdo.conFoto ? (
-              <ImageSlot id={`album-cover-${recuerdo.id}`} shape="rect" placeholder="Foto" />
+            {recuerdoFotoId ? (
+              <ImageSlot id={recuerdoFotoId} shape="rect" placeholder="Foto" />
             ) : (
               <div className="memory-card__fallback" style={{ background: recuerdo.fondo }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

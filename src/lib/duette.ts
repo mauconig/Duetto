@@ -106,3 +106,7 @@ export function formatFechaEntrada(album: Album): string {
   if (!album.fechaFin) return inicio
   return `${inicio} – ${formatFecha(parseFecha(album.fechaFin))}`
 }
+
+export function photoSlotIds(album: Album): string[] {
+  return Array.from({ length: album.fotos }, (_, i) => `album-cover-${album.id}-${i}`)
+}

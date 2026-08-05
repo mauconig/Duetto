@@ -14,17 +14,17 @@ export const ideasIniciales = [
 ]
 
 export const albumes: Album[] = [
-  { id: 'primer-cita', fecha: '2024-02-14', conFoto: true, fondo: 'linear-gradient(135deg, #cf6a78, #a32f42)' },
-  { id: 'feria-libro', fecha: '2024-05-03', conFoto: false, fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)' },
-  { id: 'un-anio', fecha: '2025-02-14', conFoto: false, fondo: 'linear-gradient(135deg, #e0a08a, #c26550)' },
+  { id: 'primer-cita', fecha: '2024-02-14', fotos: 1, fondo: 'linear-gradient(135deg, #cf6a78, #a32f42)' },
+  { id: 'feria-libro', fecha: '2024-05-03', fotos: 0, fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)' },
+  { id: 'un-anio', fecha: '2025-02-14', fotos: 3, fondo: 'linear-gradient(135deg, #e0a08a, #c26550)' },
   {
     id: 'costa',
     fecha: '2025-10-10',
     fechaFin: '2025-10-12',
-    conFoto: false,
+    fotos: 5,
     fondo: 'linear-gradient(135deg, #d98b78, #b0503c)',
   },
-  { id: 'casa', fecha: '2026-07-18', conFoto: false, fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)' },
+  { id: 'casa', fecha: '2026-07-18', fotos: 2, fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)' },
 ]
 
 export const articulos: Articulo[] = [

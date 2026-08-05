@@ -16,6 +16,7 @@ import {
   formatFecha,
   formatFechaHoy,
   parseFecha,
+  photoSlotIds,
   pickDaily,
   sortByFecha,
 } from './lib/duette'
@@ -42,7 +43,7 @@ function App() {
   const recuerdo = pickDaily(albumes, hoy)
   const ideaSugerida = pickDaily(ideas, hoy)
   const ultimoAlbum = sortByFecha(albumes).at(-1) as Album
-  const albumFotoId = ultimoAlbum.conFoto ? `album-cover-${ultimoAlbum.id}` : null
+  const albumFotoId = photoSlotIds(ultimoAlbum)[0] ?? null
 
   function irInicio() {
     setTab('inicio')
