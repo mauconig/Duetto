@@ -10,21 +10,23 @@ import { emitirCookie, requireAuth, requireCookie, type AuthedRequest } from './
 
 const PORT = Number(process.env.PORT ?? 8790)
 const MAX_MIEMBROS = 2
-const MAX_FOTOS = 12
+const MAX_FOTOS = 30
 // Past ~30 slices the wheel labels stop being readable.
 const MAX_IDEAS = 30
 const MAX_LARGO_IDEA = 60
 
-// Photos arrive already downscaled to ~2500px WebP by the browser, so the
-// size ceiling is generous rather than expected.
-//
 // `files` counts every file part in the request, not photos, and each photo
 // is sent twice — full size and thumbnail. Leaving it at MAX_FOTOS silently
 // capped uploads at six photos: the seventh made thirteen parts, busboy cut
 // the request off and multer raised LIMIT_FILE_COUNT.
+//
+// Photos arrive already downscaled to ~2500px WebP, which lands well under
+// 2MB, so the per-file ceiling is generous rather than expected. It matters
+// because memoryStorage buffers the whole request in RAM: the cap times
+// MAX_FOTOS * 2 is what a single request can cost this box.
 const subida = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024, files: MAX_FOTOS * 2 },
+  limits: { fileSize: 8 * 1024 * 1024, files: MAX_FOTOS * 2 },
 })
 
 const app = express()
@@ -68,6 +70,17 @@ const q = {
   photoFilesOfCouple: db.prepare(
     'SELECT p.archivo, p.archivo_min FROM photos p JOIN entries e ON e.id = p.entry_id WHERE e.couple_id = ?',
   ),
+
+  insertStaged: db.prepare(
+    'INSERT INTO staged_photos (id, couple_id, archivo, archivo_min, created_at) VALUES (?, ?, ?, ?, ?)',
+  ),
+  /** Scoped to the couple, so an id from the other couple resolves to
+   * nothing rather than handing over their photo. */
+  stagedForCouple: db.prepare('SELECT archivo, archivo_min FROM staged_photos WHERE id = ? AND couple_id = ?'),
+  deleteStaged: db.prepare('DELETE FROM staged_photos WHERE id = ?'),
+  countStaged: db.prepare('SELECT COUNT(*) AS n FROM staged_photos WHERE couple_id = ?'),
+  stagedFilesOfCouple: db.prepare('SELECT archivo, archivo_min FROM staged_photos WHERE couple_id = ?'),
+  stagedVencidas: db.prepare('SELECT id, archivo, archivo_min FROM staged_photos WHERE couple_id = ? AND created_at < ?'),
 
   ideasOfCouple: db.prepare('SELECT id, texto FROM ideas WHERE couple_id = ? ORDER BY posicion, created_at'),
   countIdeas: db.prepare('SELECT COUNT(*) AS n FROM ideas WHERE couple_id = ?'),
@@ -251,8 +264,13 @@ app.delete('/api/couple/me', requireAuth, async (req: AuthedRequest, res) => {
     return
   }
 
-  const archivos = q.photoFilesOfCouple.all(member.couple_id) as { archivo: string; archivo_min: string | null }[]
-  // ON DELETE CASCADE takes members, entries, photos and ideas with it.
+  // Staged photos included: they belong to nobody once the couple is gone,
+  // and nothing else would ever come looking for them.
+  const archivos = [
+    ...(q.photoFilesOfCouple.all(member.couple_id) as { archivo: string; archivo_min: string | null }[]),
+    ...(q.stagedFilesOfCouple.all(member.couple_id) as { archivo: string; archivo_min: string | null }[]),
+  ]
+  // ON DELETE CASCADE takes members, entries, photos, staging and ideas.
   q.deleteCouple.run(member.couple_id)
   // Files go last: a failure here leaves orphans on disk rather than rows
   // pointing at photos that no longer exist.
@@ -355,9 +373,136 @@ const camposSubida = subida.fields([
   { name: 'miniaturas', maxCount: MAX_FOTOS },
 ])
 
+/** One photo at a time for the staging endpoint, so a stray batch is
+ * rejected by multer instead of quietly storing half of it. */
+const campoUnaFoto = subida.fields([
+  { name: 'foto', maxCount: 1 },
+  { name: 'miniatura', maxCount: 1 },
+])
+
+/** How long an uploaded photo waits for the recuerdo that will claim it.
+ * Long enough that nobody hits it mid-edit, short enough that an abandoned
+ * sheet doesn't leave files on disk for good. */
+const STAGING_MS = 24 * 60 * 60 * 1000
+
+/** Drops this couple's expired staging, rows and files alike. Runs when a
+ * photo is uploaded rather than on a timer: uploading is the only way to
+ * create the leftovers in the first place. */
+async function barrerStaging(coupleId: string) {
+  const limite = new Date(Date.now() - STAGING_MS).toISOString()
+  const vencidas = q.stagedVencidas.all(coupleId, limite) as {
+    id: string
+    archivo: string
+    archivo_min: string | null
+  }[]
+  if (vencidas.length === 0) return
+  vencidas.forEach((f) => q.deleteStaged.run(f.id))
+  await borrarArchivos(vencidas.flatMap(nombresDe))
+}
+
+/** Takes one downscaled photo and holds onto it until a recuerdo claims it.
+ * The sheet calls this as each photo finishes downscaling, so by the time
+ * the user presses save the bytes are already here and the entry request
+ * carries no files at all. */
+app.post('/api/photos', requireAuth, campoUnaFoto, async (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+
+  const files = (req.files ?? {}) as Record<string, Express.Multer.File[] | undefined>
+  const foto = files.foto?.[0]
+  if (!foto) {
+    res.status(400).json({ error: 'Falta la foto' })
+    return
+  }
+
+  await barrerStaging(coupleId)
+
+  // A sheet that's abandoned over and over shouldn't be able to fill the
+  // disk before the sweep catches up.
+  const { n } = q.countStaged.get(coupleId) as { n: number }
+  if (Number(n) >= MAX_FOTOS) {
+    res.status(409).json({ error: `Máximo ${MAX_FOTOS} fotos por recuerdo` })
+    return
+  }
+
+  const [par] = await guardarArchivos([foto], files.miniatura ?? [])
+  const id = randomUUID()
+  try {
+    q.insertStaged.run(id, coupleId, par.archivo, par.min, new Date().toISOString())
+  } catch (e) {
+    await borrarArchivos(nombresDe({ archivo: par.archivo, archivo_min: par.min }))
+    throw e
+  }
+  res.status(201).json({ id })
+})
+
+const RE_STAGED = /^staged:(.+)$/
+const RE_NUEVO = /^nuevo:(\d+)$/
+
+function ordenDe(body: Record<string, unknown> | undefined): string[] {
+  const crudo = body?.orden
+  return (Array.isArray(crudo) ? crudo : crudo ? [crudo] : []).map(String)
+}
+
+/** Looks up the files behind every `staged:<id>` in an order, without
+ * touching the rows — the claiming happens inside the transaction. Null
+ * when one of them is gone (swept, or another couple's), which the callers
+ * turn into a 400: losing a photo silently is worse than failing. */
+function leerStaged(orden: string[], coupleId: string): Map<string, ParGuardado> | null {
+  const encontradas = new Map<string, ParGuardado>()
+  for (const item of orden) {
+    const m = RE_STAGED.exec(item)
+    if (!m) continue
+    const fila = q.stagedForCouple.get(m[1], coupleId) as { archivo: string; archivo_min: string | null } | undefined
+    if (!fila) return null
+    encontradas.set(m[1], { archivo: fila.archivo, min: fila.archivo_min })
+  }
+  return encontradas
+}
+
+/** Writes the entry's photo rows in the order the user arranged. An item is
+ * a photo already staged, a file that came in this request, or — on edit —
+ * one of the entry's existing photos, which the caller repositions. */
+function colocarFotos(
+  entryId: string,
+  orden: string[],
+  archivos: ParGuardado[],
+  staged: Map<string, ParGuardado>,
+  ahora: string,
+  existente?: (id: string, posicion: number) => void,
+) {
+  orden.forEach((item, posicion) => {
+    const est = RE_STAGED.exec(item)
+    if (est) {
+      const par = staged.get(est[1])!
+      q.insertPhoto.run(randomUUID(), entryId, posicion, par.archivo, par.min, ahora)
+      q.deleteStaged.run(est[1])
+      return
+    }
+    const nuevo = RE_NUEVO.exec(item)
+    if (nuevo) {
+      const par = archivos[Number(nuevo[1])]
+      if (par) q.insertPhoto.run(randomUUID(), entryId, posicion, par.archivo, par.min, ahora)
+      return
+    }
+    existente?.(item, posicion)
+  })
+}
+
+/** Reads both file arrays, refusing a request whose thumbnails don't line up
+ * with the photos. guardarArchivos pairs them by index, so a truncated
+ * `miniaturas` array would silently store photos with no thumbnail — better
+ * to fail loudly than to leave the timeline loading full-size files. Zero
+ * thumbnails is allowed: that's a client too old to send them. */
 function archivosDe(req: AuthedRequest) {
   const files = (req.files ?? {}) as Record<string, Express.Multer.File[] | undefined>
-  return { fotos: files.fotos ?? [], miniaturas: files.miniaturas ?? [] }
+  const fotos = files.fotos ?? []
+  const miniaturas = files.miniaturas ?? []
+  if (miniaturas.length > 0 && miniaturas.length !== fotos.length) return null
+  return { fotos, miniaturas }
 }
 
 app.post('/api/entries', requireAuth, camposSubida, async (req: AuthedRequest, res) => {
@@ -377,14 +522,29 @@ app.post('/api/entries', requireAuth, camposSubida, async (req: AuthedRequest, r
     return
   }
 
-  const { fotos, miniaturas } = archivosDe(req)
-  const archivos = await guardarArchivos(fotos, miniaturas)
+  const subidas = archivosDe(req)
+  if (!subidas) {
+    res.status(400).json({ error: 'Las fotos llegaron incompletas' })
+    return
+  }
+  const orden = ordenDe(req.body)
+  const staged = leerStaged(orden, coupleId)
+  if (!staged) {
+    res.status(400).json({ error: 'Algunas fotos expiraron, volvé a agregarlas' })
+    return
+  }
+  const archivos = await guardarArchivos(subidas.fotos, subidas.miniaturas)
   const id = randomUUID()
   const ahora = new Date().toISOString()
   db.exec('BEGIN')
   try {
     q.insertEntry.run(id, coupleId, campos.fecha, campos.fechaFin, campos.nota, fondo, req.userId!, ahora)
-    archivos.forEach((par, i) => q.insertPhoto.run(randomUUID(), id, i, par.archivo, par.min, ahora))
+    // A client that sent files without an order gets them in upload order.
+    if (orden.length === 0) {
+      archivos.forEach((par, i) => q.insertPhoto.run(randomUUID(), id, i, par.archivo, par.min, ahora))
+    } else {
+      colocarFotos(id, orden, archivos, staged, ahora)
+    }
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
@@ -416,26 +576,28 @@ app.patch('/api/entries/:id', requireAuth, camposSubida, async (req: AuthedReque
   }
 
   const actuales = q.photosOfEntry.all(entrada.id) as { id: string; archivo: string; archivo_min: string | null }[]
-  const crudo = req.body?.orden
-  const orden: string[] = (Array.isArray(crudo) ? crudo : crudo ? [crudo] : []).map(String)
+  const orden = ordenDe(req.body)
   const conservados = orden.filter((item) => actuales.some((p) => p.id === item))
   const eliminados = actuales.filter((p) => !conservados.includes(p.id))
 
-  const { fotos, miniaturas } = archivosDe(req)
-  const archivos = await guardarArchivos(fotos, miniaturas)
+  const subidas = archivosDe(req)
+  if (!subidas) {
+    res.status(400).json({ error: 'Las fotos llegaron incompletas' })
+    return
+  }
+  const staged = leerStaged(orden, coupleId)
+  if (!staged) {
+    res.status(400).json({ error: 'Algunas fotos expiraron, volvé a agregarlas' })
+    return
+  }
+  const archivos = await guardarArchivos(subidas.fotos, subidas.miniaturas)
   const ahora = new Date().toISOString()
   db.exec('BEGIN')
   try {
     q.updateEntry.run(campos.fecha, campos.fechaFin, campos.nota, entrada.id)
     eliminados.forEach((p) => q.deletePhoto.run(p.id))
-    orden.forEach((item, posicion) => {
-      const nuevo = /^nuevo:(\d+)$/.exec(item)
-      if (nuevo) {
-        const par = archivos[Number(nuevo[1])]
-        if (par) q.insertPhoto.run(randomUUID(), entrada.id, posicion, par.archivo, par.min, ahora)
-      } else if (conservados.includes(item)) {
-        q.updatePhotoPos.run(posicion, item)
-      }
+    colocarFotos(entrada.id, orden, archivos, staged, ahora, (item, posicion) => {
+      if (conservados.includes(item)) q.updatePhotoPos.run(posicion, item)
     })
     db.exec('COMMIT')
   } catch (e) {
@@ -556,8 +718,9 @@ app.get('/api/photos/:id', requireCookie, (req: AuthedRequest, res) => {
 const DEMASIADAS = `No podés subir más de ${MAX_FOTOS} fotos por recuerdo`
 const MENSAJES_SUBIDA: Record<string, string> = {
   LIMIT_FILE_COUNT: DEMASIADAS,
-  // The only file fields here are fotos and miniaturas, so an "unexpected"
-  // file is really the maxCount on one of them being passed.
+  // The only file fields here are fotos, miniaturas and the single foto of
+  // the staging route, so an "unexpected" file is really the maxCount on one
+  // of them being passed.
   LIMIT_UNEXPECTED_FILE: DEMASIADAS,
   LIMIT_FILE_SIZE: 'Alguna de las fotos es demasiado pesada',
 }

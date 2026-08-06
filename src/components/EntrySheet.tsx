@@ -1,11 +1,34 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Album } from '../types'
-import { fileToWebpBlob, type FotoProcesada } from '../lib/photoStorage'
+import { fileToWebpBlob } from '../lib/photoStorage'
 import { photoSlots, randomFondo } from '../lib/duette'
 import { readExifDate } from '../lib/exif'
 import { useApi } from '../lib/api'
 
-const MAX_FOTOS = 12
+/** Kept in step with the server's own cap in server/src/index.ts. */
+const MAX_FOTOS = 30
+
+/** Uploads run a few at a time. Downscaling is gated at two by the worker
+ * pool, but it finishes far faster than the phone's uplink drains, so
+ * without this the whole batch would hit the network at once and make every
+ * single request slower. Module scope because only one sheet is ever open. */
+const MAX_SUBIDAS = 3
+let enVuelo = 0
+const esperando: (() => void)[] = []
+
+async function conCupo<T>(tarea: () => Promise<T>): Promise<T> {
+  if (enVuelo >= MAX_SUBIDAS) await new Promise<void>((seguir) => esperando.push(seguir))
+  enVuelo++
+  try {
+    return await tarea()
+  } finally {
+    enVuelo--
+    esperando.shift()?.()
+  }
+}
+
+/** Where each newly picked photo is on its way to the server. */
+type EstadoFoto = 'comprimiendo' | 'subiendo' | 'lista' | 'error'
 
 type FotoItem = { kind: 'existing'; id: string; src: string } | { kind: 'new'; file: File }
 
@@ -50,6 +73,14 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
   const api = useApi()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const avisoTimeout = useRef<number | undefined>(undefined)
+  /** Each picked photo's trip to the server — downscale, upload — keyed by
+   * the File itself and resolving to the id `orden` will refer to it by. */
+  const preparadas = useRef(new Map<File, Promise<string>>())
+  const [estados, setEstados] = useState<ReadonlyMap<File, EstadoFoto>>(new Map())
+  /** EXIF dates already read. The effect below re-runs on every add, remove
+   * and reorder, and re-reading each file's first 128KB every time is work
+   * the answer can't change. */
+  const fechasExif = useRef(new Map<File, Promise<string | null>>())
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -75,7 +106,15 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
     const nuevas = fotos.filter((f): f is FotoItem & { kind: 'new' } => f.kind === 'new')
     if (fechaManual || nuevas.length === 0) return
     let cancelled = false
-    Promise.all(nuevas.map((f) => readExifDate(f.file))).then((resultados) => {
+    const leer = (file: File) => {
+      let pendiente = fechasExif.current.get(file)
+      if (!pendiente) {
+        pendiente = readExifDate(file)
+        fechasExif.current.set(file, pendiente)
+      }
+      return pendiente
+    }
+    Promise.all(nuevas.map((f) => leer(f.file))).then((resultados) => {
       if (cancelled) return
       const fechas = resultados.filter((d): d is string => !!d).sort()
       if (fechas.length === 0) {
@@ -101,12 +140,59 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
 
   useEffect(() => () => window.clearTimeout(avisoTimeout.current), [])
 
+  /** Downscales a photo and sends it on its way, resolving to the id the
+   * entry will claim it by. */
+  const encolar = useCallback(
+    (file: File): Promise<string> => {
+      const marcar = (estado: EstadoFoto) => setEstados((prev) => new Map(prev).set(file, estado))
+      marcar('comprimiendo')
+      const viaje = fileToWebpBlob(file)
+        .then((foto) => {
+          marcar('subiendo')
+          return conCupo(() => api.subirFoto(foto))
+        })
+        .then((id) => {
+          marcar('lista')
+          return id
+        })
+      // Handled here so a failure doesn't surface as an unhandled rejection;
+      // the reason itself resurfaces when handleSubmit awaits the retry.
+      viaje.catch(() => marcar('error'))
+      return viaje
+    },
+    [api],
+  )
+
+  // Both the downscaling and the upload used to wait for the save button, so
+  // a batch of photos meant staring at "Guardando..." for the whole trip.
+  // Starting here spends that time while the note is still being written,
+  // and by the time save is pressed the bytes are usually already up. Keyed
+  // by File, so reordering or removing never redoes any of it.
+  useEffect(() => {
+    const vigentes = new Set<File>()
+    for (const item of fotos) {
+      if (item.kind !== 'new') continue
+      vigentes.add(item.file)
+      if (!preparadas.current.has(item.file)) preparadas.current.set(item.file, encolar(item.file))
+    }
+    // Photos the user removed are left to the server's own sweep; dropping
+    // them here just stops this map from growing all session.
+    for (const file of preparadas.current.keys()) {
+      if (!vigentes.has(file)) preparadas.current.delete(file)
+    }
+  }, [fotos, encolar])
+
+  const nuevas = fotos.filter((f): f is FotoItem & { kind: 'new' } => f.kind === 'new')
+  const listas = nuevas.filter((f) => estados.get(f.file) === 'lista').length
+  const fallidas = nuevas.filter((f) => estados.get(f.file) === 'error').length
+  const enCamino = nuevas.length - listas - fallidas
+
   function agregarFotos(lista: FileList | null) {
     if (!lista) return
-    const nuevas: FotoItem[] = Array.from(lista)
+    const elegidas: FotoItem[] = Array.from(lista)
       .filter((f) => f.type.startsWith('image/'))
       .map((file) => ({ kind: 'new', file }))
-    setFotos((prev) => [...prev, ...nuevas].slice(0, MAX_FOTOS))
+    setFotos((prev) => [...prev, ...elegidas].slice(0, MAX_FOTOS))
   }
 
   function quitarFoto(i: number) {
@@ -142,28 +228,27 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
     setGuardando(true)
     setError(null)
     try {
-      // Describe the final order first (indices assigned synchronously),
-      // then downscale one photo at a time — a dozen 2500px canvases at
-      // once is enough to exhaust memory on a phone.
-      const archivosNuevos: File[] = []
-      const orden = fotos.map((item) => {
-        if (item.kind === 'existing') return item.id
-        const indice = archivosNuevos.length
-        archivosNuevos.push(item.file)
-        return `nuevo:${indice}`
-      })
-      const fotosNuevas: FotoProcesada[] = []
-      for (const archivo of archivosNuevos) {
-        fotosNuevas.push(await fileToWebpBlob(archivo))
-      }
+      // The photos were sent on their way as they were picked, so this
+      // usually just collects ids that are already in. Anything that failed
+      // on the way gets one more go now, and only that one.
+      const archivosNuevos = nuevas.map((f) => f.file)
+      const ids = await Promise.all(
+        archivosNuevos.map((file) => {
+          const previa = preparadas.current.get(file)
+          if (previa && estados.get(file) !== 'error') return previa
+          const reintento = encolar(file)
+          preparadas.current.set(file, reintento)
+          return reintento
+        }),
+      )
+      const porArchivo = new Map(archivosNuevos.map((file, i) => [file, ids[i]]))
 
       const datos = {
         fecha,
         fechaFin: rango && fechaFin ? fechaFin : undefined,
         nota: nota.trim() || undefined,
         fondo: entry?.fondo ?? randomFondo(),
-        orden,
-        fotosNuevas,
+        orden: fotos.map((item) => (item.kind === 'existing' ? item.id : `staged:${porArchivo.get(item.file)}`)),
       }
       const guardada = entry ? await api.editarEntrada(entry.id, datos) : await api.crearEntrada(datos)
       onGuardar(guardada)
@@ -267,6 +352,16 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
                 </button>
               )}
             </div>
+            {enCamino > 0 && (
+              <span className="sheet__hint">
+                Subiendo {listas} de {nuevas.length}...
+              </span>
+            )}
+            {fallidas > 0 && (
+              <span className="sheet__hint">
+                {fallidas === 1 ? 'Una foto no subió' : `${fallidas} fotos no subieron`}; se reintentan al guardar.
+              </span>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -283,7 +378,13 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
           {error && <div className="onboarding__error">{error}</div>}
 
           <button type="submit" className="sheet__submit" disabled={!fecha || guardando}>
-            {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Guardar recuerdo'}
+            {guardando
+              ? enCamino > 0 || fallidas > 0
+                ? 'Subiendo fotos...'
+                : 'Guardando...'
+              : editando
+                ? 'Guardar cambios'
+                : 'Guardar recuerdo'}
           </button>
 
           {editando &&

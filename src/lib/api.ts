@@ -109,12 +109,23 @@ export function useApi() {
         return call<Album[]>('/entries')
       },
 
+      /** Uploads one downscaled photo and returns the id that `orden` refers
+       * to it by. The sheet calls this as each photo finishes, so saving the
+       * recuerdo afterwards carries no files at all. */
+      async subirFoto(foto: FotoProcesada): Promise<string> {
+        const form = new FormData()
+        form.append('foto', foto.completa, 'foto.webp')
+        form.append('miniatura', foto.miniatura, 'min.webp')
+        const { id } = await enviarFormulario<{ id: string }>('/photos', 'POST', form)
+        return id
+      },
+
       crearEntrada(datos: DatosEntrada) {
-        return enviarFormulario<Album>('/entries', 'POST', armarFormulario(datos))
+        return call<Album>('/entries', { method: 'POST', body: JSON.stringify(datos) })
       },
 
       editarEntrada(id: string, datos: DatosEntrada) {
-        return enviarFormulario<Album>(`/entries/${id}`, 'PATCH', armarFormulario(datos))
+        return call<Album>(`/entries/${id}`, { method: 'PATCH', body: JSON.stringify(datos) })
       },
 
       borrarEntrada(id: string) {
@@ -142,22 +153,8 @@ export interface DatosEntrada {
   fechaFin?: string
   nota?: string
   fondo: string
-  /** Final photo order: an existing photo id, or `nuevo:<n>` pointing at
-   * the n-th entry in `fotosNuevas`. Existing ids left out get deleted. */
-  orden?: string[]
-  fotosNuevas: FotoProcesada[]
-}
-
-function armarFormulario(datos: DatosEntrada): FormData {
-  const form = new FormData()
-  form.append('fecha', datos.fecha)
-  form.append('fechaFin', datos.fechaFin ?? '')
-  form.append('nota', datos.nota ?? '')
-  form.append('fondo', datos.fondo)
-  for (const item of datos.orden ?? []) form.append('orden', item)
-  // Two parallel lists: the server pairs them up by index, so both have to
-  // be appended in the same order and neither can skip an entry.
-  datos.fotosNuevas.forEach((foto, i) => form.append('fotos', foto.completa, `foto-${i}.webp`))
-  datos.fotosNuevas.forEach((foto, i) => form.append('miniaturas', foto.miniatura, `min-${i}.webp`))
-  return form
+  /** Final photo order: an existing photo id, or `staged:<id>` pointing at a
+   * photo already uploaded through subirFoto. Existing ids left out get
+   * deleted, along with their files. */
+  orden: string[]
 }

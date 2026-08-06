@@ -19,16 +19,45 @@ jobs:
         env:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
 
-      - name: Upload build to VPS
+      - name: Set up SSH
         env:
           SSH_HOST: ${{ secrets.DUETTE_DEPLOY_HOST }}
-          SSH_USER: ${{ secrets.DUETTE_DEPLOY_USER }}
           SSH_KEY: ${{ secrets.DUETTE_DEPLOY_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload build to VPS
+        env:
+          SSH_HOST: ${{ secrets.DUETTE_DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DUETTE_DEPLOY_USER }}
+        run: |
           rsync -az --delete --chmod=D755,F644 \
             -e "ssh -i ~/.ssh/deploy_key" \
             dist/ "$SSH_USER@$SSH_HOST:/var/www/duette/"
+
+      # The API used to be updated by hand, so a server fix could sit in main
+      # for days without reaching anyone. Runs only once both variables are
+      # set, so the frontend deploy keeps working until then.
+      #
+      # --delete with the wrong excludes here would take the SQLite database
+      # and every uploaded photo with it: DUETTE_DB_PATH should point outside
+      # this directory (see server/src/db.ts), and data/ is excluded anyway in
+      # case it doesn't. There's no build step — the server runs the .ts files
+      # directly — so this is files, dependencies and a restart.
+      - name: Deploy API to VPS
+        if: vars.DUETTE_SERVER_PATH != '' && vars.DUETTE_SERVER_UNIT != ''
+        env:
+          SSH_HOST: ${{ secrets.DUETTE_DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.DUETTE_DEPLOY_USER }}
+          SERVER_PATH: ${{ vars.DUETTE_SERVER_PATH }}
+          SERVER_UNIT: ${{ vars.DUETTE_SERVER_UNIT }}
+        run: |
+          rsync -az --delete --chmod=D755,F644 \
+            --exclude 'data/' --exclude 'node_modules/' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            server/ "$SSH_USER@$SSH_HOST:$SERVER_PATH/"
+          ssh -i ~/.ssh/deploy_key "$SSH_USER@$SSH_HOST" \
+            "cd '$SERVER_PATH' && npm ci --omit=dev && sudo -n systemctl restart '$SERVER_UNIT'"

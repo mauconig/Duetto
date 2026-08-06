@@ -62,6 +62,18 @@ db.exec(`
     created_at   TEXT NOT NULL
   );
 
+  -- Photos already uploaded but not yet attached to an entry. The sheet
+  -- sends each one as soon as it's downscaled, so the bytes are already
+  -- here by the time the recuerdo is saved. A row moves into photos when
+  -- the entry is created; whatever is left over gets swept after a day.
+  CREATE TABLE IF NOT EXISTS staged_photos (
+    id          TEXT PRIMARY KEY,
+    couple_id   TEXT NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    archivo     TEXT NOT NULL,
+    archivo_min TEXT,
+    created_at  TEXT NOT NULL
+  );
+
   -- Roulette ideas belong to the couple, like everything else here: both
   -- partners add to the same wheel and spin the same list.
   CREATE TABLE IF NOT EXISTS ideas (
@@ -74,6 +86,7 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_entries_couple ON entries(couple_id);
   CREATE INDEX IF NOT EXISTS idx_photos_entry ON photos(entry_id);
+  CREATE INDEX IF NOT EXISTS idx_staged_couple ON staged_photos(couple_id);
   CREATE INDEX IF NOT EXISTS idx_ideas_couple ON ideas(couple_id);
 `)
 
