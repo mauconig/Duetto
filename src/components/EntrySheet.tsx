@@ -6,7 +6,7 @@ import { readExifDate } from '../lib/exif'
 import { useApi } from '../lib/api'
 
 /** Kept in step with the server's own cap in server/src/index.ts. */
-const MAX_FOTOS = 32
+const MAX_FOTOS = 30
 
 /** Uploads run a few at a time. Downscaling is gated at two by the worker
  * pool, but it finishes far faster than the phone's uplink drains, so

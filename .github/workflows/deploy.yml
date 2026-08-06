@@ -39,8 +39,14 @@ jobs:
             dist/ "$SSH_USER@$SSH_HOST:/var/www/duette/"
 
       # The API used to be updated by hand, so a server fix could sit in main
-      # for days without reaching anyone. Runs only once both variables are
-      # set, so the frontend deploy keeps working until then.
+      # for days without reaching anyone.
+      #
+      # This step was once guarded by `if: vars.DUETTE_SERVER_PATH != ''`, to
+      # keep the frontend deploying before those variables existed. They exist
+      # now, and the guard's failure mode is worse than the problem: with a
+      # variable missing or renamed the API is skipped in silence and the run
+      # still goes green, which is exactly how production ended up serving a
+      # client the server couldn't answer. Unguarded, that fails loudly.
       #
       # --delete with the wrong excludes here would take the SQLite database
       # and every uploaded photo with it: DUETTE_DB_PATH should point outside
@@ -48,7 +54,6 @@ jobs:
       # case it doesn't. There's no build step — the server runs the .ts files
       # directly — so this is files, dependencies and a restart.
       - name: Deploy API to VPS
-        if: vars.DUETTE_SERVER_PATH != '' && vars.DUETTE_SERVER_UNIT != ''
         env:
           SSH_HOST: ${{ secrets.DUETTE_DEPLOY_HOST }}
           SSH_USER: ${{ secrets.DUETTE_DEPLOY_USER }}
