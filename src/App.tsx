@@ -14,6 +14,7 @@ import { SettingsSheet } from './components/SettingsSheet'
 import { LeaveCoupleSheet } from './components/LeaveCoupleSheet'
 import { SharedPhotosSheet } from './components/SharedPhotosSheet'
 import { EntrySheet } from './components/EntrySheet'
+import { TimelineLightbox } from './components/TimelineLightbox'
 import { limpiarFotosCompartidas, recogerFotosCompartidas } from './lib/compartir'
 import { articulos } from './data'
 import type { Album, Articulo, Tab } from './types'
@@ -180,6 +181,10 @@ function AppContent({
   const [ajustesAbiertos, setAjustesAbiertos] = useState(false)
   const [desvinculando, setDesvinculando] = useState(false)
   const [tab, setTab] = useState<Tab>('inicio')
+  // The recuerdo whose photos a card on Inicio opened full screen, and the
+  // one its "Editar recuerdo" button then hands over to the sheet.
+  const [recuerdoAbierto, setRecuerdoAbierto] = useState<Album | null>(null)
+  const [editando, setEditando] = useState<Album | null>(null)
   const [articulo, setArticulo] = useState<Articulo | null>(null)
   const [nuevaIdea, setNuevaIdea] = useState('')
   const [ideaEnCurso, setIdeaEnCurso] = useState(false)
@@ -248,8 +253,12 @@ function AppContent({
     setTab('perfil')
   }
 
-  function abrirRecuerdo(_r: Album) {
-    setTab('albumes')
+  /** Expands the recuerdo's photos in place, the same lightbox a photo in
+   * Recuerdos opens. One without photos has nothing to expand, so the
+   * timeline is the only place worth landing on. */
+  function abrirRecuerdo(r: Album) {
+    if (r.fotoIds.length > 0) setRecuerdoAbierto(r)
+    else setTab('albumes')
   }
 
   function girar() {
@@ -370,6 +379,33 @@ function AppContent({
           onGuardar={(p) => {
             onActualizarPareja(p)
             setAjustesAbiertos(false)
+          }}
+        />
+      )}
+
+      {recuerdoAbierto && (
+        <TimelineLightbox
+          slots={photoSlots(recuerdoAbierto)}
+          startIndex={0}
+          onClose={() => setRecuerdoAbierto(null)}
+          onEditar={() => {
+            setEditando(recuerdoAbierto)
+            setRecuerdoAbierto(null)
+          }}
+        />
+      )}
+
+      {editando && (
+        <EntrySheet
+          entry={editando}
+          onClose={() => setEditando(null)}
+          onGuardar={(entrada) => {
+            onEditar(entrada)
+            setEditando(null)
+          }}
+          onBorrar={(id) => {
+            onBorrar(id)
+            setEditando(null)
           }}
         />
       )}

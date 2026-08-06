@@ -115,7 +115,11 @@ export function Home({
       </button>
 
       <div className="grid-2">
-        <div className="mini-card mini-card--album" onClick={onIrAlbumes} role="button">
+        <div
+          className="mini-card mini-card--album"
+          onClick={() => (ultimoAlbum ? onAbrirRecuerdo(ultimoAlbum) : onIrAlbumes())}
+          role="button"
+        >
           <div className="mini-card__image">
             {albumFoto ? (
               <ImageSlot src={albumFoto.miniatura} shape="rect" placeholder="" />
