@@ -11,6 +11,9 @@ import { emitirCookie, requireAuth, requireCookie, type AuthedRequest } from './
 const PORT = Number(process.env.PORT ?? 8790)
 const MAX_MIEMBROS = 2
 const MAX_FOTOS = 30
+/** Same wording whether the cap is hit by multer, before the route runs, or
+ * by the staging count once it does. */
+const DEMASIADAS = `No podés subir más de ${MAX_FOTOS} fotos por recuerdo`
 // Past ~30 slices the wheel labels stop being readable.
 const MAX_IDEAS = 30
 const MAX_LARGO_IDEA = 60
@@ -424,7 +427,7 @@ app.post('/api/photos', requireAuth, campoUnaFoto, async (req: AuthedRequest, re
   // disk before the sweep catches up.
   const { n } = q.countStaged.get(coupleId) as { n: number }
   if (Number(n) >= MAX_FOTOS) {
-    res.status(409).json({ error: `Máximo ${MAX_FOTOS} fotos por recuerdo` })
+    res.status(409).json({ error: DEMASIADAS })
     return
   }
 
@@ -715,7 +718,6 @@ app.get('/api/photos/:id', requireCookie, (req: AuthedRequest, res) => {
 /** Multer rejects an upload before the route ever runs. Those are the
  * client's fault, not ours, so they get a 400 the user can act on — a bare
  * "Error interno" gives no hint that the fix is sending fewer photos. */
-const DEMASIADAS = `No podés subir más de ${MAX_FOTOS} fotos por recuerdo`
 const MENSAJES_SUBIDA: Record<string, string> = {
   LIMIT_FILE_COUNT: DEMASIADAS,
   // The only file fields here are fotos, miniaturas and the single foto of
