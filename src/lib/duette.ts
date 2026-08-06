@@ -1,4 +1,5 @@
 import type { Album } from '../types'
+import { loadPhoto } from './photoStorage'
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
@@ -128,4 +129,10 @@ export function photoSlots(album: Album): PhotoSlot[] {
     id: `album-cover-${album.id}-${i}`,
     src: album.fotoUrls?.[i],
   }))
+}
+
+/** The actual image currently shown for a slot: an uploaded photo always
+ * wins over the bundled default. */
+export function resolvedSrc(slot: PhotoSlot): string | null {
+  return loadPhoto(slot.id) ?? slot.src ?? null
 }

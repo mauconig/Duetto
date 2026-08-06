@@ -1,18 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { PhotoGallery } from '../components/PhotoGallery'
-import { CreateEntrySheet } from '../components/CreateEntrySheet'
+import { EntrySheet } from '../components/EntrySheet'
 import type { Album } from '../types'
 import { formatFechaEntrada, photoSlots, sortByFecha } from '../lib/duette'
 
 interface AlbumsProps {
   albumes: Album[]
   onCrear: (entry: Album) => void
+  onEditar: (entry: Album) => void
 }
 
-export function Albums({ albumes, onCrear }: AlbumsProps) {
+type SheetState = { mode: 'crear' } | { mode: 'editar'; entry: Album } | null
+
+export function Albums({ albumes, onCrear, onEditar }: AlbumsProps) {
   const entradas = sortByFecha(albumes)
   const [fabVisible, setFabVisible] = useState(true)
-  const [sheetAbierto, setSheetAbierto] = useState(false)
+  const [sheet, setSheet] = useState<SheetState>(null)
   const lastScrollY = useRef(0)
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export function Albums({ albumes, onCrear }: AlbumsProps) {
               <div className="timeline__content">
                 <div className="timeline__fecha">{formatFechaEntrada(entrada)}</div>
                 {entrada.nota && <div className="timeline__nota">{entrada.nota}</div>}
-                <PhotoGallery slots={photoSlots(entrada)} fondo={entrada.fondo} />
+                <PhotoGallery slots={photoSlots(entrada)} fondo={entrada.fondo} onEditar={() => setSheet({ mode: 'editar', entry: entrada })} />
               </div>
             </div>
           ))}
@@ -52,7 +55,7 @@ export function Albums({ albumes, onCrear }: AlbumsProps) {
       </div>
 
       <div className={`timeline-fab-wrap${fabVisible ? '' : ' timeline-fab-wrap--hidden'}`}>
-        <button type="button" className="timeline-fab" onClick={() => setSheetAbierto(true)}>
+        <button type="button" className="timeline-fab" onClick={() => setSheet({ mode: 'crear' })}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
             <path d="M12 5v14" />
             <path d="M5 12h14" />
@@ -60,12 +63,13 @@ export function Albums({ albumes, onCrear }: AlbumsProps) {
         </button>
       </div>
 
-      {sheetAbierto && (
-        <CreateEntrySheet
-          onClose={() => setSheetAbierto(false)}
-          onCrear={(entry) => {
-            onCrear(entry)
-            setSheetAbierto(false)
+      {sheet && (
+        <EntrySheet
+          entry={sheet.mode === 'editar' ? sheet.entry : undefined}
+          onClose={() => setSheet(null)}
+          onGuardar={(entry) => {
+            sheet.mode === 'crear' ? onCrear(entry) : onEditar(entry)
+            setSheet(null)
           }}
         />
       )}

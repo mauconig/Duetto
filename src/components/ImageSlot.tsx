@@ -12,9 +12,13 @@ interface ImageSlotProps {
   src?: string
   className?: string
   style?: React.CSSProperties
+  /** When provided, tapping the slot calls this instead of the built-in
+   * upload/lightbox behavior — used when a parent (e.g. a photo gallery)
+   * wants to own the tap interaction. */
+  onOpen?: () => void
 }
 
-export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'Foto', src, className, style }: ImageSlotProps) {
+export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'Foto', src, className, style, onOpen }: ImageSlotProps) {
   const [uploaded, setUploaded] = useState<string | null>(null)
   const [over, setOver] = useState(false)
   const [lightbox, setLightbox] = useState(false)
@@ -45,6 +49,10 @@ export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'F
       style={{ ...style, borderRadius: shape === 'rounded' ? radius : undefined }}
       onClick={(e) => {
         e.stopPropagation()
+        if (onOpen) {
+          onOpen()
+          return
+        }
         displaySrc ? setLightbox(true) : inputRef.current?.click()
       }}
       onDragOver={(e) => {

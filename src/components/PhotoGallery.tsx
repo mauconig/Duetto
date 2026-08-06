@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { ImageSlot } from './ImageSlot'
+import { TimelineLightbox } from './TimelineLightbox'
 import type { PhotoSlot } from '../lib/duette'
 
 const FALLBACK_ICON = (
@@ -14,9 +16,12 @@ const MAX_THUMBS = 3
 interface PhotoGalleryProps {
   slots: PhotoSlot[]
   fondo: string
+  onEditar: () => void
 }
 
-export function PhotoGallery({ slots, fondo }: PhotoGalleryProps) {
+export function PhotoGallery({ slots, fondo, onEditar }: PhotoGalleryProps) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
+
   if (slots.length === 0) {
     return (
       <div className="timeline__photo timeline__photo-fallback" style={{ background: fondo }}>
@@ -25,9 +30,32 @@ export function PhotoGallery({ slots, fondo }: PhotoGalleryProps) {
     )
   }
 
+  const lightbox = openIndex !== null && (
+    <TimelineLightbox
+      slots={slots}
+      startIndex={openIndex}
+      onClose={() => setOpenIndex(null)}
+      onEditar={() => {
+        setOpenIndex(null)
+        onEditar()
+      }}
+    />
+  )
+
   if (slots.length === 1) {
     return (
-      <ImageSlot id={slots[0].id} src={slots[0].src} shape="rounded" radius={18} placeholder="Foto" className="timeline__photo" />
+      <>
+        <ImageSlot
+          id={slots[0].id}
+          src={slots[0].src}
+          shape="rounded"
+          radius={18}
+          placeholder="Foto"
+          className="timeline__photo"
+          onOpen={() => setOpenIndex(0)}
+        />
+        {lightbox}
+      </>
     )
   }
 
@@ -36,18 +64,27 @@ export function PhotoGallery({ slots, fondo }: PhotoGalleryProps) {
   const restantes = resto.length - thumbs.length
 
   return (
-    <div className="timeline__gallery">
-      <ImageSlot id={main.id} src={main.src} shape="rounded" radius={18} placeholder="Foto" className="timeline__gallery-main" />
-      <div className="timeline__gallery-thumbs">
-        {thumbs.map((slot, i) => (
-          <div className="timeline__gallery-thumb" key={slot.id}>
-            <ImageSlot id={slot.id} src={slot.src} shape="rounded" radius={12} placeholder="" />
-            {i === thumbs.length - 1 && restantes > 0 && (
-              <div className="timeline__gallery-more">+{restantes}</div>
-            )}
-          </div>
-        ))}
+    <>
+      <div className="timeline__gallery">
+        <ImageSlot
+          id={main.id}
+          src={main.src}
+          shape="rounded"
+          radius={18}
+          placeholder="Foto"
+          className="timeline__gallery-main"
+          onOpen={() => setOpenIndex(0)}
+        />
+        <div className="timeline__gallery-thumbs">
+          {thumbs.map((slot, i) => (
+            <div className="timeline__gallery-thumb" key={slot.id}>
+              <ImageSlot id={slot.id} src={slot.src} shape="rounded" radius={12} placeholder="" onOpen={() => setOpenIndex(i + 1)} />
+              {i === thumbs.length - 1 && restantes > 0 && <div className="timeline__gallery-more">+{restantes}</div>}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+      {lightbox}
+    </>
   )
 }

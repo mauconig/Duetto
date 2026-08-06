@@ -481,6 +481,90 @@ h2 {
   color: #fff;
 }
 
+/* ── Timeline lightbox (multi-photo, with navigation) ───────────── */
+
+.lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(20, 8, 10, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  cursor: default;
+}
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-count {
+  position: absolute;
+  top: 28px;
+  left: 24px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  font-weight: 700;
+}
+.lightbox-stage {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+}
+.lightbox-img {
+  max-width: 100%;
+  max-height: 72vh;
+  border-radius: 14px;
+  object-fit: contain;
+  cursor: default;
+}
+.lightbox-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-arrow--prev {
+  left: 4px;
+}
+.lightbox-arrow--next {
+  right: 4px;
+}
+.lightbox-edit {
+  border: none;
+  cursor: pointer;
+  padding: 12px 22px;
+  border-radius: 24px;
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  background: linear-gradient(135deg, #c9455a, #b03246);
+  color: #fff;
+}
+
 /* ── Albums timeline ──────────────────────────────────────────── */
 
 .back-btn {

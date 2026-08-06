@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Album } from '../types'
-import { fileToDataUrl, storePhoto } from '../lib/photoStorage'
-import { randomFondo } from '../lib/duette'
+import { fileToDataUrl, removePhoto, storePhoto } from '../lib/photoStorage'
+import { photoSlots, randomFondo, resolvedSrc } from '../lib/duette'
 import { readExifDate } from '../lib/exif'
 
 const MAX_FOTOS = 12
 
-interface CreateEntrySheetProps {
+type FotoItem = { kind: 'existing'; id: string; src: string } | { kind: 'new'; file: File }
+
+interface EntrySheetProps {
+  /** Entry being edited; omit to create a brand-new one. */
+  entry?: Album
   onClose: () => void
-  onCrear: (entry: Album) => void
+  onGuardar: (entry: Album) => void
 }
 
 function hoyIso(): string {
@@ -16,14 +20,25 @@ function hoyIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
-  const [fecha, setFecha] = useState(hoyIso())
-  const [rango, setRango] = useState(false)
-  const [fechaFin, setFechaFin] = useState('')
-  const [fechaManual, setFechaManual] = useState(false)
+function fotosIniciales(entry: Album | undefined): FotoItem[] {
+  if (!entry) return []
+  return photoSlots(entry)
+    .map((slot) => {
+      const src = resolvedSrc(slot)
+      return src ? ({ kind: 'existing', id: slot.id, src } as const) : null
+    })
+    .filter((item): item is FotoItem & { kind: 'existing' } => item !== null)
+}
+
+export function EntrySheet({ entry, onClose, onGuardar }: EntrySheetProps) {
+  const editando = !!entry
+  const [fecha, setFecha] = useState(entry?.fecha ?? hoyIso())
+  const [rango, setRango] = useState(!!entry?.fechaFin)
+  const [fechaFin, setFechaFin] = useState(entry?.fechaFin ?? '')
+  const [fechaManual, setFechaManual] = useState(editando)
   const [fechaDetectada, setFechaDetectada] = useState(false)
-  const [nota, setNota] = useState('')
-  const [fotos, setFotos] = useState<File[]>([])
+  const [nota, setNota] = useState(entry?.nota ?? '')
+  const [fotos, setFotos] = useState<FotoItem[]>(() => fotosIniciales(entry))
   const [guardando, setGuardando] = useState(false)
   const [sinMetadata, setSinMetadata] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -36,15 +51,24 @@ export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
     }
   }, [])
 
-  const previews = useMemo(() => fotos.map((f) => URL.createObjectURL(f)), [fotos])
-  useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews])
-
-  // Try to fill in the date(s) from the photos' own EXIF data, so the user
-  // doesn't have to type it — unless they've already set it by hand.
+  const previews = useMemo(() => fotos.map((f) => (f.kind === 'existing' ? f.src : URL.createObjectURL(f.file))), [fotos])
   useEffect(() => {
-    if (fechaManual || fotos.length === 0) return
+    return () => {
+      fotos.forEach((f, i) => {
+        if (f.kind === 'new') URL.revokeObjectURL(previews[i])
+      })
+    }
+  }, [fotos, previews])
+
+  // Try to fill in the date(s) from newly added photos' EXIF data, so the
+  // user doesn't have to type it — unless they've already set it by hand
+  // (which, when editing, starts out true: don't second-guess a date the
+  // entry already had just because a photo got added).
+  useEffect(() => {
+    const nuevas = fotos.filter((f): f is FotoItem & { kind: 'new' } => f.kind === 'new')
+    if (fechaManual || nuevas.length === 0) return
     let cancelled = false
-    Promise.all(fotos.map(readExifDate)).then((resultados) => {
+    Promise.all(nuevas.map((f) => readExifDate(f.file))).then((resultados) => {
       if (cancelled) return
       const fechas = resultados.filter((d): d is string => !!d).sort()
       if (fechas.length === 0) {
@@ -72,7 +96,9 @@ export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
 
   function agregarFotos(lista: FileList | null) {
     if (!lista) return
-    const nuevas = Array.from(lista).filter((f) => f.type.startsWith('image/'))
+    const nuevas: FotoItem[] = Array.from(lista)
+      .filter((f) => f.type.startsWith('image/'))
+      .map((file) => ({ kind: 'new', file }))
     setFotos((prev) => [...prev, ...nuevas].slice(0, MAX_FOTOS))
   }
 
@@ -94,18 +120,23 @@ export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
     e.preventDefault()
     if (!fecha || guardando) return
     setGuardando(true)
-    const id = `entry-${Date.now()}`
+    const id = entry?.id ?? `entry-${Date.now()}`
     for (let i = 0; i < fotos.length; i++) {
-      const url = await fileToDataUrl(fotos[i])
+      const item = fotos[i]
+      const url = item.kind === 'new' ? await fileToDataUrl(item.file) : item.src
       storePhoto(`album-cover-${id}-${i}`, url)
     }
-    onCrear({
+    const conteoAnterior = entry?.fotos ?? 0
+    for (let i = fotos.length; i < conteoAnterior; i++) {
+      removePhoto(`album-cover-${id}-${i}`)
+    }
+    onGuardar({
       id,
       fecha,
       fechaFin: rango && fechaFin ? fechaFin : undefined,
       nota: nota.trim() || undefined,
       fotos: fotos.length,
-      fondo: randomFondo(),
+      fondo: entry?.fondo ?? randomFondo(),
     })
   }
 
@@ -114,7 +145,7 @@ export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet__handle" />
         <div className="sheet__header">
-          <h3>Nueva entrada</h3>
+          <h3>{editando ? 'Editar álbum' : 'Nueva entrada'}</h3>
           <button type="button" className="sheet__close" aria-label="Cerrar" onClick={onClose}>
             ×
           </button>
@@ -177,7 +208,7 @@ export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
             <span>Fotos</span>
             <div className="sheet__photos">
               {previews.map((url, i) => (
-                <div className="sheet__photo" key={url}>
+                <div className="sheet__photo" key={fotos[i].kind === 'existing' ? fotos[i].id : url}>
                   <img src={url} alt="" />
                   <button type="button" className="sheet__photo-remove" aria-label="Quitar foto" onClick={() => quitarFoto(i)}>
                     ×
@@ -217,7 +248,7 @@ export function CreateEntrySheet({ onClose, onCrear }: CreateEntrySheetProps) {
           </div>
 
           <button type="submit" className="sheet__submit" disabled={!fecha || guardando}>
-            {guardando ? 'Guardando...' : 'Guardar recuerdo'}
+            {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Guardar recuerdo'}
           </button>
         </form>
       </div>

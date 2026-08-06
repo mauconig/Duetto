@@ -10,6 +10,7 @@ import { Profile } from './screens/Profile'
 import { albumes as albumesBase, articulos, fechaAniversario, ideasIniciales, nombres, proximoHito } from './data'
 import type { Album, Articulo, Tab } from './types'
 import { loadUserEntries, saveUserEntries } from './lib/userEntries'
+import { loadOverrides, saveOverrides } from './lib/entryOverrides'
 import {
   calcularEdad,
   calcularHito,
@@ -31,16 +32,25 @@ function App() {
   const [girando, setGirando] = useState(false)
   const [resultado, setResultado] = useState<string | null>(null)
   const [entradasUsuario, setEntradasUsuario] = useState<Album[]>(() => loadUserEntries())
+  const [overrides, setOverrides] = useState<Record<string, Album>>(() => loadOverrides())
   const spinTimeout = useRef<number | undefined>(undefined)
 
   useEffect(() => () => window.clearTimeout(spinTimeout.current), [])
 
-  const albumes = [...albumesBase, ...entradasUsuario]
+  const albumes = [...albumesBase, ...entradasUsuario].map((a) => overrides[a.id] ?? a)
 
   function crearEntrada(nueva: Album) {
     setEntradasUsuario((prev) => {
       const next = [...prev, nueva]
       saveUserEntries(next)
+      return next
+    })
+  }
+
+  function editarEntrada(actualizada: Album) {
+    setOverrides((prev) => {
+      const next = { ...prev, [actualizada.id]: actualizada }
+      saveOverrides(next)
       return next
     })
   }
@@ -130,7 +140,7 @@ function App() {
           />
         )}
 
-        {tab === 'albumes' && <Albums albumes={albumes} onCrear={crearEntrada} />}
+        {tab === 'albumes' && <Albums albumes={albumes} onCrear={crearEntrada} onEditar={editarEntrada} />}
 
         {tab === 'ruleta' && (
           <Roulette

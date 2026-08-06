@@ -24,3 +24,7 @@ export function storePhoto(id: string, dataUrl: string) {
 export function loadPhoto(id: string): string | null {
   return localStorage.getItem(IMG_STORAGE_PREFIX + id)
 }
+
+export function removePhoto(id: string) {
+  localStorage.removeItem(IMG_STORAGE_PREFIX + id)
+}
