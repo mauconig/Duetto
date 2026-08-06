@@ -15,11 +15,16 @@ const MAX_FOTOS = 12
 const MAX_IDEAS = 30
 const MAX_LARGO_IDEA = 60
 
-// Photos arrive already downscaled to ~2500px WebP by the browser, so this
-// is a generous ceiling rather than an expected size.
+// Photos arrive already downscaled to ~2500px WebP by the browser, so the
+// size ceiling is generous rather than expected.
+//
+// `files` counts every file part in the request, not photos, and each photo
+// is sent twice — full size and thumbnail. Leaving it at MAX_FOTOS silently
+// capped uploads at six photos: the seventh made thirteen parts, busboy cut
+// the request off and multer raised LIMIT_FILE_COUNT.
 const subida = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024, files: MAX_FOTOS },
+  limits: { fileSize: 15 * 1024 * 1024, files: MAX_FOTOS * 2 },
 })
 
 const app = express()
@@ -545,7 +550,24 @@ app.get('/api/photos/:id', requireCookie, (req: AuthedRequest, res) => {
   createReadStream(join(UPLOADS_DIR, archivo)).on('error', () => res.sendStatus(404)).pipe(res)
 })
 
+/** Multer rejects an upload before the route ever runs. Those are the
+ * client's fault, not ours, so they get a 400 the user can act on — a bare
+ * "Error interno" gives no hint that the fix is sending fewer photos. */
+const DEMASIADAS = `No podés subir más de ${MAX_FOTOS} fotos por recuerdo`
+const MENSAJES_SUBIDA: Record<string, string> = {
+  LIMIT_FILE_COUNT: DEMASIADAS,
+  // The only file fields here are fotos and miniaturas, so an "unexpected"
+  // file is really the maxCount on one of them being passed.
+  LIMIT_UNEXPECTED_FILE: DEMASIADAS,
+  LIMIT_FILE_SIZE: 'Alguna de las fotos es demasiado pesada',
+}
+
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    console.warn(`subida rechazada: ${err.code}`)
+    res.status(400).json({ error: MENSAJES_SUBIDA[err.code] ?? 'No pudimos procesar las fotos' })
+    return
+  }
   console.error(err)
   res.status(500).json({ error: 'Error interno' })
 })
