@@ -1,5 +1,12 @@
 import { useState } from 'react'
 import { SignOutButton } from '@clerk/react'
+import { useTema, type Tema } from '../lib/tema'
+
+const OPCIONES_TEMA: { valor: Tema; etiqueta: string }[] = [
+  { valor: 'auto', etiqueta: 'Auto' },
+  { valor: 'claro', etiqueta: 'Claro' },
+  { valor: 'oscuro', etiqueta: 'Oscuro' },
+]
 
 interface ProfileProps {
   nombres: string
@@ -29,6 +36,7 @@ export function Profile({
   onAbrirAjustes,
 }: ProfileProps) {
   const [copiado, setCopiado] = useState(false)
+  const { tema, setTema } = useTema()
 
   async function copiarCodigo() {
     try {
@@ -71,20 +79,20 @@ export function Profile({
       <div className="settings-panel">
         <div className="settings-row" role="button" onClick={onAbrirAjustes}>
           <div className="settings-row__icon">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a32f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--acento-fuerte)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
               <circle cx="12" cy="7" r="4" />
             </svg>
           </div>
           <span className="settings-row__label">Tu nombre</span>
           <span className="settings-row__value">{nombrePropio}</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d3adaf" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--icono-tenue)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m9 18 6-6-6-6" />
           </svg>
         </div>
         <div className="settings-row" role="button" onClick={onAbrirAjustes}>
           <div className="settings-row__icon">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a32f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--acento-fuerte)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="4" />
               <path d="M16 2v4" />
               <path d="M8 2v4" />
@@ -93,13 +101,13 @@ export function Profile({
           </div>
           <span className="settings-row__label">Fecha de aniversario</span>
           <span className="settings-row__value">{fechaInicioTexto}</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d3adaf" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--icono-tenue)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m9 18 6-6-6-6" />
           </svg>
         </div>
         <div className="settings-row">
           <div className="settings-row__icon">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a32f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--acento-fuerte)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
               <circle cx="9" cy="7" r="4" />
               <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
@@ -115,10 +123,30 @@ export function Profile({
             </button>
           )}
         </div>
+        <div className="settings-row settings-row--tema">
+          <div className="settings-row__icon">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--acento-fuerte)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+            </svg>
+          </div>
+          <span className="settings-row__label">Apariencia</span>
+          <div className="tema-selector">
+            {OPCIONES_TEMA.map((o) => (
+              <button
+                key={o.valor}
+                type="button"
+                className={`tema-selector__opcion${tema === o.valor ? ' tema-selector__opcion--activa' : ''}`}
+                onClick={() => setTema(o.valor)}
+              >
+                {o.etiqueta}
+              </button>
+            ))}
+          </div>
+        </div>
         <SignOutButton>
           <div className="settings-row settings-row--danger" role="button">
             <div className="settings-row__icon">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a32f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--acento-fuerte)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                 <polyline points="16 17 21 12 16 7" />
                 <line x1="21" y1="12" x2="9" y2="12" />

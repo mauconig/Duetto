@@ -83,7 +83,7 @@ export function Home({
 
       <div className="milestone-card">
         <div className="milestone-card__icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b03246" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--acento)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 5.2A2.2 2.2 0 0 0 17.8 3H6.2A2.2 2.2 0 0 0 4 5.2v13.6A2.2 2.2 0 0 0 6.2 21h11.6a2.2 2.2 0 0 0 2.2-2.2z" />
             <path d="M16 2v4" />
             <path d="M8 2v4" />
@@ -168,7 +168,7 @@ export function Home({
       {ideaSugerida && (
         <div className="idea-teaser-card" onClick={onIrRuleta} role="button">
           <div className="idea-teaser-card__icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b03246" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--acento)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <circle cx="12" cy="12" r="2.5" />
               <path d="M12 2v7.5" />
@@ -180,7 +180,7 @@ export function Home({
             <div className="idea-teaser-card__kicker">Idea para la próxima cita</div>
             <div className="idea-teaser-card__text">{ideaSugerida}</div>
           </div>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d3adaf" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--icono-tenue)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m9 18 6-6-6-6" />
           </svg>
         </div>

@@ -1,24 +1,134 @@
+/* Light palette. Every colour in the app comes from these, so dark mode is
+ * a matter of redefining them rather than touching each rule. */
+:root {
+  --fondo: linear-gradient(180deg, #f2d6d4 0%, #fdf3f2 34%, #fdf7f6 100%);
+
+  --superficie: #fff;
+  --superficie-2: #fff8f6;
+  --superficie-3: #fdf3f2;
+  --superficie-activa: #fff6f5;
+  --suave: #f8e3e4;
+  --input-fondo: #fdf8f7;
+
+  --texto: #33191c;
+  --texto-cuerpo: #4d2b30;
+  --texto-nota: #5c3339;
+  --texto-resumen: #6d4249;
+  --texto-2: #7a3f47;
+  --texto-3: #a5737a;
+  --texto-4: #bd9ea0;
+  --placeholder: #c4a0a2;
+  --icono-tenue: #d3adaf;
+
+  --acento: #b03246;
+  --acento-fuerte: #a32f42;
+  --acento-oscuro: #8a2333;
+  --acento-claro: #c9455a;
+  --acento-vacio: #b0324699;
+  --acento-rgb: 176, 50, 70;
+
+  --borde-sutil: #f7e8e8;
+  --riel: #f4d9db;
+  --riel-2: #f6cede;
+  --riel-3: #f0c7ca;
+  --dot-hecho: #e0a6ad;
+  --vacio-icono: #c98c96;
+
+  --error-fondo: #fdecea;
+  --sombra-rgb: 176, 50, 70;
+  --backdrop: rgba(20, 8, 10, 0.5);
+  --backdrop-fuerte: rgba(20, 8, 10, 0.9);
+  --overlay-rgb: 51, 25, 28;
+
+  /* The main call to action is a dark slab on light; inverted in dark mode
+   * so it stays the most prominent thing on the screen. */
+  --cta-fondo: #33191c;
+  --cta-fondo-hover: #47262a;
+  --cta-texto: #fff;
+
+  --nav-fondo: rgba(255, 255, 255, 0.92);
+  --avatar-b: linear-gradient(135deg, #d98b78, #b0503c);
+  --avatar-b-sombra: rgba(176, 80, 60, 0.3);
+}
+
+/* Warm wine dark, rather than neutral grey: the app keeps its identity at
+ * night instead of turning into a different product. */
+:root[data-theme='dark'] {
+  --fondo: linear-gradient(180deg, #1a0e11 0%, #201114 40%, #241417 100%);
+
+  --superficie: #2a171b;
+  --superficie-2: #241419;
+  --superficie-3: #331c22;
+  --superficie-activa: #3a2028;
+  --suave: #3d2128;
+  --input-fondo: #331c22;
+
+  --texto: #f5e6e6;
+  --texto-cuerpo: #e6d0d2;
+  --texto-nota: #ddc3c6;
+  --texto-resumen: #d3b6ba;
+  --texto-2: #d9b8bd;
+  --texto-3: #c9a3a8;
+  --texto-4: #9c7981;
+  --placeholder: #8a666d;
+  --icono-tenue: #7d5b62;
+
+  --acento: #e0687d;
+  --acento-fuerte: #eb8093;
+  --acento-oscuro: #f0a0ae;
+  --acento-claro: #d4566d;
+  --acento-vacio: #e0687d99;
+  --acento-rgb: 224, 104, 125;
+
+  --borde-sutil: #3a2027;
+  --riel: #3d2128;
+  --riel-2: #43242c;
+  --riel-3: #4d2932;
+  --dot-hecho: #8c4a58;
+  --vacio-icono: #8c626a;
+
+  --error-fondo: #3d1c21;
+  --sombra-rgb: 0, 0, 0;
+  --backdrop: rgba(8, 3, 5, 0.7);
+  --backdrop-fuerte: rgba(8, 3, 5, 0.94);
+  --overlay-rgb: 10, 4, 6;
+
+  --cta-fondo: #f0c7ca;
+  --cta-fondo-hover: #f8dcde;
+  --cta-texto: #2a171b;
+
+  --nav-fondo: rgba(42, 23, 27, 0.94);
+  --avatar-b: linear-gradient(135deg, #b8705f, #8f3f2e);
+  --avatar-b-sombra: rgba(0, 0, 0, 0.4);
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: linear-gradient(180deg, #f2d6d4 0%, #fdf3f2 34%, #fdf7f6 100%) fixed;
+  background: var(--fondo) fixed;
   min-height: 100vh;
-  color: #33191c;
+  color: var(--texto);
   font-family: 'Nunito', system-ui, sans-serif;
 }
 
 a {
-  color: #a32f42;
+  color: var(--acento-fuerte);
 }
 a:hover {
-  color: #8a2333;
+  color: var(--acento-oscuro);
 }
 
-input::placeholder {
-  color: #c4a0a2;
+input::placeholder,
+textarea::placeholder {
+  color: var(--placeholder);
+}
+
+/* Makes native controls (date pickers, checkboxes, scrollbars) match. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 #root {
