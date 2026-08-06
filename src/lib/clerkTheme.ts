@@ -36,18 +36,18 @@ const CLARO: Paleta = {
 }
 
 const OSCURO: Paleta = {
-  superficie: '#2a171b',
-  superficieInput: '#331c22',
-  texto: '#f5e6e6',
-  textoTenue: '#c9a3a8',
-  suave: '#3d2128',
+  superficie: '#232022',
+  superficieInput: '#2b2729',
+  texto: '#f0eaea',
+  textoTenue: '#a89ea0',
+  suave: '#353032',
   acento: '#e0687d',
   acentoFuerte: '#eb8093',
   acentoClaro: '#d4566d',
   borde: 'rgba(224, 104, 125, 0.24)',
   anillo: 'rgba(224, 104, 125, 0.4)',
   sombra: 'rgba(0, 0, 0, 0.5)',
-  backdrop: 'rgba(8, 3, 5, 0.72)',
+  backdrop: 'rgba(6, 5, 6, 0.72)',
   sombraTarjeta: '0 14px 34px rgba(0, 0, 0, 0.5)',
 }
 

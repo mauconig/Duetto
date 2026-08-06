@@ -54,24 +54,24 @@
 /* Warm wine dark, rather than neutral grey: the app keeps its identity at
  * night instead of turning into a different product. */
 :root[data-theme='dark'] {
-  --fondo: linear-gradient(180deg, #1a0e11 0%, #201114 40%, #241417 100%);
+  --fondo: linear-gradient(180deg, #171516 0%, #1b1819 45%, #1e1b1c 100%);
 
-  --superficie: #2a171b;
-  --superficie-2: #241419;
-  --superficie-3: #331c22;
-  --superficie-activa: #3a2028;
-  --suave: #3d2128;
-  --input-fondo: #331c22;
+  --superficie: #232022;
+  --superficie-2: #1f1c1e;
+  --superficie-3: #2b2729;
+  --superficie-activa: #332e30;
+  --suave: #353032;
+  --input-fondo: #2b2729;
 
-  --texto: #f5e6e6;
-  --texto-cuerpo: #e6d0d2;
-  --texto-nota: #ddc3c6;
-  --texto-resumen: #d3b6ba;
-  --texto-2: #d9b8bd;
-  --texto-3: #c9a3a8;
-  --texto-4: #9c7981;
-  --placeholder: #8a666d;
-  --icono-tenue: #7d5b62;
+  --texto: #f0eaea;
+  --texto-cuerpo: #ded6d7;
+  --texto-nota: #d4cbcc;
+  --texto-resumen: #c6bcbe;
+  --texto-2: #cbc1c2;
+  --texto-3: #a89ea0;
+  --texto-4: #8a8082;
+  --placeholder: #7a7072;
+  --icono-tenue: #6e6567;
 
   --acento: #e0687d;
   --acento-fuerte: #eb8093;
@@ -80,24 +80,24 @@
   --acento-vacio: #e0687d99;
   --acento-rgb: 224, 104, 125;
 
-  --borde-sutil: #3a2027;
-  --riel: #3d2128;
-  --riel-2: #43242c;
-  --riel-3: #4d2932;
-  --dot-hecho: #8c4a58;
-  --vacio-icono: #8c626a;
+  --borde-sutil: #322d2f;
+  --riel: #353032;
+  --riel-2: #3b3538;
+  --riel-3: #443d40;
+  --dot-hecho: #7d5c63;
+  --vacio-icono: #8a7d80;
 
-  --error-fondo: #3d1c21;
+  --error-fondo: #3a2529;
   --sombra-rgb: 0, 0, 0;
-  --backdrop: rgba(8, 3, 5, 0.7);
-  --backdrop-fuerte: rgba(8, 3, 5, 0.94);
-  --overlay-rgb: 10, 4, 6;
+  --backdrop: rgba(6, 5, 6, 0.7);
+  --backdrop-fuerte: rgba(6, 5, 6, 0.94);
+  --overlay-rgb: 8, 6, 7;
 
   --cta-fondo: #f0c7ca;
   --cta-fondo-hover: #f8dcde;
-  --cta-texto: #2a171b;
+  --cta-texto: #232022;
 
-  --nav-fondo: rgba(42, 23, 27, 0.94);
+  --nav-fondo: rgba(35, 32, 34, 0.94);
   --avatar-b: linear-gradient(135deg, #b8705f, #8f3f2e);
   --avatar-b-sombra: rgba(0, 0, 0, 0.4);
 }
