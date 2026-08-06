@@ -99,18 +99,29 @@ tocás Guardar
 - `tsc -b && vite build` y `oxlint` sin warnings nuevos; el server arranca contra una base
   descartable.
 
-**Pendiente — necesita las claves de Clerk, así que va del lado de Mauricio:**
+**En el navegador**, con Playwright contra la app en dev (sesión de Clerk por sign-in token
+del Backend API, para saltear la protección anti-bot). 12/12:
 
-1. Elegir 30 fotos y mirar la pestaña Network: 30 POST chicos a `/api/photos` que arrancan
-   solos, y al guardar un POST a `/api/entries` sin cuerpo binario que responde al toque.
-2. Cortar la red con la mitad subidas, reconectar y guardar: se reintentan solo las que
-   fallaron.
-3. Abrir el sheet, subir fotos y cerrarlo sin guardar: no aparece ningún recuerdo.
-4. Editar un recuerdo existente agregando fotos: las viejas se conservan, las nuevas entran en
-   la posición elegida.
-5. Compartir fotos desde Android: pasan por el mismo pipeline al montarse.
-6. Con 30 fotos, ver si la grilla del sheet tironea. Previsualiza los **archivos originales**,
-   no las miniaturas; si se nota, el arreglo es usar la miniatura ya generada como preview.
+| Qué | Resultado |
+|---|---|
+| 30 fotos elegidas de una | 30 `POST /api/photos`, la primera a los **483ms** de elegirlas |
+| ¿terminan antes de Guardar? | **30/30**, en 4,6s |
+| `POST /api/entries` | 1 request, `application/json`, **1497 bytes** — sin binario |
+| de Guardar a recuerdo hecho | **0,1s** |
+| el recuerdo guardado | 30 fotos, en el orden elegido |
+| corte de red: 5 pasan, 5 se cortan | avisa "5 fotos no subieron" |
+| al guardar | reintenta **5**, no 10; sin archivos duplicados |
+| sheet abandonado | ningún recuerdo nuevo; las 3 fotos quedan en staging |
+| editar sumando 3 fotos | 8 → 11, las viejas intactas |
+| integridad | ninguna foto sin archivo, todas con miniatura |
+| errores de consola | ninguno |
+
+**Pendiente todavía:**
+
+1. Compartir fotos desde Android: necesita un teléfono, no se puede automatizar acá.
+2. Con 30 fotos, ver si la grilla del sheet tironea en un celular real. Previsualiza los
+   **archivos originales**, no las miniaturas; si se nota, el arreglo es usar la miniatura ya
+   generada como preview.
 
 ---
 
