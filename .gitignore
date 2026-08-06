@@ -27,3 +27,5 @@ dist-ssr
 .env
 .env.*
 !.env.example
+# Server runtime data (SQLite lives outside the repo in production)
+server/data/

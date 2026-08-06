@@ -8,9 +8,11 @@ interface ProfileProps {
   diasJuntos: number
   numAlbumes: number
   numIdeas: number
+  codigo: string
+  vinculada: boolean
 }
 
-export function Profile({ nombres, inicial1, inicial2, fechaInicioTexto, diasJuntos, numAlbumes, numIdeas }: ProfileProps) {
+export function Profile({ nombres, inicial1, inicial2, fechaInicioTexto, diasJuntos, numAlbumes, numIdeas, codigo, vinculada }: ProfileProps) {
   return (
     <div className="screen">
       <h2>Perfil</h2>
@@ -73,10 +75,8 @@ export function Profile({ nombres, inicial1, inicial2, fechaInicioTexto, diasJun
               <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
           </div>
-          <span className="settings-row__label">Invitar a tu pareja</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d3adaf" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m9 18 6-6-6-6" />
-          </svg>
+          <span className="settings-row__label">{vinculada ? 'Pareja vinculada' : 'Invitar a tu pareja'}</span>
+          <span className="settings-row__value">{vinculada ? '✓' : codigo}</span>
         </div>
         <SignOutButton>
           <div className="settings-row settings-row--danger" role="button">

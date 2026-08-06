@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useUser, Show } from '@clerk/react'
+import { Show } from '@clerk/react'
 import './App.css'
 import { BottomNav } from './components/BottomNav'
 import { Welcome } from './screens/Welcome'
@@ -12,8 +12,7 @@ import { ArticleDetail } from './screens/ArticleDetail'
 import { Profile } from './screens/Profile'
 import { albumes as albumesBase, articulos, ideasIniciales } from './data'
 import type { Album, Articulo, Tab } from './types'
-import type { PerfilPareja } from './lib/perfilPareja'
-import { perfilCompleto } from './lib/perfilPareja'
+import { useApi, type Pareja } from './lib/api'
 import { loadUserEntries, saveUserEntries } from './lib/userEntries'
 import { loadOverrides, saveOverrides } from './lib/entryOverrides'
 import {
@@ -29,23 +28,74 @@ import {
 } from './lib/duette'
 
 function App() {
-  const { user } = useUser()
-  const rawMeta = user?.unsafeMetadata as Record<string, unknown> | undefined
-  const perfil: PerfilPareja | null = perfilCompleto(rawMeta) ? rawMeta : null
-
   return (
     <div className="app">
       <div className="duette">
         <Show when="signed-out">
           <Welcome />
         </Show>
-        <Show when="signed-in">{perfil ? <AppContent perfil={perfil} /> : <Onboarding />}</Show>
+        <Show when="signed-in">
+          <SignedInApp />
+        </Show>
       </div>
     </div>
   )
 }
 
-function AppContent({ perfil }: { perfil: PerfilPareja }) {
+/** Loads the couple from the API and decides between onboarding and the
+ * app itself. Mounted only when signed in, so the token is available. */
+function SignedInApp() {
+  const api = useApi()
+  const [pareja, setPareja] = useState<Pareja | null>(null)
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelado = false
+    api
+      .obtenerPareja()
+      .then((p) => {
+        if (!cancelado) setPareja(p)
+      })
+      .catch((e) => {
+        if (!cancelado) setError(e instanceof Error ? e.message : 'No pudimos conectar')
+      })
+      .finally(() => {
+        if (!cancelado) setCargando(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [api])
+
+  if (cargando) {
+    return (
+      <div className="screen app-loading">
+        <div className="app-loading__spinner" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="screen app-loading">
+        <div className="onboarding__error">{error}</div>
+        <button type="button" className="sheet__submit" onClick={() => window.location.reload()}>
+          Reintentar
+        </button>
+      </div>
+    )
+  }
+
+  const listo = pareja?.fechaAniversario && pareja.proximoHito
+  if (!listo) {
+    return <Onboarding parejaInicial={pareja} onListo={setPareja} />
+  }
+
+  return <AppContent pareja={pareja} onActualizarPareja={setPareja} />
+}
+
+function AppContent({ pareja }: { pareja: Pareja; onActualizarPareja: (p: Pareja) => void }) {
   const [tab, setTab] = useState<Tab>('inicio')
   const [articulo, setArticulo] = useState<Articulo | null>(null)
   const [ideas, setIdeas] = useState<string[]>(ideasIniciales)
@@ -77,13 +127,15 @@ function AppContent({ perfil }: { perfil: PerfilPareja }) {
     })
   }
 
-  const nombres = `${perfil.nombrePropio} & ${perfil.nombrePareja}`
+  const propio = pareja.nombrePropio ?? 'Vos'
+  // Until the other partner enters the code there's only one name to show.
+  const nombres = pareja.nombrePareja ? `${propio} & ${pareja.nombrePareja}` : propio
   const hoy = new Date()
-  const ini = parseFecha(perfil.fechaAniversario)
+  const ini = parseFecha(pareja.fechaAniversario!)
   const edad = calcularEdad(hoy, ini)
-  const hito = calcularHito(hoy, ini, perfil.proximoHito)
-  const inicial1 = perfil.nombrePropio[0]
-  const inicial2 = perfil.nombrePareja[0]
+  const hito = calcularHito(hoy, ini, pareja.proximoHito!)
+  const inicial1 = propio[0]
+  const inicial2 = pareja.nombrePareja?.[0] ?? '+'
   const recuerdo = pickDaily(albumes, hoy)
   const ideaSugerida = pickDaily(ideas, hoy)
   const ultimoAlbum = sortByFecha(albumes).at(-1) as Album
@@ -189,6 +241,8 @@ function AppContent({ perfil }: { perfil: PerfilPareja }) {
           diasJuntos={diasJuntos(hoy, ini)}
           numAlbumes={albumes.length}
           numIdeas={ideas.length}
+          codigo={pareja.codigo}
+          vinculada={pareja.vinculada}
         />
       )}
 

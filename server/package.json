@@ -1,0 +1,13 @@
+{
+  "name": "duette-server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.ts"
+  },
+  "dependencies": {
+    "@clerk/backend": "^3.15.1",
+    "express": "^5.2.1"
+  }
+}
