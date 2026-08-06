@@ -1085,6 +1085,11 @@ h2 {
   color: var(--acento-fuerte);
 }
 
+.idea-row__delete:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .idea-input-row {
   display: flex;
   gap: 8px;
@@ -1120,6 +1125,23 @@ h2 {
 }
 .idea-add-btn:hover {
   background: var(--cta-fondo-hover);
+}
+.idea-add-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ideas-error {
+  color: var(--acento-fuerte);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 0 12px;
+}
+.ideas-nota {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--texto-4);
+  text-align: center;
+  margin-top: 10px;
 }
 
 /* ── Articles ─────────────────────────────────────────────────── */

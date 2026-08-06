@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite'
+import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
@@ -25,7 +26,8 @@ db.exec(`
     code              TEXT NOT NULL UNIQUE,
     created_at        TEXT NOT NULL,
     fecha_aniversario TEXT,
-    proximo_hito      TEXT
+    proximo_hito      TEXT,
+    ideas_sembradas   INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS members (
@@ -56,8 +58,19 @@ db.exec(`
     created_at TEXT NOT NULL
   );
 
+  -- Roulette ideas belong to the couple, like everything else here: both
+  -- partners add to the same wheel and spin the same list.
+  CREATE TABLE IF NOT EXISTS ideas (
+    id         TEXT PRIMARY KEY,
+    couple_id  TEXT NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    texto      TEXT NOT NULL,
+    posicion   INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_entries_couple ON entries(couple_id);
   CREATE INDEX IF NOT EXISTS idx_photos_entry ON photos(entry_id);
+  CREATE INDEX IF NOT EXISTS idx_ideas_couple ON ideas(couple_id);
 `)
 
 /** Adds a column to an existing table if it isn't there yet, so a database
@@ -71,6 +84,33 @@ function addColumnIfMissing(table: string, column: string, definition: string) {
 
 addColumnIfMissing('couples', 'fecha_aniversario', 'TEXT')
 addColumnIfMissing('couples', 'proximo_hito', 'TEXT')
+addColumnIfMissing('couples', 'ideas_sembradas', 'INTEGER NOT NULL DEFAULT 0')
+
+/** What the wheel used to be hardcoded with on the client. */
+const IDEAS_INICIALES = [
+  'Picnic al atardecer',
+  'Noche de cocina italiana',
+  'Cine en casa',
+  'Ruta de cafés nuevos',
+  'Museo sorpresa',
+  'Caminata al amanecer',
+]
+
+/** Gives a couple a wheel that already has something on it. The flag makes
+ * this happen exactly once, so a couple that deletes every idea keeps an
+ * empty wheel instead of watching the defaults grow back. */
+export function sembrarIdeas(coupleId: string) {
+  const insert = db.prepare('INSERT INTO ideas (id, couple_id, texto, posicion, created_at) VALUES (?, ?, ?, ?, ?)')
+  const ahora = new Date().toISOString()
+  IDEAS_INICIALES.forEach((texto, i) => insert.run(randomUUID(), coupleId, texto, i, ahora))
+  db.prepare('UPDATE couples SET ideas_sembradas = 1 WHERE id = ?').run(coupleId)
+}
+
+// Couples that predate the shared roulette get the same six ideas on the
+// first boot after this ships.
+for (const fila of db.prepare('SELECT id FROM couples WHERE ideas_sembradas = 0').all() as { id: string }[]) {
+  sembrarIdeas(fila.id)
+}
 
 /** Unambiguous alphabet: no O/0, I/1/L — these get misread when a code
  * is dictated out loud or copied off a screen. */

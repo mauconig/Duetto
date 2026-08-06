@@ -11,9 +11,10 @@ import { Articles } from './screens/Articles'
 import { ArticleDetail } from './screens/ArticleDetail'
 import { Profile } from './screens/Profile'
 import { SettingsSheet } from './components/SettingsSheet'
-import { articulos, ideasIniciales } from './data'
+import { LeaveCoupleSheet } from './components/LeaveCoupleSheet'
+import { articulos } from './data'
 import type { Album, Articulo, Tab } from './types'
-import { useApi, type Pareja } from './lib/api'
+import { useApi, type Idea, type Pareja } from './lib/api'
 import {
   calcularEdad,
   calcularHito,
@@ -47,6 +48,7 @@ function SignedInApp() {
   const api = useApi()
   const [pareja, setPareja] = useState<Pareja | null>(null)
   const [albumes, setAlbumes] = useState<Album[]>([])
+  const [ideas, setIdeas] = useState<Idea[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -60,8 +62,11 @@ function SignedInApp() {
         if (cancelado) return
         setPareja(p)
         if (p) {
-          const entradas = await api.obtenerEntradas()
-          if (!cancelado) setAlbumes(entradas)
+          const [entradas, listaIdeas] = await Promise.all([api.obtenerEntradas(), api.obtenerIdeas()])
+          if (!cancelado) {
+            setAlbumes(entradas)
+            setIdeas(listaIdeas)
+          }
         }
       } catch (e) {
         if (!cancelado) setError(e instanceof Error ? e.message : 'No pudimos conectar')
@@ -87,6 +92,25 @@ function SignedInApp() {
     setAlbumes((prev) => prev.filter((a) => a.id !== id))
   }
 
+  /** The couple only exists once onboarding finishes, so its seeded
+   * roulette can only be fetched now — the initial load ran before it. */
+  async function alTerminarOnboarding(p: Pareja) {
+    setPareja(p)
+    try {
+      setIdeas(await api.obtenerIdeas())
+    } catch {
+      // An empty wheel is recoverable: a reload picks the ideas up.
+    }
+  }
+
+  /** Back to a clean slate: the couple's data is either gone or no longer
+   * ours to show, and onboarding takes over from here. */
+  function alDesvincular() {
+    setPareja(null)
+    setAlbumes([])
+    setIdeas([])
+  }
+
   if (cargando) {
     return (
       <div className="screen app-loading">
@@ -108,17 +132,20 @@ function SignedInApp() {
 
   const listo = pareja?.fechaAniversario && pareja.proximoHito
   if (!listo) {
-    return <Onboarding parejaInicial={pareja} onListo={setPareja} />
+    return <Onboarding parejaInicial={pareja} onListo={alTerminarOnboarding} />
   }
 
   return (
     <AppContent
       pareja={pareja}
       albumes={albumes}
+      ideas={ideas}
       onCrear={alCrear}
       onEditar={alEditar}
       onBorrar={alBorrar}
+      onIdeasCambiadas={setIdeas}
       onActualizarPareja={setPareja}
+      onDesvincular={alDesvincular}
     />
   )
 }
@@ -126,18 +153,34 @@ function SignedInApp() {
 interface AppContentProps {
   pareja: Pareja
   albumes: Album[]
+  ideas: Idea[]
   onCrear: (entry: Album) => void
   onEditar: (entry: Album) => void
   onBorrar: (id: string) => void
+  onIdeasCambiadas: (ideas: Idea[]) => void
   onActualizarPareja: (p: Pareja) => void
+  onDesvincular: () => void
 }
 
-function AppContent({ pareja, albumes, onCrear, onEditar, onBorrar, onActualizarPareja }: AppContentProps) {
+function AppContent({
+  pareja,
+  albumes,
+  ideas,
+  onCrear,
+  onEditar,
+  onBorrar,
+  onIdeasCambiadas,
+  onActualizarPareja,
+  onDesvincular,
+}: AppContentProps) {
+  const api = useApi()
   const [ajustesAbiertos, setAjustesAbiertos] = useState(false)
+  const [desvinculando, setDesvinculando] = useState(false)
   const [tab, setTab] = useState<Tab>('inicio')
   const [articulo, setArticulo] = useState<Articulo | null>(null)
-  const [ideas, setIdeas] = useState<string[]>(ideasIniciales)
   const [nuevaIdea, setNuevaIdea] = useState('')
+  const [ideaEnCurso, setIdeaEnCurso] = useState(false)
+  const [errorIdea, setErrorIdea] = useState<string | null>(null)
   const [rotacion, setRotacion] = useState(0)
   const [girando, setGirando] = useState(false)
   const [resultado, setResultado] = useState<string | null>(null)
@@ -155,7 +198,7 @@ function AppContent({ pareja, albumes, onCrear, onEditar, onBorrar, onActualizar
   const inicial1 = propio[0]
   const inicial2 = pareja.nombrePareja?.[0] ?? '+'
   const recuerdo = pickDaily(albumes, hoy)
-  const ideaSugerida = pickDaily(ideas, hoy)
+  const ideaSugerida = pickDaily(ideas, hoy)?.texto ?? null
   // Undefined until the couple adds their first memory — Home hides the
   // album cards in that case.
   const ultimoAlbum = sortByFecha(albumes).at(-1)
@@ -193,21 +236,43 @@ function AppContent({ pareja, albumes, onCrear, onEditar, onBorrar, onActualizar
       const seg = 360 / ideas.length
       const ang = (360 - (destino % 360)) % 360
       setGirando(false)
-      setResultado(ideas[Math.floor(ang / seg) % ideas.length])
+      setResultado(ideas[Math.floor(ang / seg) % ideas.length].texto)
     }, 4200)
   }
 
-  function agregarIdea() {
+  // Ideas live on the server so both partners spin the same wheel, so
+  // adding and removing wait for the write before touching the list — a
+  // slice that vanishes and comes back would be worse than a short pause.
+  async function agregarIdea() {
     const t = nuevaIdea.trim()
-    if (!t) return
-    setIdeas((prev) => [...prev, t])
-    setNuevaIdea('')
-    setResultado(null)
+    if (!t || ideaEnCurso) return
+    setIdeaEnCurso(true)
+    setErrorIdea(null)
+    try {
+      const idea = await api.agregarIdea(t)
+      onIdeasCambiadas([...ideas, idea])
+      setNuevaIdea('')
+      setResultado(null)
+    } catch (err) {
+      setErrorIdea(err instanceof Error ? err.message : 'No pudimos guardar la idea')
+    } finally {
+      setIdeaEnCurso(false)
+    }
   }
 
-  function borrarIdea(index: number) {
-    setIdeas((prev) => prev.filter((_, j) => j !== index))
-    setResultado(null)
+  async function borrarIdea(id: string) {
+    if (ideaEnCurso) return
+    setIdeaEnCurso(true)
+    setErrorIdea(null)
+    try {
+      await api.borrarIdea(id)
+      onIdeasCambiadas(ideas.filter((i) => i.id !== id))
+      setResultado(null)
+    } catch (err) {
+      setErrorIdea(err instanceof Error ? err.message : 'No pudimos borrar la idea')
+    } finally {
+      setIdeaEnCurso(false)
+    }
   }
 
   return (
@@ -242,6 +307,8 @@ function AppContent({ pareja, albumes, onCrear, onEditar, onBorrar, onActualizar
           girando={girando}
           resultado={resultado}
           nuevaIdea={nuevaIdea}
+          ocupado={ideaEnCurso}
+          error={errorIdea}
           onGirar={girar}
           onCambiarNuevaIdea={setNuevaIdea}
           onAgregarIdea={agregarIdea}
@@ -265,6 +332,7 @@ function AppContent({ pareja, albumes, onCrear, onEditar, onBorrar, onActualizar
           codigo={pareja.codigo}
           vinculada={pareja.vinculada}
           onAbrirAjustes={() => setAjustesAbiertos(true)}
+          onDesvincular={() => setDesvinculando(true)}
         />
       )}
 
@@ -275,6 +343,17 @@ function AppContent({ pareja, albumes, onCrear, onEditar, onBorrar, onActualizar
           onGuardar={(p) => {
             onActualizarPareja(p)
             setAjustesAbiertos(false)
+          }}
+        />
+      )}
+
+      {desvinculando && (
+        <LeaveCoupleSheet
+          pareja={pareja}
+          onClose={() => setDesvinculando(false)}
+          onSalio={() => {
+            setDesvinculando(false)
+            onDesvincular()
           }}
         />
       )}

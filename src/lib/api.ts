@@ -14,6 +14,13 @@ export interface Pareja {
   vinculada: boolean
 }
 
+/** One slice of the roulette. Shared by the couple, so it needs an id the
+ * partner's client can refer to as well. */
+export interface Idea {
+  id: string
+  texto: string
+}
+
 /** Error carrying the HTTP status so callers can tell "no couple yet"
  * (404) apart from a real failure. */
 export class ApiError extends Error {
@@ -86,6 +93,12 @@ export function useApi() {
         return call<Pareja>('/couple', { method: 'PATCH', body: JSON.stringify(cambios) })
       },
 
+      /** Leaves the couple. `parejaBorrada` tells whether the couple itself
+       * was removed (nobody left in it) or the partner kept it. */
+      salirDePareja() {
+        return call<{ ok: boolean; parejaBorrada: boolean }>('/couple/me', { method: 'DELETE' })
+      },
+
       /** Sets the cookie that photo <img> requests authenticate with. */
       iniciarSesionFotos() {
         return call<{ ok: boolean }>('/session', { method: 'POST' })
@@ -105,6 +118,18 @@ export function useApi() {
 
       borrarEntrada(id: string) {
         return call<{ ok: boolean }>(`/entries/${id}`, { method: 'DELETE' })
+      },
+
+      obtenerIdeas() {
+        return call<Idea[]>('/ideas')
+      },
+
+      agregarIdea(texto: string) {
+        return call<Idea>('/ideas', { method: 'POST', body: JSON.stringify({ texto }) })
+      },
+
+      borrarIdea(id: string) {
+        return call<{ ok: boolean }>(`/ideas/${id}`, { method: 'DELETE' })
       },
     }),
     [call, enviarFormulario],

@@ -1,14 +1,5 @@
 import type { Articulo } from './types'
 
-export const ideasIniciales = [
-  'Picnic al atardecer',
-  'Noche de cocina italiana',
-  'Cine en casa',
-  'Ruta de cafés nuevos',
-  'Museo sorpresa',
-  'Caminata al amanecer',
-]
-
 export const articulos: Articulo[] = [
   {
     id: 'rituales',

@@ -5,12 +5,15 @@ import { randomUUID } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { db, generateCode, normalizeCode, UPLOADS_DIR } from './db.ts'
+import { db, generateCode, normalizeCode, sembrarIdeas, UPLOADS_DIR } from './db.ts'
 import { emitirCookie, requireAuth, requireCookie, type AuthedRequest } from './auth.ts'
 
 const PORT = Number(process.env.PORT ?? 8790)
 const MAX_MIEMBROS = 2
 const MAX_FOTOS = 12
+// Past ~30 slices the wheel labels stop being readable.
+const MAX_IDEAS = 30
+const MAX_LARGO_IDEA = 60
 
 // Photos arrive already downscaled to ~2500px WebP by the browser, so this
 // is a generous ceiling rather than an expected size.
@@ -32,6 +35,8 @@ const q = {
   insertMember: db.prepare('INSERT INTO members (user_id, couple_id, nombre, joined_at) VALUES (?, ?, ?, ?)'),
   updateNombre: db.prepare('UPDATE members SET nombre = ? WHERE user_id = ?'),
   updatePerfil: db.prepare('UPDATE couples SET fecha_aniversario = ?, proximo_hito = ? WHERE id = ?'),
+  deleteMember: db.prepare('DELETE FROM members WHERE user_id = ?'),
+  deleteCouple: db.prepare('DELETE FROM couples WHERE id = ?'),
 
   entriesOfCouple: db.prepare('SELECT * FROM entries WHERE couple_id = ? ORDER BY fecha, created_at'),
   entryById: db.prepare('SELECT * FROM entries WHERE id = ? AND couple_id = ?'),
@@ -52,6 +57,16 @@ const q = {
   photoForCouple: db.prepare(
     'SELECT p.archivo FROM photos p JOIN entries e ON e.id = p.entry_id WHERE p.id = ? AND e.couple_id = ?',
   ),
+  /** Every file the couple owns, for cleaning up after the last member leaves. */
+  photoFilesOfCouple: db.prepare(
+    'SELECT p.archivo FROM photos p JOIN entries e ON e.id = p.entry_id WHERE e.couple_id = ?',
+  ),
+
+  ideasOfCouple: db.prepare('SELECT id, texto FROM ideas WHERE couple_id = ? ORDER BY posicion, created_at'),
+  countIdeas: db.prepare('SELECT COUNT(*) AS n FROM ideas WHERE couple_id = ?'),
+  maxPosIdea: db.prepare('SELECT MAX(posicion) AS maxpos FROM ideas WHERE couple_id = ?'),
+  insertIdea: db.prepare('INSERT INTO ideas (id, couple_id, texto, posicion, created_at) VALUES (?, ?, ?, ?, ?)'),
+  deleteIdea: db.prepare('DELETE FROM ideas WHERE id = ? AND couple_id = ?'),
 }
 
 const HITOS = ['cumplemes', 'aniversario']
@@ -116,6 +131,7 @@ app.post('/api/couple', requireAuth, (req: AuthedRequest, res) => {
   try {
     q.insertCouple.run(id, code, ahora)
     q.insertMember.run(req.userId!, id, nombre, ahora)
+    sembrarIdeas(id)
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
@@ -203,6 +219,38 @@ app.patch('/api/couple', requireAuth, (req: AuthedRequest, res) => {
   q.updatePerfil.run(fecha, hito, member.couple_id)
   if (nombre) q.updateNombre.run(nombre, req.userId!)
   res.json(estadoPareja(member.couple_id, req.userId!))
+})
+
+/** Leaves the couple — the way out of joining with the wrong code.
+ *
+ * If the other partner is still there they keep everything: the memories
+ * belong to the couple, not to whoever uploaded them. The leaver can rejoin
+ * later with the same code, since the couple is back down to one member.
+ * If nobody is left the couple has no reason to exist, so it goes with its
+ * entries, photos and ideas. */
+app.delete('/api/couple/me', requireAuth, async (req: AuthedRequest, res) => {
+  const member = q.memberByUser.get(req.userId!) as { couple_id: string } | undefined
+  if (!member) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+
+  const otros = (q.membersOfCouple.all(member.couple_id) as { user_id: string }[]).filter(
+    (m) => m.user_id !== req.userId,
+  )
+  if (otros.length > 0) {
+    q.deleteMember.run(req.userId!)
+    res.json({ ok: true, parejaBorrada: false })
+    return
+  }
+
+  const archivos = q.photoFilesOfCouple.all(member.couple_id) as { archivo: string }[]
+  // ON DELETE CASCADE takes members, entries, photos and ideas with it.
+  q.deleteCouple.run(member.couple_id)
+  // Files go last: a failure here leaves orphans on disk rather than rows
+  // pointing at photos that no longer exist.
+  await Promise.all(archivos.map((f) => unlink(join(UPLOADS_DIR, f.archivo)).catch(() => {})))
+  res.json({ ok: true, parejaBorrada: true })
 })
 
 /** Exchanges a verified Clerk token for the session cookie that photo
@@ -373,6 +421,59 @@ app.delete('/api/entries/:id', requireAuth, async (req: AuthedRequest, res) => {
   // Files go only after the rows are gone, so a failure here leaves
   // orphaned files rather than rows pointing at missing photos.
   await Promise.all(fotos.map((f) => unlink(join(UPLOADS_DIR, f.archivo)).catch(() => {})))
+  res.json({ ok: true })
+})
+
+app.get('/api/ideas', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  res.json(q.ideasOfCouple.all(coupleId))
+})
+
+/** New ideas go to the end of the wheel, so the order both partners see
+ * stays the order they were added in. */
+app.post('/api/ideas', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const texto = String(req.body?.texto ?? '').trim()
+  if (!texto) {
+    res.status(400).json({ error: 'Escribí una idea' })
+    return
+  }
+  if (texto.length > MAX_LARGO_IDEA) {
+    res.status(400).json({ error: `La idea no puede pasar de ${MAX_LARGO_IDEA} caracteres` })
+    return
+  }
+
+  const { n } = q.countIdeas.get(coupleId) as { n: number }
+  if (Number(n) >= MAX_IDEAS) {
+    res.status(409).json({ error: `La ruleta llega hasta ${MAX_IDEAS} ideas` })
+    return
+  }
+
+  const { maxpos } = q.maxPosIdea.get(coupleId) as { maxpos: number | null }
+  const id = randomUUID()
+  q.insertIdea.run(id, coupleId, texto, Number(maxpos ?? -1) + 1, new Date().toISOString())
+  res.status(201).json({ id, texto })
+})
+
+app.delete('/api/ideas/:id', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const { changes } = q.deleteIdea.run(req.params.id, coupleId)
+  if (!Number(changes)) {
+    res.status(404).json({ error: 'No encontramos esa idea' })
+    return
+  }
   res.json({ ok: true })
 })
 

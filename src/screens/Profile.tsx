@@ -20,6 +20,7 @@ interface ProfileProps {
   codigo: string
   vinculada: boolean
   onAbrirAjustes: () => void
+  onDesvincular: () => void
 }
 
 export function Profile({
@@ -34,6 +35,7 @@ export function Profile({
   codigo,
   vinculada,
   onAbrirAjustes,
+  onDesvincular,
 }: ProfileProps) {
   const [copiado, setCopiado] = useState(false)
   const { tema, setTema } = useTema()
@@ -142,6 +144,16 @@ export function Profile({
               </button>
             ))}
           </div>
+        </div>
+        <div className="settings-row settings-row--danger" role="button" onClick={onDesvincular}>
+          <div className="settings-row__icon">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--acento-fuerte)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
+              <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
+              <line x1="2" y1="2" x2="22" y2="22" />
+            </svg>
+          </div>
+          <span className="settings-row__label settings-row__label--bold">Desvincularme de la pareja</span>
         </div>
         <SignOutButton>
           <div className="settings-row settings-row--danger" role="button">

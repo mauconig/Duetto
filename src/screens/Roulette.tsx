@@ -1,16 +1,21 @@
 import type { KeyboardEvent } from 'react'
+import type { Idea } from '../lib/api'
 import { RULETA_COLORES, RULETA_TEXTO, ruedaFondo, truncarEtiqueta } from '../lib/duette'
 
 interface RouletteProps {
-  ideas: string[]
+  ideas: Idea[]
   rotacion: number
   girando: boolean
   resultado: string | null
   nuevaIdea: string
+  /** True while an add or delete is in flight, so the list can't be
+   * changed out from under a request that's still going. */
+  ocupado: boolean
+  error: string | null
   onGirar: () => void
   onCambiarNuevaIdea: (v: string) => void
   onAgregarIdea: () => void
-  onBorrarIdea: (index: number) => void
+  onBorrarIdea: (id: string) => void
 }
 
 export function Roulette({
@@ -19,6 +24,8 @@ export function Roulette({
   girando,
   resultado,
   nuevaIdea,
+  ocupado,
+  error,
   onGirar,
   onCambiarNuevaIdea,
   onAgregarIdea,
@@ -39,14 +46,14 @@ export function Roulette({
 
       <div className="wheel">
         <div className="wheel__pointer" />
-        <div className="wheel__disc" style={{ background: ruedaFondo(ideas), transform: `rotate(${rotacion}deg)` }}>
-          {ideas.map((t, i) => (
+        <div className="wheel__disc" style={{ background: ruedaFondo(ideas.length), transform: `rotate(${rotacion}deg)` }}>
+          {ideas.map((idea, i) => (
             <span
-              key={i}
+              key={idea.id}
               className="wheel__label"
               style={{ transform: `rotate(${(i + 0.5) * seg}deg) translateY(-102px)`, color: RULETA_TEXTO[i % 6] }}
             >
-              {truncarEtiqueta(t)}
+              {truncarEtiqueta(idea.texto)}
             </span>
           ))}
         </div>
@@ -77,11 +84,17 @@ export function Roulette({
       <div>
         <div className="ideas-heading">IDEAS EN JUEGO · {ideas.length}</div>
         <div className="ideas-panel">
-          {ideas.map((t, i) => (
-            <div className="idea-row" key={i}>
+          {ideas.map((idea, i) => (
+            <div className="idea-row" key={idea.id}>
               <div className="idea-row__dot" style={{ background: RULETA_COLORES[i % 6] }} />
-              <div className="idea-row__text">{t}</div>
-              <button type="button" className="idea-row__delete" onClick={() => onBorrarIdea(i)}>
+              <div className="idea-row__text">{idea.texto}</div>
+              <button
+                type="button"
+                className="idea-row__delete"
+                aria-label={`Borrar ${idea.texto}`}
+                disabled={ocupado}
+                onClick={() => onBorrarIdea(idea.id)}
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 6h18" />
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
@@ -94,18 +107,21 @@ export function Roulette({
             <input
               placeholder="Nueva idea de cita"
               value={nuevaIdea}
+              maxLength={60}
               onChange={(e) => onCambiarNuevaIdea(e.target.value)}
               onKeyDown={onKeyDown}
               className="idea-input"
             />
-            <button type="button" className="idea-add-btn" onClick={onAgregarIdea}>
+            <button type="button" className="idea-add-btn" disabled={ocupado} onClick={onAgregarIdea}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <path d="M12 5v14" />
                 <path d="M5 12h14" />
               </svg>
             </button>
           </div>
+          {error && <div className="ideas-error">{error}</div>}
         </div>
+        <div className="ideas-nota">Lo que agreguen acá lo ven los dos.</div>
       </div>
     </div>
   )

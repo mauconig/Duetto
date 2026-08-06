@@ -79,10 +79,10 @@ export function diasJuntos(hoy: Date, ini: Date): number {
 export const RULETA_COLORES = ['#b03246', '#f0c7ca', '#8c2b3c', '#e59da3', '#a32f42', '#f9e6e6']
 export const RULETA_TEXTO = ['#fff', '#8a2333', '#fff', '#8a2333', '#fff', '#8a2333']
 
-export function ruedaFondo(ideas: string[]): string {
-  if (!ideas.length) return '#f4d9db'
-  const seg = 360 / ideas.length
-  const stops = ideas.map((_, i) => `${RULETA_COLORES[i % 6]} ${i * seg}deg ${(i + 1) * seg}deg`)
+export function ruedaFondo(cantidad: number): string {
+  if (cantidad < 1) return '#f4d9db'
+  const seg = 360 / cantidad
+  const stops = Array.from({ length: cantidad }, (_, i) => `${RULETA_COLORES[i % 6]} ${i * seg}deg ${(i + 1) * seg}deg`)
   return `conic-gradient(from 0deg, ${stops.join(', ')})`
 }
 
