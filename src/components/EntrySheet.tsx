@@ -12,6 +12,9 @@ type FotoItem = { kind: 'existing'; id: string; src: string } | { kind: 'new'; f
 interface EntrySheetProps {
   /** Entry being edited; omit to create a brand-new one. */
   entry?: Album
+  /** Photos the sheet opens with, on top of the entry's own — how a share
+   * from Android arrives. */
+  fotosExtra?: File[]
   onClose: () => void
   onGuardar: (entry: Album) => void
   onBorrar: (id: string) => void
@@ -22,13 +25,16 @@ function hoyIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function fotosIniciales(entry: Album | undefined): FotoItem[] {
-  if (!entry) return []
+function fotosIniciales(entry: Album | undefined, extra: File[] | undefined): FotoItem[] {
   // The sheet only ever shows these at thumbnail size.
-  return photoSlots(entry).map((slot) => ({ kind: 'existing', id: slot.id, src: slot.miniatura! }) as const)
+  const existentes: FotoItem[] = entry
+    ? photoSlots(entry).map((slot) => ({ kind: 'existing', id: slot.id, src: slot.miniatura! }) as const)
+    : []
+  const nuevas: FotoItem[] = (extra ?? []).map((file) => ({ kind: 'new', file }) as const)
+  return [...existentes, ...nuevas].slice(0, MAX_FOTOS)
 }
 
-export function EntrySheet({ entry, onClose, onGuardar, onBorrar }: EntrySheetProps) {
+export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: EntrySheetProps) {
   const editando = !!entry
   const [fecha, setFecha] = useState(entry?.fecha ?? hoyIso())
   const [rango, setRango] = useState(!!entry?.fechaFin)
@@ -36,7 +42,7 @@ export function EntrySheet({ entry, onClose, onGuardar, onBorrar }: EntrySheetPr
   const [fechaManual, setFechaManual] = useState(editando)
   const [fechaDetectada, setFechaDetectada] = useState(false)
   const [nota, setNota] = useState(entry?.nota ?? '')
-  const [fotos, setFotos] = useState<FotoItem[]>(() => fotosIniciales(entry))
+  const [fotos, setFotos] = useState<FotoItem[]>(() => fotosIniciales(entry, fotosExtra))
   const [guardando, setGuardando] = useState(false)
   const [sinMetadata, setSinMetadata] = useState(false)
   const [error, setError] = useState<string | null>(null)

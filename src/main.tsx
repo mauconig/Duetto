@@ -6,9 +6,13 @@ import './index.css'
 import App from './App.tsx'
 import { clerkAppearanceClaro, clerkAppearanceOscuro } from './lib/clerkTheme.ts'
 import { iniciarTema, useTema } from './lib/tema.ts'
+import { registrarServiceWorker } from './lib/compartir.ts'
 
 // Before the first paint, so a dark-mode user never sees a white flash.
 iniciarTema()
+
+// Needed for Android's share sheet to hand photos to the app.
+registrarServiceWorker()
 
 function Root() {
   const { esOscuro } = useTema()

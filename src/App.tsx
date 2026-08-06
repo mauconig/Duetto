@@ -12,6 +12,9 @@ import { ArticleDetail } from './screens/ArticleDetail'
 import { Profile } from './screens/Profile'
 import { SettingsSheet } from './components/SettingsSheet'
 import { LeaveCoupleSheet } from './components/LeaveCoupleSheet'
+import { SharedPhotosSheet } from './components/SharedPhotosSheet'
+import { EntrySheet } from './components/EntrySheet'
+import { limpiarFotosCompartidas, recogerFotosCompartidas } from './lib/compartir'
 import { articulos } from './data'
 import type { Album, Articulo, Tab } from './types'
 import { useApi, type Idea, type Pareja } from './lib/api'
@@ -186,7 +189,31 @@ function AppContent({
   const [resultado, setResultado] = useState<string | null>(null)
   const spinTimeout = useRef<number | undefined>(undefined)
 
+  // Photos shared in from Android. `destino` is null while the user is still
+  // choosing where they go, then holds the target — `entry` undefined means
+  // a brand-new recuerdo.
+  const [compartidas, setCompartidas] = useState<File[]>([])
+  const [destino, setDestino] = useState<{ entry?: Album } | null>(null)
+
   useEffect(() => () => window.clearTimeout(spinTimeout.current), [])
+
+  // Read the cache rather than the URL: if the share had to go through
+  // sign-in first, the query string is long gone but the files are not.
+  useEffect(() => {
+    let cancelado = false
+    recogerFotosCompartidas().then((fotos) => {
+      if (!cancelado && fotos.length > 0) setCompartidas(fotos)
+    })
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
+  async function cerrarCompartido() {
+    setCompartidas([])
+    setDestino(null)
+    await limpiarFotosCompartidas()
+  }
 
   const propio = pareja.nombrePropio ?? 'Vos'
   // Until the other partner enters the code there's only one name to show.
@@ -343,6 +370,33 @@ function AppContent({
           onGuardar={(p) => {
             onActualizarPareja(p)
             setAjustesAbiertos(false)
+          }}
+        />
+      )}
+
+      {compartidas.length > 0 && !destino && (
+        <SharedPhotosSheet
+          fotos={compartidas}
+          albumes={albumes}
+          onNuevo={() => setDestino({})}
+          onExistente={(entry) => setDestino({ entry })}
+          onDescartar={cerrarCompartido}
+        />
+      )}
+
+      {compartidas.length > 0 && destino && (
+        <EntrySheet
+          entry={destino.entry}
+          fotosExtra={compartidas}
+          onClose={() => setDestino(null)}
+          onGuardar={(entrada) => {
+            destino.entry ? onEditar(entrada) : onCrear(entrada)
+            cerrarCompartido()
+            setTab('albumes')
+          }}
+          onBorrar={(id) => {
+            onBorrar(id)
+            cerrarCompartido()
           }}
         />
       )}

@@ -1130,6 +1130,86 @@ h2 {
   opacity: 0.5;
   cursor: default;
 }
+/* ── Fotos compartidas desde el celular ───────────────────────── */
+
+.compartir-opcion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: var(--superficie-3);
+  border: 2px solid transparent;
+  border-radius: 18px;
+  padding: 12px 14px;
+  font-family: 'Nunito', sans-serif;
+  color: var(--texto);
+}
+.compartir-opcion:hover {
+  border-color: var(--acento);
+}
+.compartir-opcion--nueva {
+  background: var(--cta-fondo);
+  color: var(--cta-texto);
+}
+.compartir-opcion--nueva:hover {
+  background: var(--cta-fondo-hover);
+  border-color: transparent;
+}
+.compartir-opcion__icono {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(var(--overlay-rgb), 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.compartir-opcion__foto {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex: none;
+}
+.compartir-opcion__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.compartir-opcion__titulo {
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.compartir-opcion__fecha {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--texto-3);
+}
+.compartir-separador {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--texto-3);
+  text-align: center;
+  margin: 4px 0 -4px;
+}
+.compartir-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.sheet__cancelar--ancho {
+  width: 100%;
+}
+
 .ideas-error {
   color: var(--acento-fuerte);
   font-size: 13px;
