@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import type { PhotoSlot } from '../lib/duette'
-import { resolvedSrc } from '../lib/duette'
 
 const SWIPE_THRESHOLD = 40
 
@@ -33,7 +32,7 @@ export function TimelineLightbox({ slots, startIndex, onClose, onEditar }: Timel
     else if (delta < -SWIPE_THRESHOLD) siguiente()
   }
 
-  const src = resolvedSrc(slots[i])
+  const src = slots[i].src
 
   return (
     <div className="lightbox-backdrop" onClick={onClose}>

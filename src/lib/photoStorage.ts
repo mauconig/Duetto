@@ -1,7 +1,10 @@
-const MAX_DIM = 1000
-export const IMG_STORAGE_PREFIX = 'duette-img:'
+/** Photos are downscaled in the browser before upload: it keeps the server
+ * free of an image library, and saves a lot of mobile data compared with
+ * sending a 3-10MB original straight off the camera. */
+const MAX_DIM = 2500
+const CALIDAD = 0.9
 
-export async function fileToDataUrl(file: File): Promise<string> {
+export async function fileToWebpBlob(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
   try {
     const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height))
@@ -11,20 +14,16 @@ export async function fileToDataUrl(file: File): Promise<string> {
     canvas.width = w
     canvas.height = h
     canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h)
-    return canvas.toDataURL('image/webp', 0.85)
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', CALIDAD))
+    if (!blob) throw new Error('No se pudo procesar la imagen')
+    return blob
   } finally {
     bitmap.close?.()
   }
 }
 
-export function storePhoto(id: string, dataUrl: string) {
-  localStorage.setItem(IMG_STORAGE_PREFIX + id, dataUrl)
-}
-
-export function loadPhoto(id: string): string | null {
-  return localStorage.getItem(IMG_STORAGE_PREFIX + id)
-}
-
-export function removePhoto(id: string) {
-  localStorage.removeItem(IMG_STORAGE_PREFIX + id)
+/** URL the app uses to display a stored photo. Requires the session cookie,
+ * which the API client sets on load. */
+export function photoUrl(id: string): string {
+  return `/api/photos/${id}`
 }

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Album } from '../types'
-import { fileToDataUrl, removePhoto, storePhoto } from '../lib/photoStorage'
-import { photoSlots, randomFondo, resolvedSrc } from '../lib/duette'
+import { fileToWebpBlob } from '../lib/photoStorage'
+import { photoSlots, randomFondo } from '../lib/duette'
 import { readExifDate } from '../lib/exif'
+import { useApi } from '../lib/api'
 
 const MAX_FOTOS = 12
 
@@ -22,12 +23,7 @@ function hoyIso(): string {
 
 function fotosIniciales(entry: Album | undefined): FotoItem[] {
   if (!entry) return []
-  return photoSlots(entry)
-    .map((slot) => {
-      const src = resolvedSrc(slot)
-      return src ? ({ kind: 'existing', id: slot.id, src } as const) : null
-    })
-    .filter((item): item is FotoItem & { kind: 'existing' } => item !== null)
+  return photoSlots(entry).map((slot) => ({ kind: 'existing', id: slot.id, src: slot.src! }) as const)
 }
 
 export function EntrySheet({ entry, onClose, onGuardar }: EntrySheetProps) {
@@ -41,6 +37,8 @@ export function EntrySheet({ entry, onClose, onGuardar }: EntrySheetProps) {
   const [fotos, setFotos] = useState<FotoItem[]>(() => fotosIniciales(entry))
   const [guardando, setGuardando] = useState(false)
   const [sinMetadata, setSinMetadata] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const api = useApi()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const avisoTimeout = useRef<number | undefined>(undefined)
 
@@ -120,24 +118,37 @@ export function EntrySheet({ entry, onClose, onGuardar }: EntrySheetProps) {
     e.preventDefault()
     if (!fecha || guardando) return
     setGuardando(true)
-    const id = entry?.id ?? `entry-${Date.now()}`
-    for (let i = 0; i < fotos.length; i++) {
-      const item = fotos[i]
-      const url = item.kind === 'new' ? await fileToDataUrl(item.file) : item.src
-      storePhoto(`album-cover-${id}-${i}`, url)
+    setError(null)
+    try {
+      // Describe the final order first (indices assigned synchronously),
+      // then downscale one photo at a time — a dozen 2500px canvases at
+      // once is enough to exhaust memory on a phone.
+      const archivosNuevos: File[] = []
+      const orden = fotos.map((item) => {
+        if (item.kind === 'existing') return item.id
+        const indice = archivosNuevos.length
+        archivosNuevos.push(item.file)
+        return `nuevo:${indice}`
+      })
+      const fotosNuevas: Blob[] = []
+      for (const archivo of archivosNuevos) {
+        fotosNuevas.push(await fileToWebpBlob(archivo))
+      }
+
+      const datos = {
+        fecha,
+        fechaFin: rango && fechaFin ? fechaFin : undefined,
+        nota: nota.trim() || undefined,
+        fondo: entry?.fondo ?? randomFondo(),
+        orden,
+        fotosNuevas,
+      }
+      const guardada = entry ? await api.editarEntrada(entry.id, datos) : await api.crearEntrada(datos)
+      onGuardar(guardada)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No pudimos guardar el recuerdo')
+      setGuardando(false)
     }
-    const conteoAnterior = entry?.fotos ?? 0
-    for (let i = fotos.length; i < conteoAnterior; i++) {
-      removePhoto(`album-cover-${id}-${i}`)
-    }
-    onGuardar({
-      id,
-      fecha,
-      fechaFin: rango && fechaFin ? fechaFin : undefined,
-      nota: nota.trim() || undefined,
-      fotos: fotos.length,
-      fondo: entry?.fondo ?? randomFondo(),
-    })
   }
 
   return (
@@ -246,6 +257,8 @@ export function EntrySheet({ entry, onClose, onGuardar }: EntrySheetProps) {
               }}
             />
           </div>
+
+          {error && <div className="onboarding__error">{error}</div>}
 
           <button type="submit" className="sheet__submit" disabled={!fecha || guardando}>
             {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Guardar recuerdo'}

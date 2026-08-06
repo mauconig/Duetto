@@ -1,10 +1,15 @@
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 
 const DB_PATH = process.env.DUETTE_DB_PATH ?? './data/duette.db'
 
+/** Where photo files live. Kept beside the database so one backup covers
+ * both, and never inside the repo. */
+export const UPLOADS_DIR = process.env.DUETTE_UPLOADS_DIR ?? join(dirname(DB_PATH), 'uploads')
+
 mkdirSync(dirname(DB_PATH), { recursive: true })
+mkdirSync(UPLOADS_DIR, { recursive: true })
 
 export const db = new DatabaseSync(DB_PATH)
 
@@ -31,6 +36,28 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_members_couple ON members(couple_id);
+
+  CREATE TABLE IF NOT EXISTS entries (
+    id         TEXT PRIMARY KEY,
+    couple_id  TEXT NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    fecha      TEXT NOT NULL,
+    fecha_fin  TEXT,
+    nota       TEXT,
+    fondo      TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS photos (
+    id         TEXT PRIMARY KEY,
+    entry_id   TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    posicion   INTEGER NOT NULL,
+    archivo    TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_entries_couple ON entries(couple_id);
+  CREATE INDEX IF NOT EXISTS idx_photos_entry ON photos(entry_id);
 `)
 
 /** Adds a column to an existing table if it isn't there yet, so a database

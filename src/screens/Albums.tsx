@@ -37,6 +37,22 @@ export function Albums({ albumes, onCrear, onEditar }: AlbumsProps) {
       <div className="screen">
         <h2>Álbumes</h2>
 
+        {entradas.length === 0 && (
+          <div className="timeline-vacio">
+            <div className="timeline-vacio__icono">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#c98c96" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="4" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+              </svg>
+            </div>
+            <div className="timeline-vacio__titulo">Todavía no hay recuerdos</div>
+            <p className="timeline-vacio__texto">
+              Tocá el botón + y guardá su primer momento juntos. Lo que suban lo van a ver los dos.
+            </p>
+          </div>
+        )}
+
         <div className="timeline">
           {entradas.map((entrada) => (
             <div className="timeline__row" key={entrada.id}>

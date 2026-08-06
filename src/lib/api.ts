@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useAuth } from '@clerk/react'
+import type { Album } from '../types'
 
 export interface Pareja {
   coupleId: string
@@ -46,6 +47,23 @@ export function useApi() {
     [getToken],
   )
 
+  /** Same auth, but the browser sets the multipart Content-Type (with its
+   * boundary) — setting it by hand breaks the upload. */
+  const enviarFormulario = useCallback(
+    async <T,>(path: string, method: string, form: FormData): Promise<T> => {
+      const token = await getToken()
+      const res = await fetch(`/api${path}`, {
+        method,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      })
+      const cuerpo = await res.json().catch(() => ({}))
+      if (!res.ok) throw new ApiError(cuerpo?.error ?? 'Algo salió mal', res.status)
+      return cuerpo as T
+    },
+    [getToken],
+  )
+
   return useMemo(
     () => ({
       /** Current couple, or null when the user hasn't created/joined one. */
@@ -66,7 +84,46 @@ export function useApi() {
       guardarPerfil(fechaAniversario: string, proximoHito: Pareja['proximoHito']) {
         return call<Pareja>('/couple', { method: 'PATCH', body: JSON.stringify({ fechaAniversario, proximoHito }) })
       },
+
+      /** Sets the cookie that photo <img> requests authenticate with. */
+      iniciarSesionFotos() {
+        return call<{ ok: boolean }>('/session', { method: 'POST' })
+      },
+
+      obtenerEntradas() {
+        return call<Album[]>('/entries')
+      },
+
+      crearEntrada(datos: DatosEntrada) {
+        return enviarFormulario<Album>('/entries', 'POST', armarFormulario(datos))
+      },
+
+      editarEntrada(id: string, datos: DatosEntrada) {
+        return enviarFormulario<Album>(`/entries/${id}`, 'PATCH', armarFormulario(datos))
+      },
     }),
-    [call],
+    [call, enviarFormulario],
   )
+}
+
+export interface DatosEntrada {
+  fecha: string
+  fechaFin?: string
+  nota?: string
+  fondo: string
+  /** Final photo order: an existing photo id, or `nuevo:<n>` pointing at
+   * the n-th blob in `fotosNuevas`. Existing ids left out get deleted. */
+  orden?: string[]
+  fotosNuevas: Blob[]
+}
+
+function armarFormulario(datos: DatosEntrada): FormData {
+  const form = new FormData()
+  form.append('fecha', datos.fecha)
+  form.append('fechaFin', datos.fechaFin ?? '')
+  form.append('nota', datos.nota ?? '')
+  form.append('fondo', datos.fondo)
+  for (const item of datos.orden ?? []) form.append('orden', item)
+  datos.fotosNuevas.forEach((blob, i) => form.append('fotos', blob, `foto-${i}.webp`))
+  return form
 }

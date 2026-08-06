@@ -1,4 +1,4 @@
-import type { Album, Articulo } from './types'
+import type { Articulo } from './types'
 
 export const ideasIniciales = [
   'Picnic al atardecer',
@@ -7,45 +7,6 @@ export const ideasIniciales = [
   'Ruta de cafés nuevos',
   'Museo sorpresa',
   'Caminata al amanecer',
-]
-
-export const albumes: Album[] = [
-  {
-    id: 'primer-cita',
-    fecha: '2024-02-14',
-    fotos: 1,
-    fotoUrls: ['/sample-photos/foto-1.jpg'],
-    fondo: 'linear-gradient(135deg, #cf6a78, #a32f42)',
-  },
-  { id: 'feria-libro', fecha: '2024-05-03', fotos: 0, fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)' },
-  {
-    id: 'un-anio',
-    fecha: '2025-02-14',
-    fotos: 3,
-    fotoUrls: ['/sample-photos/foto-2.jpg', '/sample-photos/foto-3.jpg', '/sample-photos/foto-4.jpg'],
-    fondo: 'linear-gradient(135deg, #e0a08a, #c26550)',
-  },
-  {
-    id: 'costa',
-    fecha: '2025-10-10',
-    fechaFin: '2025-10-12',
-    fotos: 5,
-    fotoUrls: [
-      '/sample-photos/foto-5.jpg',
-      '/sample-photos/foto-6.jpg',
-      '/sample-photos/foto-7.jpg',
-      '/sample-photos/foto-8.jpg',
-      '/sample-photos/foto-9.jpg',
-    ],
-    fondo: 'linear-gradient(135deg, #d98b78, #b0503c)',
-  },
-  {
-    id: 'casa',
-    fecha: '2026-07-18',
-    fotos: 2,
-    fotoUrls: ['/sample-photos/foto-10.jpg', '/sample-photos/foto-11.jpg'],
-    fondo: 'linear-gradient(135deg, #a8465c, #6d1f30)',
-  },
 ]
 
 export const articulos: Articulo[] = [

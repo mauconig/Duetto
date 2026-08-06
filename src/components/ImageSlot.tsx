@@ -1,71 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
-import type { DragEvent } from 'react'
-import { fileToDataUrl, loadPhoto, storePhoto } from '../lib/photoStorage'
-
 interface ImageSlotProps {
-  id: string
   shape?: 'rect' | 'rounded' | 'circle'
   radius?: number
   placeholder?: string
-  /** Bundled default image shown until the user uploads their own; an
-   * upload always takes priority over this. */
+  /** Photo URL from the API; empty renders the placeholder state. */
   src?: string
   className?: string
   style?: React.CSSProperties
-  /** When provided, tapping the slot calls this instead of the built-in
-   * upload/lightbox behavior — used when a parent (e.g. a photo gallery)
-   * wants to own the tap interaction. */
   onOpen?: () => void
 }
 
-export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'Foto', src, className, style, onOpen }: ImageSlotProps) {
-  const [uploaded, setUploaded] = useState<string | null>(null)
-  const [over, setOver] = useState(false)
-  const [lightbox, setLightbox] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    setUploaded(loadPhoto(id))
-  }, [id])
-
-  const displaySrc = uploaded ?? src ?? null
-
-  async function ingest(file: File | undefined) {
-    if (!file || !file.type.startsWith('image/')) return
-    const url = await fileToDataUrl(file)
-    storePhoto(id, url)
-    setUploaded(url)
-  }
-
-  function onDrop(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setOver(false)
-    ingest(e.dataTransfer.files?.[0])
-  }
-
+/** Displays a photo (or an empty placeholder). Adding and replacing photos
+ * happens in EntrySheet, which owns the whole set for an entry. */
+export function ImageSlot({ shape = 'rounded', radius = 12, placeholder = 'Foto', src, className, style, onOpen }: ImageSlotProps) {
   return (
     <div
-      className={`image-slot image-slot--${shape}${displaySrc ? '' : ' image-slot--empty'}${over ? ' image-slot--over' : ''}${className ? ' ' + className : ''}`}
+      className={`image-slot image-slot--${shape}${src ? '' : ' image-slot--empty'}${className ? ' ' + className : ''}`}
       style={{ ...style, borderRadius: shape === 'rounded' ? radius : undefined }}
-      onClick={(e) => {
-        e.stopPropagation()
-        if (onOpen) {
-          onOpen()
-          return
-        }
-        displaySrc ? setLightbox(true) : inputRef.current?.click()
-      }}
-      onDragOver={(e) => {
-        e.preventDefault()
-        setOver(true)
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={onDrop}
-      role="button"
-      aria-label={displaySrc ? 'Ver foto' : placeholder || 'Subir foto'}
+      onClick={
+        onOpen
+          ? (e) => {
+              e.stopPropagation()
+              onOpen()
+            }
+          : undefined
+      }
+      role={onOpen ? 'button' : undefined}
+      aria-label={onOpen ? 'Ver foto' : undefined}
     >
-      {displaySrc ? (
-        <img src={displaySrc} alt="" className="image-slot__img" />
+      {src ? (
+        <img src={src} alt="" className="image-slot__img" loading="lazy" />
       ) : (
         <div className="image-slot__empty">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -74,52 +37,6 @@ export function ImageSlot({ id, shape = 'rounded', radius = 12, placeholder = 'F
             <path d="m21 15-5-5L5 21" />
           </svg>
           {placeholder && <span className="image-slot__caption">{placeholder}</span>}
-        </div>
-      )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => {
-          ingest(e.target.files?.[0])
-          e.target.value = ''
-        }}
-      />
-      {lightbox && displaySrc && (
-        <div
-          className="image-slot__lightbox"
-          onClick={(e) => {
-            e.stopPropagation()
-            setLightbox(false)
-          }}
-        >
-          <button
-            type="button"
-            className="image-slot__lightbox-close"
-            aria-label="Cerrar"
-            onClick={(e) => {
-              e.stopPropagation()
-              setLightbox(false)
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M6 6 18 18" />
-              <path d="M18 6 6 18" />
-            </svg>
-          </button>
-          <img src={displaySrc} alt="" className="image-slot__lightbox-img" onClick={(e) => e.stopPropagation()} />
-          <button
-            type="button"
-            className="image-slot__lightbox-replace"
-            onClick={(e) => {
-              e.stopPropagation()
-              setLightbox(false)
-              inputRef.current?.click()
-            }}
-          >
-            Reemplazar foto
-          </button>
         </div>
       )}
     </div>

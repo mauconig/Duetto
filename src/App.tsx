@@ -10,11 +10,9 @@ import { Roulette } from './screens/Roulette'
 import { Articles } from './screens/Articles'
 import { ArticleDetail } from './screens/ArticleDetail'
 import { Profile } from './screens/Profile'
-import { albumes as albumesBase, articulos, ideasIniciales } from './data'
+import { articulos, ideasIniciales } from './data'
 import type { Album, Articulo, Tab } from './types'
 import { useApi, type Pareja } from './lib/api'
-import { loadUserEntries, saveUserEntries } from './lib/userEntries'
-import { loadOverrides, saveOverrides } from './lib/entryOverrides'
 import {
   calcularEdad,
   calcularHito,
@@ -47,26 +45,42 @@ function App() {
 function SignedInApp() {
   const api = useApi()
   const [pareja, setPareja] = useState<Pareja | null>(null)
+  const [albumes, setAlbumes] = useState<Album[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelado = false
-    api
-      .obtenerPareja()
-      .then((p) => {
-        if (!cancelado) setPareja(p)
-      })
-      .catch((e) => {
+    async function cargar() {
+      try {
+        // The cookie has to exist before any <img> asks for a photo.
+        await api.iniciarSesionFotos()
+        const p = await api.obtenerPareja()
+        if (cancelado) return
+        setPareja(p)
+        if (p) {
+          const entradas = await api.obtenerEntradas()
+          if (!cancelado) setAlbumes(entradas)
+        }
+      } catch (e) {
         if (!cancelado) setError(e instanceof Error ? e.message : 'No pudimos conectar')
-      })
-      .finally(() => {
+      } finally {
         if (!cancelado) setCargando(false)
-      })
+      }
+    }
+    cargar()
     return () => {
       cancelado = true
     }
   }, [api])
+
+  function alCrear(nueva: Album) {
+    setAlbumes((prev) => [...prev, nueva])
+  }
+
+  function alEditar(actualizada: Album) {
+    setAlbumes((prev) => prev.map((a) => (a.id === actualizada.id ? actualizada : a)))
+  }
 
   if (cargando) {
     return (
@@ -92,10 +106,17 @@ function SignedInApp() {
     return <Onboarding parejaInicial={pareja} onListo={setPareja} />
   }
 
-  return <AppContent pareja={pareja} onActualizarPareja={setPareja} />
+  return <AppContent pareja={pareja} albumes={albumes} onCrear={alCrear} onEditar={alEditar} />
 }
 
-function AppContent({ pareja }: { pareja: Pareja; onActualizarPareja: (p: Pareja) => void }) {
+interface AppContentProps {
+  pareja: Pareja
+  albumes: Album[]
+  onCrear: (entry: Album) => void
+  onEditar: (entry: Album) => void
+}
+
+function AppContent({ pareja, albumes, onCrear, onEditar }: AppContentProps) {
   const [tab, setTab] = useState<Tab>('inicio')
   const [articulo, setArticulo] = useState<Articulo | null>(null)
   const [ideas, setIdeas] = useState<string[]>(ideasIniciales)
@@ -103,29 +124,9 @@ function AppContent({ pareja }: { pareja: Pareja; onActualizarPareja: (p: Pareja
   const [rotacion, setRotacion] = useState(0)
   const [girando, setGirando] = useState(false)
   const [resultado, setResultado] = useState<string | null>(null)
-  const [entradasUsuario, setEntradasUsuario] = useState<Album[]>(() => loadUserEntries())
-  const [overrides, setOverrides] = useState<Record<string, Album>>(() => loadOverrides())
   const spinTimeout = useRef<number | undefined>(undefined)
 
   useEffect(() => () => window.clearTimeout(spinTimeout.current), [])
-
-  const albumes = [...albumesBase, ...entradasUsuario].map((a) => overrides[a.id] ?? a)
-
-  function crearEntrada(nueva: Album) {
-    setEntradasUsuario((prev) => {
-      const next = [...prev, nueva]
-      saveUserEntries(next)
-      return next
-    })
-  }
-
-  function editarEntrada(actualizada: Album) {
-    setOverrides((prev) => {
-      const next = { ...prev, [actualizada.id]: actualizada }
-      saveOverrides(next)
-      return next
-    })
-  }
 
   const propio = pareja.nombrePropio ?? 'Vos'
   // Until the other partner enters the code there's only one name to show.
@@ -138,8 +139,10 @@ function AppContent({ pareja }: { pareja: Pareja; onActualizarPareja: (p: Pareja
   const inicial2 = pareja.nombrePareja?.[0] ?? '+'
   const recuerdo = pickDaily(albumes, hoy)
   const ideaSugerida = pickDaily(ideas, hoy)
-  const ultimoAlbum = sortByFecha(albumes).at(-1) as Album
-  const albumFoto = photoSlots(ultimoAlbum)[0]
+  // Undefined until the couple adds their first memory — Home hides the
+  // album cards in that case.
+  const ultimoAlbum = sortByFecha(albumes).at(-1)
+  const albumFoto = ultimoAlbum ? photoSlots(ultimoAlbum)[0] : undefined
 
   function irInicio() {
     setTab('inicio')
@@ -213,7 +216,7 @@ function AppContent({ pareja }: { pareja: Pareja; onActualizarPareja: (p: Pareja
         />
       )}
 
-      {tab === 'albumes' && <Albums albumes={albumes} onCrear={crearEntrada} onEditar={editarEntrada} />}
+      {tab === 'albumes' && <Albums albumes={albumes} onCrear={onCrear} onEditar={onEditar} />}
 
       {tab === 'ruleta' && (
         <Roulette

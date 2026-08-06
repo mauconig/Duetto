@@ -11,7 +11,8 @@ interface HomeProps {
   fechaInicioTexto: string
   edad: Edad
   hito: Hito
-  ultimoAlbum: Album
+  /** Undefined until the couple saves their first memory. */
+  ultimoAlbum: Album | undefined
   albumFoto: PhotoSlot | undefined
   articuloDelDia: Articulo
   recuerdo: Album | null
@@ -117,9 +118,9 @@ export function Home({
         <div className="mini-card mini-card--album" onClick={onIrAlbumes} role="button">
           <div className="mini-card__image">
             {albumFoto ? (
-              <ImageSlot id={albumFoto.id} src={albumFoto.src} shape="rect" placeholder="" />
+              <ImageSlot src={albumFoto.src} shape="rect" placeholder="" />
             ) : (
-              <div className="mini-card__fallback" style={{ background: ultimoAlbum.fondo }}>
+              <div className="mini-card__fallback" style={{ background: ultimoAlbum?.fondo ?? 'linear-gradient(135deg, #cf6a78, #a32f42)' }}>
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="18" height="18" rx="4" />
                   <circle cx="9" cy="9" r="2" />
@@ -128,8 +129,10 @@ export function Home({
               </div>
             )}
             <div className="mini-card__overlay">
-              <div className="mini-card__overlay-kicker">Último álbum</div>
-              <div className="mini-card__overlay-meta">{formatFechaEntrada(ultimoAlbum)}</div>
+              <div className="mini-card__overlay-kicker">{ultimoAlbum ? 'Último álbum' : 'Álbumes'}</div>
+              <div className="mini-card__overlay-meta">
+                {ultimoAlbum ? formatFechaEntrada(ultimoAlbum) : 'Sumá su primer recuerdo'}
+              </div>
             </div>
           </div>
         </div>
@@ -144,7 +147,7 @@ export function Home({
         <div className="memory-card" onClick={() => onAbrirRecuerdo(recuerdo)} role="button">
           <div className="memory-card__photo">
             {recuerdoFoto ? (
-              <ImageSlot id={recuerdoFoto.id} src={recuerdoFoto.src} shape="rect" placeholder="" />
+              <ImageSlot src={recuerdoFoto.src} shape="rect" placeholder="" />
             ) : (
               <div className="memory-card__fallback" style={{ background: recuerdo.fondo }}>
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
