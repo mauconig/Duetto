@@ -125,23 +125,78 @@ del Backend API, para saltear la protección anti-bot). 12/12:
 
 ---
 
-## Antes de mergear: el server tiene que desplegarse
+## Estado del deploy — dónde retomar
 
-El cliente nuevo llama a `POST /api/photos`. **Si el server del VPS sigue viejo, cada guardado
-falla.**
+### Producción ahora mismo: anda, pero con el código viejo
 
-[.github/workflows/deploy.yml](.github/workflows/deploy.yml) ahora sube también `server/`,
-corre `npm ci --omit=dev` y reinicia el servicio, excluyendo `data/` — un `--delete` sin esa
-exclusión se llevaría la base SQLite y todas las fotos. Pero **ese step hoy se saltea**, porque
-está condicionado a dos variables que no existen todavía.
+Verificado sobre el VPS: el bundle servido **no tiene ninguna marca del cliente nuevo**
+(`staged:`, `Subiendo`, `no subieron` → 0 ocurrencias) y el server sigue en `MAX_FOTOS = 12`
+sin `staged_photos`. Cliente viejo + server viejo, en sincronía: **subir fotos funciona**, con
+el tope de 12 y el fix de multer que ya estaba desplegado a mano.
 
-En Settings → Secrets and variables → Actions → Variables, definir:
+Nada de lo nuevo llegó todavía.
 
-- `DUETTE_SERVER_PATH` — la ruta del server en el VPS (ej. `/srv/duette-server`)
-- `DUETTE_SERVER_UNIT` — el nombre de la unidad systemd
+### Lo que ya quedó hecho en el VPS
 
-Y que el usuario del deploy pueda `sudo systemctl restart <unidad>` sin contraseña (el step usa
-`sudo -n`, así que si pide password falla rápido en vez de colgarse).
+No hay que repetirlo:
+
+| | |
+|---|---|
+| Ruta del server | `/opt/duette-api` (código; solo `src/`, `package.json`, `package-lock.json`, `node_modules`) |
+| Datos | `/var/lib/duette-api` — **fuera** del deploy, el `rsync --delete` no los toca |
+| Secretos | `/etc/duette-api.env` — también fuera |
+| Unidad systemd | `duette-api`, usuario `duette-api`, `ProtectSystem=strict` |
+| Usuario del deploy | `duette-deploy` |
+| Permisos | `chown -R duette-deploy:duette-api /opt/duette-api` + `chmod -R u=rwX,g=rX,o=` — **hecho y verificado** |
+| Sudo | `/etc/sudoers.d/duette-deploy` permite solo `systemctl restart duette-api` — **hecho, `visudo -c` OK** |
+| Variables de GitHub | `DUETTE_SERVER_PATH=/opt/duette-api`, `DUETTE_SERVER_UNIT=duette-api` — estaban cargadas en **Secrets** por error, ya movidas a **Variables** |
+
+Se accede al VPS por el host `vps` del `~/.ssh/config` (hay que replicarlo en la laptop).
+
+### El step del API todavía nunca corrió
+
+Sigue sin probarse. Los runs que se destrabaron son de `b240b96` y `e5a0e92`, y **el step del
+API no existe en esos commits** — se agregó en `1d24d60`. Un re-run usa el workflow de su
+propio commit, así que esos runs ni siquiera lo tienen. Se comprueba en el VPS contando
+conexiones: un deploy completo abre tres sesiones SSH de `duette-deploy` (rsync del frontend,
+rsync del server, y el `npm ci` + restart); los que corrieron abrieron una sola.
+
+```
+journalctl -u ssh --since "-30 min" | grep "Accepted publickey for duette-deploy"
+```
+
+### El riesgo activo: los runs viejos encolados
+
+Hay runs viejos en `Queued` que no se dejan cancelar. **Cada uno que se destraba pisa el
+frontend con un build anterior** — ya pasó dos veces (01:02 y 01:17, las dos dejando
+`index-CLDwyMvp.js`, que es el cliente viejo).
+
+Mitiga solo a medias que el server nuevo **mantiene viva la ruta vieja de multipart**
+(`nuevo:<n>`), así que entiende a los dos clientes. La única combinación rota es *cliente
+nuevo + server viejo*: **en cuanto el server se actualice, cualquier frontend que aterrice
+funciona** y la carrera deja de importar.
+
+### Qué hacer al retomar
+
+1. **Desplegar el server.** Es lo que blinda todo lo demás. Dos opciones:
+   - Esperar a que corra el run de `7bf3cc9` (el más nuevo) y verificar que el step del API
+     abre las tres conexiones.
+   - O a mano, que es inmediato: entre lo desplegado y `7bf3cc9` **solo cambian
+     `server/src/index.ts` y `server/src/db.ts`**, y las dependencias no se tocan, así que
+     `npm ci` ni hace falta. Copiar los dos archivos y `systemctl restart duette-api`.
+2. **Borrar los runs viejos encolados** para que dejen de pisar el frontend.
+3. **Verificar** que el server quedó nuevo:
+   ```
+   grep -m1 "^const MAX_FOTOS" /opt/duette-api/src/index.ts   # 32
+   grep -c staged_photos /opt/duette-api/src/index.ts          # > 0
+   systemctl is-active duette-api && curl -s localhost:8790/api/health
+   ```
+4. Sacar el `if:` de [deploy.yml](.github/workflows/deploy.yml). Hoy, si las variables no
+   están, **el deploy del server se saltea en silencio** — que es exactamente lo que dejó
+   producción desincronizada sin avisar. Sin la condición, un fallo pinta el run de rojo.
+5. El tope quedó en **32** en `7bf3cc9`, elegido como marcador para comprobar el deploy de
+   punta a punta. Si aparece 32 en el VPS, el pipeline funciona; después ajustalo al número
+   que quieras.
 
 Con eso definido, confirmar en el primer run que el step corrió de verdad antes de dar por
 buena la subida.
