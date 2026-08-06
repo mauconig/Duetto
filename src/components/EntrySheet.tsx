@@ -156,7 +156,7 @@ export function EntrySheet({ entry, onClose, onGuardar }: EntrySheetProps) {
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet__handle" />
         <div className="sheet__header">
-          <h3>{editando ? 'Editar álbum' : 'Nueva entrada'}</h3>
+          <h3>{editando ? 'Editar recuerdo' : 'Nuevo recuerdo'}</h3>
           <button type="button" className="sheet__close" aria-label="Cerrar" onClick={onClose}>
             ×
           </button>

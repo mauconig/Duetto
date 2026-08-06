@@ -13,7 +13,7 @@ const ITEMS: { tab: Tab; label: string; icon: React.ReactNode }[] = [
   },
   {
     tab: 'albumes',
-    label: 'Álbumes',
+    label: 'Recuerdos',
     icon: (
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="4" />

@@ -75,7 +75,7 @@ export function TimelineLightbox({ slots, startIndex, onClose, onEditar }: Timel
           onEditar()
         }}
       >
-        Editar álbum
+        Editar recuerdo
       </button>
     </div>
   )

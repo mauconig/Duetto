@@ -129,7 +129,7 @@ export function Home({
               </div>
             )}
             <div className="mini-card__overlay">
-              <div className="mini-card__overlay-kicker">{ultimoAlbum ? 'Último álbum' : 'Álbumes'}</div>
+              <div className="mini-card__overlay-kicker">{ultimoAlbum ? 'Último recuerdo' : 'Recuerdos'}</div>
               <div className="mini-card__overlay-meta">
                 {ultimoAlbum ? formatFechaEntrada(ultimoAlbum) : 'Sumá su primer recuerdo'}
               </div>

@@ -35,7 +35,7 @@ export function Albums({ albumes, onCrear, onEditar }: AlbumsProps) {
   return (
     <>
       <div className="screen">
-        <h2>Álbumes</h2>
+        <h2>Recuerdos</h2>
 
         {entradas.length === 0 && (
           <div className="timeline-vacio">
