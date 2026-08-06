@@ -46,6 +46,79 @@ h2 {
   border-radius: 99px;
 }
 
+/* ── Welcome (signed-out) ─────────────────────────────────────── */
+
+.welcome {
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 28px;
+}
+.welcome__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.welcome__heart {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c9455a, #b03246);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(176, 50, 70, 0.35);
+  margin-bottom: 6px;
+}
+.welcome__title {
+  margin: 0;
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 32px;
+}
+.welcome__subtitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #a5737a;
+  max-width: 280px;
+}
+.welcome__signin {
+  width: 100%;
+}
+.welcome__signup {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #a32f42;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 6px;
+}
+
+/* ── Onboarding ───────────────────────────────────────────────── */
+
+.onboarding-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.onboarding-radios {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.onboarding-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #33191c;
+}
+
 /* ── Home ─────────────────────────────────────────────────────── */
 
 .topbar {
@@ -1170,6 +1243,7 @@ h2 {
   color: #7a3f47;
 }
 .sheet__field input[type='date'],
+.sheet__field input[type='text'],
 .sheet__field textarea {
   font-family: inherit;
   font-size: 15px;

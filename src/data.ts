@@ -1,9 +1,5 @@
 import type { Album, Articulo } from './types'
 
-export const nombres = 'Sofía & Andrés'
-export const fechaAniversario = '2024-02-14'
-export const proximoHito: 'cumplemes' | 'aniversario' = 'cumplemes'
-
 export const ideasIniciales = [
   'Picnic al atardecer',
   'Noche de cocina italiana',

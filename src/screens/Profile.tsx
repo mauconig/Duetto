@@ -1,3 +1,5 @@
+import { SignOutButton } from '@clerk/react'
+
 interface ProfileProps {
   nombres: string
   inicial1: string
@@ -76,16 +78,18 @@ export function Profile({ nombres, inicial1, inicial2, fechaInicioTexto, diasJun
             <path d="m9 18 6-6-6-6" />
           </svg>
         </div>
-        <div className="settings-row settings-row--danger">
-          <div className="settings-row__icon">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a32f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
+        <SignOutButton>
+          <div className="settings-row settings-row--danger" role="button">
+            <div className="settings-row__icon">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a32f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </div>
+            <span className="settings-row__label settings-row__label--bold">Cerrar sesión</span>
           </div>
-          <span className="settings-row__label settings-row__label--bold">Cerrar sesión</span>
-        </div>
+        </SignOutButton>
       </div>
     </div>
   )

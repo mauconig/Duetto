@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
+import { useUser, Show } from '@clerk/react'
 import './App.css'
 import { BottomNav } from './components/BottomNav'
+import { Welcome } from './screens/Welcome'
+import { Onboarding } from './screens/Onboarding'
 import { Home } from './screens/Home'
 import { Albums } from './screens/Albums'
 import { Roulette } from './screens/Roulette'
 import { Articles } from './screens/Articles'
 import { ArticleDetail } from './screens/ArticleDetail'
 import { Profile } from './screens/Profile'
-import { albumes as albumesBase, articulos, fechaAniversario, ideasIniciales, nombres, proximoHito } from './data'
+import { albumes as albumesBase, articulos, ideasIniciales } from './data'
 import type { Album, Articulo, Tab } from './types'
+import type { PerfilPareja } from './lib/perfilPareja'
+import { perfilCompleto } from './lib/perfilPareja'
 import { loadUserEntries, saveUserEntries } from './lib/userEntries'
 import { loadOverrides, saveOverrides } from './lib/entryOverrides'
 import {
@@ -24,6 +29,23 @@ import {
 } from './lib/duette'
 
 function App() {
+  const { user } = useUser()
+  const rawMeta = user?.unsafeMetadata as Record<string, unknown> | undefined
+  const perfil: PerfilPareja | null = perfilCompleto(rawMeta) ? rawMeta : null
+
+  return (
+    <div className="app">
+      <div className="duette">
+        <Show when="signed-out">
+          <Welcome />
+        </Show>
+        <Show when="signed-in">{perfil ? <AppContent perfil={perfil} /> : <Onboarding />}</Show>
+      </div>
+    </div>
+  )
+}
+
+function AppContent({ perfil }: { perfil: PerfilPareja }) {
   const [tab, setTab] = useState<Tab>('inicio')
   const [articulo, setArticulo] = useState<Articulo | null>(null)
   const [ideas, setIdeas] = useState<string[]>(ideasIniciales)
@@ -55,13 +77,13 @@ function App() {
     })
   }
 
+  const nombres = `${perfil.nombrePropio} & ${perfil.nombrePareja}`
   const hoy = new Date()
-  const ini = parseFecha(fechaAniversario)
+  const ini = parseFecha(perfil.fechaAniversario)
   const edad = calcularEdad(hoy, ini)
-  const hito = calcularHito(hoy, ini, proximoHito)
-  const partes = nombres.split('&').map((s) => s.trim())
-  const inicial1 = (partes[0] || 'S')[0]
-  const inicial2 = (partes[1] || 'A')[0]
+  const hito = calcularHito(hoy, ini, perfil.proximoHito)
+  const inicial1 = perfil.nombrePropio[0]
+  const inicial2 = perfil.nombrePareja[0]
   const recuerdo = pickDaily(albumes, hoy)
   const ideaSugerida = pickDaily(ideas, hoy)
   const ultimoAlbum = sortByFecha(albumes).at(-1) as Album
@@ -117,72 +139,70 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <div className="duette">
-        {tab === 'inicio' && (
-          <Home
-            nombres={nombres}
-            fechaHoy={formatFechaHoy(hoy)}
-            inicial1={inicial1}
-            inicial2={inicial2}
-            fechaInicioTexto={formatFecha(ini)}
-            edad={edad}
-            hito={hito}
-            ultimoAlbum={ultimoAlbum}
-            albumFoto={albumFoto}
-            articuloDelDia={articulos[0]}
-            recuerdo={recuerdo}
-            ideaSugerida={ideaSugerida}
-            onIrRuleta={irRuleta}
-            onIrAlbumes={irAlbumes}
-            onIrArticulos={irArticulos}
-            onAbrirRecuerdo={abrirRecuerdo}
-          />
-        )}
-
-        {tab === 'albumes' && <Albums albumes={albumes} onCrear={crearEntrada} onEditar={editarEntrada} />}
-
-        {tab === 'ruleta' && (
-          <Roulette
-            ideas={ideas}
-            rotacion={rotacion}
-            girando={girando}
-            resultado={resultado}
-            nuevaIdea={nuevaIdea}
-            onGirar={girar}
-            onCambiarNuevaIdea={setNuevaIdea}
-            onAgregarIdea={agregarIdea}
-            onBorrarIdea={borrarIdea}
-          />
-        )}
-
-        {tab === 'articulos' && !articulo && <Articles articulos={articulos} onAbrir={setArticulo} />}
-        {tab === 'articulos' && articulo && <ArticleDetail articulo={articulo} onVolver={() => setArticulo(null)} />}
-
-        {tab === 'perfil' && (
-          <Profile
-            nombres={nombres}
-            inicial1={inicial1}
-            inicial2={inicial2}
-            fechaInicioTexto={formatFecha(ini)}
-            diasJuntos={diasJuntos(hoy, ini)}
-            numAlbumes={albumes.length}
-            numIdeas={ideas.length}
-          />
-        )}
-
-        <BottomNav
-          active={tab}
-          onChange={(next) => {
-            if (next === 'inicio') irInicio()
-            else if (next === 'albumes') irAlbumes()
-            else if (next === 'ruleta') irRuleta()
-            else if (next === 'articulos') irArticulos()
-            else irPerfil()
-          }}
+    <>
+      {tab === 'inicio' && (
+        <Home
+          nombres={nombres}
+          fechaHoy={formatFechaHoy(hoy)}
+          inicial1={inicial1}
+          inicial2={inicial2}
+          fechaInicioTexto={formatFecha(ini)}
+          edad={edad}
+          hito={hito}
+          ultimoAlbum={ultimoAlbum}
+          albumFoto={albumFoto}
+          articuloDelDia={articulos[0]}
+          recuerdo={recuerdo}
+          ideaSugerida={ideaSugerida}
+          onIrRuleta={irRuleta}
+          onIrAlbumes={irAlbumes}
+          onIrArticulos={irArticulos}
+          onAbrirRecuerdo={abrirRecuerdo}
         />
-      </div>
-    </div>
+      )}
+
+      {tab === 'albumes' && <Albums albumes={albumes} onCrear={crearEntrada} onEditar={editarEntrada} />}
+
+      {tab === 'ruleta' && (
+        <Roulette
+          ideas={ideas}
+          rotacion={rotacion}
+          girando={girando}
+          resultado={resultado}
+          nuevaIdea={nuevaIdea}
+          onGirar={girar}
+          onCambiarNuevaIdea={setNuevaIdea}
+          onAgregarIdea={agregarIdea}
+          onBorrarIdea={borrarIdea}
+        />
+      )}
+
+      {tab === 'articulos' && !articulo && <Articles articulos={articulos} onAbrir={setArticulo} />}
+      {tab === 'articulos' && articulo && <ArticleDetail articulo={articulo} onVolver={() => setArticulo(null)} />}
+
+      {tab === 'perfil' && (
+        <Profile
+          nombres={nombres}
+          inicial1={inicial1}
+          inicial2={inicial2}
+          fechaInicioTexto={formatFecha(ini)}
+          diasJuntos={diasJuntos(hoy, ini)}
+          numAlbumes={albumes.length}
+          numIdeas={ideas.length}
+        />
+      )}
+
+      <BottomNav
+        active={tab}
+        onChange={(next) => {
+          if (next === 'inicio') irInicio()
+          else if (next === 'albumes') irAlbumes()
+          else if (next === 'ruleta') irRuleta()
+          else if (next === 'articulos') irArticulos()
+          else irPerfil()
+        }}
+      />
+    </>
   )
 }
 
