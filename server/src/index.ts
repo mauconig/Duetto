@@ -10,7 +10,7 @@ import { emitirCookie, requireAuth, requireCookie, type AuthedRequest } from './
 
 const PORT = Number(process.env.PORT ?? 8790)
 const MAX_MIEMBROS = 2
-const MAX_FOTOS = 30
+const MAX_FOTOS = 32
 /** Same wording whether the cap is hit by multer, before the route runs, or
  * by the staging count once it does. */
 const DEMASIADAS = `No podés subir más de ${MAX_FOTOS} fotos por recuerdo`
