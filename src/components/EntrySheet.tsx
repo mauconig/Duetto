@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Album } from '../types'
-import { fileToWebpBlob } from '../lib/photoStorage'
+import { fileToWebpBlob, type FotoProcesada } from '../lib/photoStorage'
 import { photoSlots, randomFondo } from '../lib/duette'
 import { readExifDate } from '../lib/exif'
 import { useApi } from '../lib/api'
@@ -24,7 +24,8 @@ function hoyIso(): string {
 
 function fotosIniciales(entry: Album | undefined): FotoItem[] {
   if (!entry) return []
-  return photoSlots(entry).map((slot) => ({ kind: 'existing', id: slot.id, src: slot.src! }) as const)
+  // The sheet only ever shows these at thumbnail size.
+  return photoSlots(entry).map((slot) => ({ kind: 'existing', id: slot.id, src: slot.miniatura! }) as const)
 }
 
 export function EntrySheet({ entry, onClose, onGuardar, onBorrar }: EntrySheetProps) {
@@ -145,7 +146,7 @@ export function EntrySheet({ entry, onClose, onGuardar, onBorrar }: EntrySheetPr
         archivosNuevos.push(item.file)
         return `nuevo:${indice}`
       })
-      const fotosNuevas: Blob[] = []
+      const fotosNuevas: FotoProcesada[] = []
       for (const archivo of archivosNuevos) {
         fotosNuevas.push(await fileToWebpBlob(archivo))
       }

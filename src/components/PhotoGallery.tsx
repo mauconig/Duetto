@@ -46,7 +46,7 @@ export function PhotoGallery({ slots, fondo, onEditar }: PhotoGalleryProps) {
     return (
       <>
         <ImageSlot
-          src={slots[0].src}
+          src={slots[0].miniatura}
           shape="rounded"
           radius={18}
           placeholder="Foto"
@@ -66,7 +66,7 @@ export function PhotoGallery({ slots, fondo, onEditar }: PhotoGalleryProps) {
     <>
       <div className="timeline__gallery">
         <ImageSlot
-          src={main.src}
+          src={main.miniatura}
           shape="rounded"
           radius={18}
           placeholder="Foto"
@@ -76,7 +76,7 @@ export function PhotoGallery({ slots, fondo, onEditar }: PhotoGalleryProps) {
         <div className="timeline__gallery-thumbs">
           {thumbs.map((slot, i) => (
             <div className="timeline__gallery-thumb" key={slot.id}>
-              <ImageSlot src={slot.src} shape="rounded" radius={12} placeholder="" onOpen={() => setOpenIndex(i + 1)} />
+              <ImageSlot src={slot.miniatura} shape="rounded" radius={12} placeholder="" onOpen={() => setOpenIndex(i + 1)} />
               {i === thumbs.length - 1 && restantes > 0 && <div className="timeline__gallery-more">+{restantes}</div>}
             </div>
           ))}

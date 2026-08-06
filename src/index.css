@@ -108,10 +108,21 @@
 
 body {
   margin: 0;
-  background: var(--fondo) fixed;
   min-height: 100vh;
   color: var(--texto);
   font-family: 'Nunito', system-ui, sans-serif;
+}
+
+/* The gradient used to be `background: var(--fondo) fixed` on the body.
+ * background-attachment: fixed can't be composited, so mobile browsers
+ * repaint the whole gradient on every scroll frame. A fixed layer behind
+ * the content looks identical and gets painted once. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--fondo);
 }
 
 a {

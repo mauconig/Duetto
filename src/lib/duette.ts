@@ -121,9 +121,12 @@ export function randomFondo(): string {
 
 export interface PhotoSlot {
   id: string
+  /** Full size — only the lightbox should load this. */
   src?: string
+  /** 800px copy for the timeline grid. */
+  miniatura?: string
 }
 
 export function photoSlots(album: Album): PhotoSlot[] {
-  return album.fotoIds.map((id) => ({ id, src: photoUrl(id) }))
+  return album.fotoIds.map((id) => ({ id, src: photoUrl(id), miniatura: photoUrl(id, 'miniatura') }))
 }

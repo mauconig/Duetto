@@ -50,12 +50,16 @@ db.exec(`
     created_at TEXT NOT NULL
   );
 
+  -- archivo is the full 2500px version, archivo_min an 800px copy for the
+  -- timeline grid. Null on photos uploaded before thumbnails existed, which
+  -- fall back to the full file.
   CREATE TABLE IF NOT EXISTS photos (
-    id         TEXT PRIMARY KEY,
-    entry_id   TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
-    posicion   INTEGER NOT NULL,
-    archivo    TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    id           TEXT PRIMARY KEY,
+    entry_id     TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    posicion     INTEGER NOT NULL,
+    archivo      TEXT NOT NULL,
+    archivo_min  TEXT,
+    created_at   TEXT NOT NULL
   );
 
   -- Roulette ideas belong to the couple, like everything else here: both
@@ -85,6 +89,7 @@ function addColumnIfMissing(table: string, column: string, definition: string) {
 addColumnIfMissing('couples', 'fecha_aniversario', 'TEXT')
 addColumnIfMissing('couples', 'proximo_hito', 'TEXT')
 addColumnIfMissing('couples', 'ideas_sembradas', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('photos', 'archivo_min', 'TEXT')
 
 /** What the wheel used to be hardcoded with on the client. */
 const IDEAS_INICIALES = [

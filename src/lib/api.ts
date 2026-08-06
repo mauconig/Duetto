@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { useAuth } from '@clerk/react'
 import type { Album } from '../types'
+import type { FotoProcesada } from './photoStorage'
 
 export interface Pareja {
   coupleId: string
@@ -142,9 +143,9 @@ export interface DatosEntrada {
   nota?: string
   fondo: string
   /** Final photo order: an existing photo id, or `nuevo:<n>` pointing at
-   * the n-th blob in `fotosNuevas`. Existing ids left out get deleted. */
+   * the n-th entry in `fotosNuevas`. Existing ids left out get deleted. */
   orden?: string[]
-  fotosNuevas: Blob[]
+  fotosNuevas: FotoProcesada[]
 }
 
 function armarFormulario(datos: DatosEntrada): FormData {
@@ -154,6 +155,9 @@ function armarFormulario(datos: DatosEntrada): FormData {
   form.append('nota', datos.nota ?? '')
   form.append('fondo', datos.fondo)
   for (const item of datos.orden ?? []) form.append('orden', item)
-  datos.fotosNuevas.forEach((blob, i) => form.append('fotos', blob, `foto-${i}.webp`))
+  // Two parallel lists: the server pairs them up by index, so both have to
+  // be appended in the same order and neither can skip an entry.
+  datos.fotosNuevas.forEach((foto, i) => form.append('fotos', foto.completa, `foto-${i}.webp`))
+  datos.fotosNuevas.forEach((foto, i) => form.append('miniaturas', foto.miniatura, `min-${i}.webp`))
   return form
 }

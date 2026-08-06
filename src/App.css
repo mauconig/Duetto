@@ -1318,8 +1318,10 @@ h2 {
   transform: translateX(-50%);
   width: calc(100% - 32px);
   max-width: 398px;
+  /* No backdrop-filter: the nav is fixed over scrolling content, so a blur
+   * makes the GPU re-blur that strip on every frame. At 92-94% opacity the
+   * blur was barely visible anyway. */
   background: var(--nav-fondo);
-  backdrop-filter: blur(12px);
   border-radius: 28px;
   box-shadow: 0 12px 32px rgba(var(--sombra-rgb), 0.22);
   display: grid;

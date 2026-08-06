@@ -45,21 +45,23 @@ const q = {
   ),
   updateEntry: db.prepare('UPDATE entries SET fecha = ?, fecha_fin = ?, nota = ? WHERE id = ?'),
   deleteEntry: db.prepare('DELETE FROM entries WHERE id = ?'),
-  photosOfEntry: db.prepare('SELECT id, archivo, posicion FROM photos WHERE entry_id = ? ORDER BY posicion'),
+  photosOfEntry: db.prepare('SELECT id, archivo, archivo_min, posicion FROM photos WHERE entry_id = ? ORDER BY posicion'),
   photosOfCouple: db.prepare(
     'SELECT p.id, p.entry_id, p.posicion FROM photos p JOIN entries e ON e.id = p.entry_id WHERE e.couple_id = ? ORDER BY p.posicion',
   ),
-  insertPhoto: db.prepare('INSERT INTO photos (id, entry_id, posicion, archivo, created_at) VALUES (?, ?, ?, ?, ?)'),
+  insertPhoto: db.prepare(
+    'INSERT INTO photos (id, entry_id, posicion, archivo, archivo_min, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+  ),
   updatePhotoPos: db.prepare('UPDATE photos SET posicion = ? WHERE id = ?'),
   deletePhoto: db.prepare('DELETE FROM photos WHERE id = ?'),
   /** Joined against entries so a photo id from one couple can never be read
    * or deleted by another. */
   photoForCouple: db.prepare(
-    'SELECT p.archivo FROM photos p JOIN entries e ON e.id = p.entry_id WHERE p.id = ? AND e.couple_id = ?',
+    'SELECT p.archivo, p.archivo_min FROM photos p JOIN entries e ON e.id = p.entry_id WHERE p.id = ? AND e.couple_id = ?',
   ),
   /** Every file the couple owns, for cleaning up after the last member leaves. */
   photoFilesOfCouple: db.prepare(
-    'SELECT p.archivo FROM photos p JOIN entries e ON e.id = p.entry_id WHERE e.couple_id = ?',
+    'SELECT p.archivo, p.archivo_min FROM photos p JOIN entries e ON e.id = p.entry_id WHERE e.couple_id = ?',
   ),
 
   ideasOfCouple: db.prepare('SELECT id, texto FROM ideas WHERE couple_id = ? ORDER BY posicion, created_at'),
@@ -244,12 +246,12 @@ app.delete('/api/couple/me', requireAuth, async (req: AuthedRequest, res) => {
     return
   }
 
-  const archivos = q.photoFilesOfCouple.all(member.couple_id) as { archivo: string }[]
+  const archivos = q.photoFilesOfCouple.all(member.couple_id) as { archivo: string; archivo_min: string | null }[]
   // ON DELETE CASCADE takes members, entries, photos and ideas with it.
   q.deleteCouple.run(member.couple_id)
   // Files go last: a failure here leaves orphans on disk rather than rows
   // pointing at photos that no longer exist.
-  await Promise.all(archivos.map((f) => unlink(join(UPLOADS_DIR, f.archivo)).catch(() => {})))
+  await borrarArchivos(archivos.flatMap(nombresDe))
   res.json({ ok: true, parejaBorrada: true })
 })
 
@@ -306,17 +308,54 @@ function leerCampos(body: Record<string, unknown>) {
   return { fecha, fechaFin: fechaFin || null, nota: nota || null }
 }
 
-async function guardarArchivos(files: Express.Multer.File[]): Promise<string[]> {
-  const nombres: string[] = []
-  for (const file of files) {
-    const nombre = `${randomUUID()}.webp`
-    await writeFile(join(UPLOADS_DIR, nombre), file.buffer)
-    nombres.push(nombre)
-  }
-  return nombres
+interface ParGuardado {
+  archivo: string
+  min: string | null
 }
 
-app.post('/api/entries', requireAuth, subida.array('fotos', MAX_FOTOS), async (req: AuthedRequest, res) => {
+/** The browser sends each photo twice — full size and an 800px copy — as
+ * two parallel arrays, so index n of `miniaturas` belongs to index n of
+ * `fotos`. A missing thumbnail is tolerated: the reader falls back to the
+ * full file rather than showing a hole. */
+async function guardarArchivos(
+  files: Express.Multer.File[],
+  minis: Express.Multer.File[],
+): Promise<ParGuardado[]> {
+  const guardados: ParGuardado[] = []
+  for (let i = 0; i < files.length; i++) {
+    const archivo = `${randomUUID()}.webp`
+    await writeFile(join(UPLOADS_DIR, archivo), files[i].buffer)
+    let min: string | null = null
+    if (minis[i]) {
+      min = `${randomUUID()}.webp`
+      await writeFile(join(UPLOADS_DIR, min), minis[i].buffer)
+    }
+    guardados.push({ archivo, min })
+  }
+  return guardados
+}
+
+/** Both names of a stored photo, skipping the thumbnail when there isn't one. */
+function nombresDe(p: { archivo: string; archivo_min?: string | null }): string[] {
+  return p.archivo_min ? [p.archivo, p.archivo_min] : [p.archivo]
+}
+
+function borrarArchivos(nombres: string[]) {
+  return Promise.all(nombres.map((n) => unlink(join(UPLOADS_DIR, n)).catch(() => {})))
+}
+
+/** Multer field layout shared by create and edit. */
+const camposSubida = subida.fields([
+  { name: 'fotos', maxCount: MAX_FOTOS },
+  { name: 'miniaturas', maxCount: MAX_FOTOS },
+])
+
+function archivosDe(req: AuthedRequest) {
+  const files = (req.files ?? {}) as Record<string, Express.Multer.File[] | undefined>
+  return { fotos: files.fotos ?? [], miniaturas: files.miniaturas ?? [] }
+}
+
+app.post('/api/entries', requireAuth, camposSubida, async (req: AuthedRequest, res) => {
   const coupleId = coupleIdDe(req.userId!)
   if (!coupleId) {
     res.status(404).json({ error: 'Todavía no estás en una pareja' })
@@ -333,17 +372,18 @@ app.post('/api/entries', requireAuth, subida.array('fotos', MAX_FOTOS), async (r
     return
   }
 
-  const archivos = await guardarArchivos((req.files as Express.Multer.File[]) ?? [])
+  const { fotos, miniaturas } = archivosDe(req)
+  const archivos = await guardarArchivos(fotos, miniaturas)
   const id = randomUUID()
   const ahora = new Date().toISOString()
   db.exec('BEGIN')
   try {
     q.insertEntry.run(id, coupleId, campos.fecha, campos.fechaFin, campos.nota, fondo, req.userId!, ahora)
-    archivos.forEach((archivo, i) => q.insertPhoto.run(randomUUID(), id, i, archivo, ahora))
+    archivos.forEach((par, i) => q.insertPhoto.run(randomUUID(), id, i, par.archivo, par.min, ahora))
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
-    await Promise.all(archivos.map((a) => unlink(join(UPLOADS_DIR, a)).catch(() => {})))
+    await borrarArchivos(archivos.flatMap((p) => (p.min ? [p.archivo, p.min] : [p.archivo])))
     throw e
   }
   res.status(201).json(entradaConFotos(q.entryById.get(id, coupleId) as FilaEntry))
@@ -353,7 +393,7 @@ app.post('/api/entries', requireAuth, subida.array('fotos', MAX_FOTOS), async (r
  * sequence the user arranged: each item is either an existing photo id or
  * `nuevo:<n>` pointing at the n-th uploaded file, so a newly added photo
  * can sit anywhere — not just at the end. Photos left out are deleted. */
-app.patch('/api/entries/:id', requireAuth, subida.array('fotos', MAX_FOTOS), async (req: AuthedRequest, res) => {
+app.patch('/api/entries/:id', requireAuth, camposSubida, async (req: AuthedRequest, res) => {
   const coupleId = coupleIdDe(req.userId!)
   if (!coupleId) {
     res.status(404).json({ error: 'Todavía no estás en una pareja' })
@@ -370,13 +410,14 @@ app.patch('/api/entries/:id', requireAuth, subida.array('fotos', MAX_FOTOS), asy
     return
   }
 
-  const actuales = q.photosOfEntry.all(entrada.id) as { id: string; archivo: string }[]
+  const actuales = q.photosOfEntry.all(entrada.id) as { id: string; archivo: string; archivo_min: string | null }[]
   const crudo = req.body?.orden
   const orden: string[] = (Array.isArray(crudo) ? crudo : crudo ? [crudo] : []).map(String)
   const conservados = orden.filter((item) => actuales.some((p) => p.id === item))
   const eliminados = actuales.filter((p) => !conservados.includes(p.id))
 
-  const archivos = await guardarArchivos((req.files as Express.Multer.File[]) ?? [])
+  const { fotos, miniaturas } = archivosDe(req)
+  const archivos = await guardarArchivos(fotos, miniaturas)
   const ahora = new Date().toISOString()
   db.exec('BEGIN')
   try {
@@ -385,8 +426,8 @@ app.patch('/api/entries/:id', requireAuth, subida.array('fotos', MAX_FOTOS), asy
     orden.forEach((item, posicion) => {
       const nuevo = /^nuevo:(\d+)$/.exec(item)
       if (nuevo) {
-        const archivo = archivos[Number(nuevo[1])]
-        if (archivo) q.insertPhoto.run(randomUUID(), entrada.id, posicion, archivo, ahora)
+        const par = archivos[Number(nuevo[1])]
+        if (par) q.insertPhoto.run(randomUUID(), entrada.id, posicion, par.archivo, par.min, ahora)
       } else if (conservados.includes(item)) {
         q.updatePhotoPos.run(posicion, item)
       }
@@ -394,12 +435,12 @@ app.patch('/api/entries/:id', requireAuth, subida.array('fotos', MAX_FOTOS), asy
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
-    await Promise.all(archivos.map((a) => unlink(join(UPLOADS_DIR, a)).catch(() => {})))
+    await borrarArchivos(archivos.flatMap((p) => (p.min ? [p.archivo, p.min] : [p.archivo])))
     throw e
   }
   // Only unlink after the transaction committed, so a rollback can't leave
   // rows pointing at files that are already gone.
-  await Promise.all(eliminados.map((p) => unlink(join(UPLOADS_DIR, p.archivo)).catch(() => {})))
+  await borrarArchivos(eliminados.flatMap(nombresDe))
   res.json(entradaConFotos(q.entryById.get(entrada.id, coupleId) as FilaEntry))
 })
 
@@ -415,12 +456,12 @@ app.delete('/api/entries/:id', requireAuth, async (req: AuthedRequest, res) => {
     return
   }
 
-  const fotos = q.photosOfEntry.all(entrada.id) as { archivo: string }[]
+  const fotos = q.photosOfEntry.all(entrada.id) as { archivo: string; archivo_min: string | null }[]
   // ON DELETE CASCADE clears the photo rows with the entry.
   q.deleteEntry.run(entrada.id)
   // Files go only after the rows are gone, so a failure here leaves
   // orphaned files rather than rows pointing at missing photos.
-  await Promise.all(fotos.map((f) => unlink(join(UPLOADS_DIR, f.archivo)).catch(() => {})))
+  await borrarArchivos(fotos.flatMap(nombresDe))
   res.json({ ok: true })
 })
 
@@ -478,23 +519,30 @@ app.delete('/api/ideas/:id', requireAuth, (req: AuthedRequest, res) => {
 })
 
 /** Photo files. Cookie-authenticated so <img> works, and scoped to the
- * caller's couple so a leaked id is useless to anyone else. */
+ * caller's couple so a leaked id is useless to anyone else.
+ *
+ * `?tamano=min` serves the 800px copy the timeline grid needs. Photos
+ * uploaded before thumbnails existed have none, so they fall back to the
+ * full file — a slow photo beats a broken one. */
 app.get('/api/photos/:id', requireCookie, (req: AuthedRequest, res) => {
   const coupleId = coupleIdDe(req.userId!)
   if (!coupleId) {
     res.status(404).json({ error: 'No encontramos esa foto' })
     return
   }
-  const foto = q.photoForCouple.get(req.params.id, coupleId) as { archivo: string } | undefined
+  const foto = q.photoForCouple.get(req.params.id, coupleId) as
+    | { archivo: string; archivo_min: string | null }
+    | undefined
   if (!foto) {
     res.status(404).json({ error: 'No encontramos esa foto' })
     return
   }
+  const archivo = req.query.tamano === 'min' && foto.archivo_min ? foto.archivo_min : foto.archivo
   res.setHeader('Content-Type', 'image/webp')
   // Filenames are random and never reused, so the bytes behind an id never
   // change — but keep it private so no shared cache holds onto them.
   res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')
-  createReadStream(join(UPLOADS_DIR, foto.archivo)).on('error', () => res.sendStatus(404)).pipe(res)
+  createReadStream(join(UPLOADS_DIR, archivo)).on('error', () => res.sendStatus(404)).pipe(res)
 })
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

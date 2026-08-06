@@ -28,7 +28,7 @@ export function ImageSlot({ shape = 'rounded', radius = 12, placeholder = 'Foto'
       aria-label={onOpen ? 'Ver foto' : undefined}
     >
       {src ? (
-        <img src={src} alt="" className="image-slot__img" loading="lazy" />
+        <img src={src} alt="" className="image-slot__img" loading="lazy" decoding="async" />
       ) : (
         <div className="image-slot__empty">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
