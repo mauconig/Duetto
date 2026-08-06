@@ -92,7 +92,7 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
 
   function guardarPerfil() {
     correr(async () => {
-      const p = await api.guardarPerfil(fecha, hito)
+      const p = await api.guardarPerfil({ fechaAniversario: fecha, proximoHito: hito })
       onListo(p)
     })
   }

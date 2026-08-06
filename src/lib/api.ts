@@ -81,8 +81,9 @@ export function useApi() {
       unirsePareja(nombre: string, codigo: string) {
         return call<Pareja>('/couple/join', { method: 'POST', body: JSON.stringify({ nombre, codigo }) })
       },
-      guardarPerfil(fechaAniversario: string, proximoHito: Pareja['proximoHito']) {
-        return call<Pareja>('/couple', { method: 'PATCH', body: JSON.stringify({ fechaAniversario, proximoHito }) })
+      /** Any subset of the fields; omitted ones are left untouched. */
+      guardarPerfil(cambios: { fechaAniversario?: string; proximoHito?: Pareja['proximoHito']; nombre?: string }) {
+        return call<Pareja>('/couple', { method: 'PATCH', body: JSON.stringify(cambios) })
       },
 
       /** Sets the cookie that photo <img> requests authenticate with. */
@@ -100,6 +101,10 @@ export function useApi() {
 
       editarEntrada(id: string, datos: DatosEntrada) {
         return enviarFormulario<Album>(`/entries/${id}`, 'PATCH', armarFormulario(datos))
+      },
+
+      borrarEntrada(id: string) {
+        return call<{ ok: boolean }>(`/entries/${id}`, { method: 'DELETE' })
       },
     }),
     [call, enviarFormulario],

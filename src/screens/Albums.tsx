@@ -8,11 +8,12 @@ interface AlbumsProps {
   albumes: Album[]
   onCrear: (entry: Album) => void
   onEditar: (entry: Album) => void
+  onBorrar: (id: string) => void
 }
 
 type SheetState = { mode: 'crear' } | { mode: 'editar'; entry: Album } | null
 
-export function Albums({ albumes, onCrear, onEditar }: AlbumsProps) {
+export function Albums({ albumes, onCrear, onEditar, onBorrar }: AlbumsProps) {
   const entradas = sortByFecha(albumes)
   const [fabVisible, setFabVisible] = useState(true)
   const [sheet, setSheet] = useState<SheetState>(null)
@@ -85,6 +86,10 @@ export function Albums({ albumes, onCrear, onEditar }: AlbumsProps) {
           onClose={() => setSheet(null)}
           onGuardar={(entry) => {
             sheet.mode === 'crear' ? onCrear(entry) : onEditar(entry)
+            setSheet(null)
+          }}
+          onBorrar={(id) => {
+            onBorrar(id)
             setSheet(null)
           }}
         />

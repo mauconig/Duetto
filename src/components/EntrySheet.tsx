@@ -14,6 +14,7 @@ interface EntrySheetProps {
   entry?: Album
   onClose: () => void
   onGuardar: (entry: Album) => void
+  onBorrar: (id: string) => void
 }
 
 function hoyIso(): string {
@@ -26,7 +27,7 @@ function fotosIniciales(entry: Album | undefined): FotoItem[] {
   return photoSlots(entry).map((slot) => ({ kind: 'existing', id: slot.id, src: slot.src! }) as const)
 }
 
-export function EntrySheet({ entry, onClose, onGuardar }: EntrySheetProps) {
+export function EntrySheet({ entry, onClose, onGuardar, onBorrar }: EntrySheetProps) {
   const editando = !!entry
   const [fecha, setFecha] = useState(entry?.fecha ?? hoyIso())
   const [rango, setRango] = useState(!!entry?.fechaFin)
@@ -38,6 +39,7 @@ export function EntrySheet({ entry, onClose, onGuardar }: EntrySheetProps) {
   const [guardando, setGuardando] = useState(false)
   const [sinMetadata, setSinMetadata] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
   const api = useApi()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const avisoTimeout = useRef<number | undefined>(undefined)
@@ -112,6 +114,19 @@ export function EntrySheet({ entry, onClose, onGuardar }: EntrySheetProps) {
       ;[next[i], next[target]] = [next[target], next[i]]
       return next
     })
+  }
+
+  async function borrar() {
+    if (!entry || guardando) return
+    setGuardando(true)
+    setError(null)
+    try {
+      await api.borrarEntrada(entry.id)
+      onBorrar(entry.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No pudimos borrar el recuerdo')
+      setGuardando(false)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -263,6 +278,28 @@ export function EntrySheet({ entry, onClose, onGuardar }: EntrySheetProps) {
           <button type="submit" className="sheet__submit" disabled={!fecha || guardando}>
             {guardando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Guardar recuerdo'}
           </button>
+
+          {editando &&
+            (confirmandoBorrado ? (
+              <div className="sheet__confirmar">
+                <p className="sheet__confirmar-texto">
+                  Se borra para los dos, con sus {fotos.length === 1 ? 'foto' : `${fotos.length} fotos`}. No se puede
+                  deshacer.
+                </p>
+                <div className="sheet__confirmar-acciones">
+                  <button type="button" className="sheet__cancelar" onClick={() => setConfirmandoBorrado(false)}>
+                    Cancelar
+                  </button>
+                  <button type="button" className="sheet__borrar-confirmar" disabled={guardando} onClick={borrar}>
+                    {guardando ? 'Borrando...' : 'Sí, borrar'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" className="sheet__borrar" disabled={guardando} onClick={() => setConfirmandoBorrado(true)}>
+                Borrar recuerdo
+              </button>
+            ))}
         </form>
       </div>
     </div>

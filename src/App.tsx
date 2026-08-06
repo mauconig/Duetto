@@ -10,6 +10,7 @@ import { Roulette } from './screens/Roulette'
 import { Articles } from './screens/Articles'
 import { ArticleDetail } from './screens/ArticleDetail'
 import { Profile } from './screens/Profile'
+import { SettingsSheet } from './components/SettingsSheet'
 import { articulos, ideasIniciales } from './data'
 import type { Album, Articulo, Tab } from './types'
 import { useApi, type Pareja } from './lib/api'
@@ -82,6 +83,10 @@ function SignedInApp() {
     setAlbumes((prev) => prev.map((a) => (a.id === actualizada.id ? actualizada : a)))
   }
 
+  function alBorrar(id: string) {
+    setAlbumes((prev) => prev.filter((a) => a.id !== id))
+  }
+
   if (cargando) {
     return (
       <div className="screen app-loading">
@@ -106,7 +111,16 @@ function SignedInApp() {
     return <Onboarding parejaInicial={pareja} onListo={setPareja} />
   }
 
-  return <AppContent pareja={pareja} albumes={albumes} onCrear={alCrear} onEditar={alEditar} />
+  return (
+    <AppContent
+      pareja={pareja}
+      albumes={albumes}
+      onCrear={alCrear}
+      onEditar={alEditar}
+      onBorrar={alBorrar}
+      onActualizarPareja={setPareja}
+    />
+  )
 }
 
 interface AppContentProps {
@@ -114,9 +128,12 @@ interface AppContentProps {
   albumes: Album[]
   onCrear: (entry: Album) => void
   onEditar: (entry: Album) => void
+  onBorrar: (id: string) => void
+  onActualizarPareja: (p: Pareja) => void
 }
 
-function AppContent({ pareja, albumes, onCrear, onEditar }: AppContentProps) {
+function AppContent({ pareja, albumes, onCrear, onEditar, onBorrar, onActualizarPareja }: AppContentProps) {
+  const [ajustesAbiertos, setAjustesAbiertos] = useState(false)
   const [tab, setTab] = useState<Tab>('inicio')
   const [articulo, setArticulo] = useState<Articulo | null>(null)
   const [ideas, setIdeas] = useState<string[]>(ideasIniciales)
@@ -216,7 +233,7 @@ function AppContent({ pareja, albumes, onCrear, onEditar }: AppContentProps) {
         />
       )}
 
-      {tab === 'albumes' && <Albums albumes={albumes} onCrear={onCrear} onEditar={onEditar} />}
+      {tab === 'albumes' && <Albums albumes={albumes} onCrear={onCrear} onEditar={onEditar} onBorrar={onBorrar} />}
 
       {tab === 'ruleta' && (
         <Roulette
@@ -238,6 +255,7 @@ function AppContent({ pareja, albumes, onCrear, onEditar }: AppContentProps) {
       {tab === 'perfil' && (
         <Profile
           nombres={nombres}
+          nombrePropio={propio}
           inicial1={inicial1}
           inicial2={inicial2}
           fechaInicioTexto={formatFecha(ini)}
@@ -246,6 +264,18 @@ function AppContent({ pareja, albumes, onCrear, onEditar }: AppContentProps) {
           numIdeas={ideas.length}
           codigo={pareja.codigo}
           vinculada={pareja.vinculada}
+          onAbrirAjustes={() => setAjustesAbiertos(true)}
+        />
+      )}
+
+      {ajustesAbiertos && (
+        <SettingsSheet
+          pareja={pareja}
+          onClose={() => setAjustesAbiertos(false)}
+          onGuardar={(p) => {
+            onActualizarPareja(p)
+            setAjustesAbiertos(false)
+          }}
         />
       )}
 

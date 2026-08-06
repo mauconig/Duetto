@@ -39,6 +39,7 @@ const q = {
     'INSERT INTO entries (id, couple_id, fecha, fecha_fin, nota, fondo, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   ),
   updateEntry: db.prepare('UPDATE entries SET fecha = ?, fecha_fin = ?, nota = ? WHERE id = ?'),
+  deleteEntry: db.prepare('DELETE FROM entries WHERE id = ?'),
   photosOfEntry: db.prepare('SELECT id, archivo, posicion FROM photos WHERE entry_id = ? ORDER BY posicion'),
   photosOfCouple: db.prepare(
     'SELECT p.id, p.entry_id, p.posicion FROM photos p JOIN entries e ON e.id = p.entry_id WHERE e.couple_id = ? ORDER BY p.posicion',
@@ -158,8 +159,10 @@ app.post('/api/couple/join', requireAuth, (req: AuthedRequest, res) => {
   res.json(estadoPareja(couple.id, req.userId!))
 })
 
-/** Set the couple's anniversary and which milestone to track. Shared by
- * both members, so whoever joins second doesn't get asked again. */
+/** Sets the couple's anniversary/milestone and the caller's own name.
+ * Every field is optional so the settings screen can change one thing at a
+ * time, while onboarding sends them together. `nombre` only ever touches
+ * the caller's own row — you can't rename your partner. */
 app.patch('/api/couple', requireAuth, (req: AuthedRequest, res) => {
   const member = q.memberByUser.get(req.userId!) as { couple_id: string } | undefined
   if (!member) {
@@ -167,18 +170,38 @@ app.patch('/api/couple', requireAuth, (req: AuthedRequest, res) => {
     return
   }
 
-  const fecha = String(req.body?.fechaAniversario ?? '').trim()
-  const hito = String(req.body?.proximoHito ?? '').trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+  const actual = q.coupleById.get(member.couple_id) as {
+    fecha_aniversario: string | null
+    proximo_hito: string | null
+  }
+
+  const traeFecha = req.body?.fechaAniversario !== undefined
+  const traeHito = req.body?.proximoHito !== undefined
+  const traeNombre = req.body?.nombre !== undefined
+  if (!traeFecha && !traeHito && !traeNombre) {
+    res.status(400).json({ error: 'No hay nada que cambiar' })
+    return
+  }
+
+  const fecha = traeFecha ? String(req.body.fechaAniversario).trim() : actual.fecha_aniversario
+  const hito = traeHito ? String(req.body.proximoHito).trim() : actual.proximo_hito
+  const nombre = traeNombre ? String(req.body.nombre).trim() : null
+
+  if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     res.status(400).json({ error: 'Fecha inválida' })
     return
   }
-  if (!HITOS.includes(hito)) {
+  if (!hito || !HITOS.includes(hito)) {
     res.status(400).json({ error: 'Hito inválido' })
+    return
+  }
+  if (traeNombre && !nombre) {
+    res.status(400).json({ error: 'El nombre no puede quedar vacío' })
     return
   }
 
   q.updatePerfil.run(fecha, hito, member.couple_id)
+  if (nombre) q.updateNombre.run(nombre, req.userId!)
   res.json(estadoPareja(member.couple_id, req.userId!))
 })
 
@@ -330,6 +353,27 @@ app.patch('/api/entries/:id', requireAuth, subida.array('fotos', MAX_FOTOS), asy
   // rows pointing at files that are already gone.
   await Promise.all(eliminados.map((p) => unlink(join(UPLOADS_DIR, p.archivo)).catch(() => {})))
   res.json(entradaConFotos(q.entryById.get(entrada.id, coupleId) as FilaEntry))
+})
+
+app.delete('/api/entries/:id', requireAuth, async (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const entrada = q.entryById.get(req.params.id, coupleId) as FilaEntry | undefined
+  if (!entrada) {
+    res.status(404).json({ error: 'No encontramos ese recuerdo' })
+    return
+  }
+
+  const fotos = q.photosOfEntry.all(entrada.id) as { archivo: string }[]
+  // ON DELETE CASCADE clears the photo rows with the entry.
+  q.deleteEntry.run(entrada.id)
+  // Files go only after the rows are gone, so a failure here leaves
+  // orphaned files rather than rows pointing at missing photos.
+  await Promise.all(fotos.map((f) => unlink(join(UPLOADS_DIR, f.archivo)).catch(() => {})))
+  res.json({ ok: true })
 })
 
 /** Photo files. Cookie-authenticated so <img> works, and scoped to the

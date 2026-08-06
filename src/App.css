@@ -1583,3 +1583,66 @@ h2 {
   opacity: 0.5;
   cursor: default;
 }
+.sheet__borrar {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #a32f42;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px;
+}
+.sheet__confirmar {
+  background: #fdecea;
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sheet__confirmar-texto {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8a2333;
+  line-height: 1.4;
+}
+.sheet__confirmar-acciones {
+  display: flex;
+  gap: 10px;
+}
+.sheet__cancelar,
+.sheet__borrar-confirmar {
+  flex: 1;
+  border: none;
+  cursor: pointer;
+  padding: 11px;
+  border-radius: 14px;
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+}
+.sheet__cancelar {
+  background: #fff;
+  color: #7a3f47;
+}
+.sheet__borrar-confirmar {
+  background: #b03246;
+  color: #fff;
+}
+.sheet__borrar-confirmar:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.settings-row__codigo {
+  border: none;
+  cursor: pointer;
+  background: #f8e3e4;
+  color: #a32f42;
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  padding: 6px 12px;
+  border-radius: 99px;
+}

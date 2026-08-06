@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { SignOutButton } from '@clerk/react'
 
 interface ProfileProps {
   nombres: string
+  nombrePropio: string
   inicial1: string
   inicial2: string
   fechaInicioTexto: string
@@ -10,9 +12,34 @@ interface ProfileProps {
   numIdeas: number
   codigo: string
   vinculada: boolean
+  onAbrirAjustes: () => void
 }
 
-export function Profile({ nombres, inicial1, inicial2, fechaInicioTexto, diasJuntos, numAlbumes, numIdeas, codigo, vinculada }: ProfileProps) {
+export function Profile({
+  nombres,
+  nombrePropio,
+  inicial1,
+  inicial2,
+  fechaInicioTexto,
+  diasJuntos,
+  numAlbumes,
+  numIdeas,
+  codigo,
+  vinculada,
+  onAbrirAjustes,
+}: ProfileProps) {
+  const [copiado, setCopiado] = useState(false)
+
+  async function copiarCodigo() {
+    try {
+      await navigator.clipboard.writeText(codigo)
+      setCopiado(true)
+      window.setTimeout(() => setCopiado(false), 2500)
+    } catch {
+      // Clipboard can be blocked; the code is on screen to copy by hand.
+    }
+  }
+
   return (
     <div className="screen">
       <h2>Perfil</h2>
@@ -42,7 +69,20 @@ export function Profile({ nombres, inicial1, inicial2, fechaInicioTexto, diasJun
       </div>
 
       <div className="settings-panel">
-        <div className="settings-row">
+        <div className="settings-row" role="button" onClick={onAbrirAjustes}>
+          <div className="settings-row__icon">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a32f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+          <span className="settings-row__label">Tu nombre</span>
+          <span className="settings-row__value">{nombrePropio}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d3adaf" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </div>
+        <div className="settings-row" role="button" onClick={onAbrirAjustes}>
           <div className="settings-row__icon">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a32f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="4" />
@@ -53,15 +93,6 @@ export function Profile({ nombres, inicial1, inicial2, fechaInicioTexto, diasJun
           </div>
           <span className="settings-row__label">Fecha de aniversario</span>
           <span className="settings-row__value">{fechaInicioTexto}</span>
-        </div>
-        <div className="settings-row">
-          <div className="settings-row__icon">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#a32f42" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-            </svg>
-          </div>
-          <span className="settings-row__label">Notificaciones</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d3adaf" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m9 18 6-6-6-6" />
           </svg>
@@ -76,7 +107,13 @@ export function Profile({ nombres, inicial1, inicial2, fechaInicioTexto, diasJun
             </svg>
           </div>
           <span className="settings-row__label">{vinculada ? 'Pareja vinculada' : 'Invitar a tu pareja'}</span>
-          <span className="settings-row__value">{vinculada ? '✓' : codigo}</span>
+          {vinculada ? (
+            <span className="settings-row__value">✓</span>
+          ) : (
+            <button type="button" className="settings-row__codigo" onClick={copiarCodigo}>
+              {copiado ? '¡Copiado!' : codigo}
+            </button>
+          )}
         </div>
         <SignOutButton>
           <div className="settings-row settings-row--danger" role="button">
