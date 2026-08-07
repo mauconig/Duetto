@@ -84,10 +84,37 @@ db.exec(`
     created_at TEXT NOT NULL
   );
 
+  -- Categories the couple invents for their reference photos. Kept as rows
+  -- rather than a label on each photo so renaming one is a single update
+  -- and an empty category can sit there waiting to be filled.
+  CREATE TABLE IF NOT EXISTS categorias (
+    id         TEXT PRIMARY KEY,
+    couple_id  TEXT NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    nombre     TEXT NOT NULL,
+    posicion   INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  -- Photo references the couple saves: poses, story formats, anything they
+  -- want to try. SET NULL rather than CASCADE on the category: deleting a
+  -- label must not destroy the photos filed under it — they fall back to
+  -- "Sin categoría" and can be refiled.
+  CREATE TABLE IF NOT EXISTS inspiraciones (
+    id           TEXT PRIMARY KEY,
+    couple_id    TEXT NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    categoria_id TEXT REFERENCES categorias(id) ON DELETE SET NULL,
+    archivo      TEXT NOT NULL,
+    archivo_min  TEXT,
+    nota         TEXT,
+    created_at   TEXT NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_entries_couple ON entries(couple_id);
   CREATE INDEX IF NOT EXISTS idx_photos_entry ON photos(entry_id);
   CREATE INDEX IF NOT EXISTS idx_staged_couple ON staged_photos(couple_id);
   CREATE INDEX IF NOT EXISTS idx_ideas_couple ON ideas(couple_id);
+  CREATE INDEX IF NOT EXISTS idx_categorias_couple ON categorias(couple_id);
+  CREATE INDEX IF NOT EXISTS idx_inspiraciones_couple ON inspiraciones(couple_id);
 `)
 
 /** Adds a column to an existing table if it isn't there yet, so a database

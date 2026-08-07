@@ -1,4 +1,4 @@
-export type Tab = 'inicio' | 'albumes' | 'ruleta' | 'articulos' | 'perfil'
+export type Tab = 'inicio' | 'albumes' | 'ruleta' | 'inspiracion' | 'perfil'
 
 export interface Album {
   id: string
@@ -11,11 +11,3 @@ export interface Album {
   fondo: string
 }
 
-export interface Articulo {
-  id: string
-  tag: string
-  titulo: string
-  min: number
-  resumen: string
-  cuerpo: string[]
-}

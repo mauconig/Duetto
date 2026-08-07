@@ -3,18 +3,28 @@
  * can't drift into producing different photos, and so the worker can import
  * them without pulling in anything that touches `document`. */
 
-/** Photos are downscaled in the browser before upload: it keeps the server
- * free of an image library, and saves a lot of mobile data compared with
- * sending a 3-10MB original straight off the camera. */
-export const MAX_DIM = 2500
-export const CALIDAD = 0.9
+export interface Preset {
+  maxDim: number
+  calidad: number
+  maxDimMin: number
+  calidadMin: number
+}
 
-/** The timeline draws its biggest photo about 220px wide, so 800px still
- * looks sharp on a 3x phone screen. Handing the full 2500px file to those
- * slots costs roughly 240ms to decode and 19MB of memory each — twenty of
- * them on screen is what makes scrolling stutter. */
-export const MAX_DIM_MINIATURA = 800
-export const CALIDAD_MINIATURA = 0.82
+/** Photos of their own life. Downscaled in the browser before upload: it
+ * keeps the server free of an image library, and saves a lot of mobile data
+ * compared with sending a 3-10MB original straight off the camera.
+ *
+ * The 800px copy exists because the timeline draws its biggest photo about
+ * 220px wide, and handing those slots the full 2500px file costs roughly
+ * 240ms to decode and 19MB of memory each — twenty on screen is what made
+ * scrolling stutter. */
+export const PRESET_RECUERDO: Preset = { maxDim: 2500, calidad: 0.9, maxDimMin: 800, calidadMin: 0.82 }
+
+/** Saved references — screenshots, pins, things found online. Nobody zooms
+ * into one looking for detail the way they do with their own photos, and
+ * they arrive already compressed, so full camera resolution would just be
+ * disk spent on re-encoding someone else's JPEG artefacts. */
+export const PRESET_REFERENCIA: Preset = { maxDim: 1600, calidad: 0.85, maxDimMin: 400, calidadMin: 0.8 }
 
 export interface FotoProcesada {
   completa: Blob

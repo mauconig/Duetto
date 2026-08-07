@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Show } from '@clerk/react'
 import './App.css'
 import { BottomNav } from './components/BottomNav'
@@ -7,8 +7,7 @@ import { Onboarding } from './screens/Onboarding'
 import { Home } from './screens/Home'
 import { Albums } from './screens/Albums'
 import { Roulette } from './screens/Roulette'
-import { Articles } from './screens/Articles'
-import { ArticleDetail } from './screens/ArticleDetail'
+import { Inspiracion } from './screens/Inspiracion'
 import { Profile } from './screens/Profile'
 import { SettingsSheet } from './components/SettingsSheet'
 import { LeaveCoupleSheet } from './components/LeaveCoupleSheet'
@@ -16,9 +15,9 @@ import { SharedPhotosSheet } from './components/SharedPhotosSheet'
 import { EntrySheet } from './components/EntrySheet'
 import { TimelineLightbox } from './components/TimelineLightbox'
 import { limpiarFotosCompartidas, recogerFotosCompartidas } from './lib/compartir'
-import { articulos } from './data'
-import type { Album, Articulo, Tab } from './types'
-import { useApi, type Idea, type Pareja } from './lib/api'
+import { fileToWebpBlob, PRESET_REFERENCIA } from './lib/photoStorage'
+import type { Album, Tab } from './types'
+import { useApi, type Categoria, type Idea, type Inspiracion as Referencia, type Pareja } from './lib/api'
 import {
   calcularEdad,
   calcularHito,
@@ -185,7 +184,6 @@ function AppContent({
   // one its "Editar recuerdo" button then hands over to the sheet.
   const [recuerdoAbierto, setRecuerdoAbierto] = useState<Album | null>(null)
   const [editando, setEditando] = useState<Album | null>(null)
-  const [articulo, setArticulo] = useState<Articulo | null>(null)
   const [nuevaIdea, setNuevaIdea] = useState('')
   const [ideaEnCurso, setIdeaEnCurso] = useState(false)
   const [errorIdea, setErrorIdea] = useState<string | null>(null)
@@ -195,10 +193,20 @@ function AppContent({
   const spinTimeout = useRef<number | undefined>(undefined)
 
   // Photos shared in from Android. `destino` is null while the user is still
-  // choosing where they go, then holds the target — `entry` undefined means
-  // a brand-new recuerdo.
+  // choosing where they go, then `{}` for a brand-new recuerdo or `{entry}`
+  // for an existing one. The board takes its photos without going through
+  // here — there's no sheet to open for it.
   const [compartidas, setCompartidas] = useState<File[]>([])
   const [destino, setDestino] = useState<{ entry?: Album } | null>(null)
+
+  // The inspiración board. Fetched up front rather than on first visit: the
+  // payload is only ids and category names, and the card on Inicio counts
+  // what's in it — deferring the fetch would have that card claim the board
+  // is empty until the tab happened to be opened.
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [referencias, setReferencias] = useState<Referencia[]>([])
+  const [subiendo, setSubiendo] = useState(0)
+  const [errorTablero, setErrorTablero] = useState<string | null>(null)
 
   useEffect(() => () => window.clearTimeout(spinTimeout.current), [])
 
@@ -218,6 +226,55 @@ function AppContent({
     setCompartidas([])
     setDestino(null)
     await limpiarFotosCompartidas()
+  }
+
+  useEffect(() => {
+    let cancelado = false
+    api
+      .obtenerTablero()
+      .then((tablero) => {
+        if (cancelado) return
+        setCategorias(tablero.categorias)
+        setReferencias(tablero.fotos)
+      })
+      .catch((e) => {
+        if (!cancelado) setErrorTablero(e instanceof Error ? e.message : 'No pudimos cargar la inspiración')
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [api])
+
+  /** Downscale, stage, then claim onto the board — the same two steps the
+   * recuerdo sheet uses, at reference sizes instead of camera ones. */
+  const guardarReferencias = useCallback(
+    async (archivos: File[], categoriaId: string | null) => {
+      if (archivos.length === 0) return
+      setErrorTablero(null)
+      setSubiendo((n) => n + archivos.length)
+      for (const archivo of archivos) {
+        try {
+          const foto = await fileToWebpBlob(archivo, PRESET_REFERENCIA)
+          const stagedId = await api.subirFoto(foto)
+          const guardada = await api.guardarInspiracion(stagedId, categoriaId)
+          setReferencias((prev) => [guardada, ...prev])
+        } catch (e) {
+          setErrorTablero(e instanceof Error ? e.message : 'No pudimos guardar la foto')
+        } finally {
+          setSubiendo((n) => n - 1)
+        }
+      }
+    },
+    [api],
+  )
+
+  async function conErrorDelTablero(fn: () => Promise<void>) {
+    setErrorTablero(null)
+    try {
+      await fn()
+    } catch (e) {
+      setErrorTablero(e instanceof Error ? e.message : 'Algo salió mal')
+    }
   }
 
   const propio = pareja.nombrePropio ?? 'Vos'
@@ -245,9 +302,8 @@ function AppContent({
   function irRuleta() {
     setTab('ruleta')
   }
-  function irArticulos() {
-    setTab('articulos')
-    setArticulo(null)
+  function irInspiracion() {
+    setTab('inspiracion')
   }
   function irPerfil() {
     setTab('perfil')
@@ -324,12 +380,12 @@ function AppContent({
           hito={hito}
           ultimoAlbum={ultimoAlbum}
           albumFoto={albumFoto}
-          articuloDelDia={articulos[0]}
+          numInspiraciones={referencias.length}
           recuerdo={recuerdo}
           ideaSugerida={ideaSugerida}
           onIrRuleta={irRuleta}
           onIrAlbumes={irAlbumes}
-          onIrArticulos={irArticulos}
+          onIrInspiracion={irInspiracion}
           onAbrirRecuerdo={abrirRecuerdo}
         />
       )}
@@ -352,8 +408,50 @@ function AppContent({
         />
       )}
 
-      {tab === 'articulos' && !articulo && <Articles articulos={articulos} onAbrir={setArticulo} />}
-      {tab === 'articulos' && articulo && <ArticleDetail articulo={articulo} onVolver={() => setArticulo(null)} />}
+      {tab === 'inspiracion' && (
+        <Inspiracion
+          categorias={categorias}
+          fotos={referencias}
+          subiendo={subiendo}
+          error={errorTablero}
+          onAgregarFotos={(lista, categoriaId) =>
+            guardarReferencias(Array.from(lista ?? []).filter((f) => f.type.startsWith('image/')), categoriaId)
+          }
+          onCrearCategoria={(nombre) =>
+            conErrorDelTablero(async () => {
+              const c = await api.crearCategoria(nombre)
+              setCategorias((prev) => [...prev, c])
+            })
+          }
+          onRenombrarCategoria={(id, nombre) =>
+            conErrorDelTablero(async () => {
+              const c = await api.renombrarCategoria(id, nombre)
+              setCategorias((prev) => prev.map((x) => (x.id === id ? c : x)))
+            })
+          }
+          onBorrarCategoria={(id) =>
+            conErrorDelTablero(async () => {
+              await api.borrarCategoria(id)
+              setCategorias((prev) => prev.filter((x) => x.id !== id))
+              // The server keeps the photos and clears their category; mirror
+              // that here instead of refetching the whole board.
+              setReferencias((prev) => prev.map((f) => (f.categoriaId === id ? { ...f, categoriaId: null } : f)))
+            })
+          }
+          onMoverFoto={(id, categoriaId) =>
+            conErrorDelTablero(async () => {
+              await api.moverInspiracion(id, categoriaId)
+              setReferencias((prev) => prev.map((f) => (f.id === id ? { ...f, categoriaId } : f)))
+            })
+          }
+          onBorrarFoto={(id) =>
+            conErrorDelTablero(async () => {
+              await api.borrarInspiracion(id)
+              setReferencias((prev) => prev.filter((f) => f.id !== id))
+            })
+          }
+        />
+      )}
 
       {tab === 'perfil' && (
         <Profile
@@ -416,6 +514,16 @@ function AppContent({
           albumes={albumes}
           onNuevo={() => setDestino({})}
           onExistente={(entry) => setDestino({ entry })}
+          onInspiracion={async () => {
+            const archivos = compartidas
+            // Clear first: the upload runs on its own and the sheet has no
+            // reason to sit there while it does.
+            await cerrarCompartido()
+            setTab('inspiracion')
+            // Straight to "Sin categoría" — asking where it goes before the
+            // photo is even on screen is a question with no picture attached.
+            await guardarReferencias(archivos, null)
+          }}
           onDescartar={cerrarCompartido}
         />
       )}
@@ -454,7 +562,7 @@ function AppContent({
           if (next === 'inicio') irInicio()
           else if (next === 'albumes') irAlbumes()
           else if (next === 'ruleta') irRuleta()
-          else if (next === 'articulos') irArticulos()
+          else if (next === 'inspiracion') irInspiracion()
           else irPerfil()
         }}
       />

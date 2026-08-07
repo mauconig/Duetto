@@ -36,12 +36,14 @@ const ITEMS: { tab: Tab; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    tab: 'articulos',
-    label: 'Artículos',
+    tab: 'inspiracion',
+    // Not "Ideas": the roulette is already full of ideas de cita.
+    label: 'Inspiración',
     icon: (
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+        <path d="M9 18h6" />
+        <path d="M10 22h4" />
+        <path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2Z" />
       </svg>
     ),
   },

@@ -22,6 +22,25 @@ export interface Idea {
   texto: string
 }
 
+/** A category on the inspiración board, invented by the couple. */
+export interface Categoria {
+  id: string
+  nombre: string
+}
+
+/** A saved photo reference. `categoriaId` is null for anything not filed
+ * yet, or whose category was deleted out from under it. */
+export interface Inspiracion {
+  id: string
+  categoriaId: string | null
+  nota?: string
+}
+
+export interface Tablero {
+  categorias: Categoria[]
+  fotos: Inspiracion[]
+}
+
 /** Error carrying the HTTP status so callers can tell "no couple yet"
  * (404) apart from a real failure. */
 export class ApiError extends Error {
@@ -142,6 +161,47 @@ export function useApi() {
 
       borrarIdea(id: string) {
         return call<{ ok: boolean }>(`/ideas/${id}`, { method: 'DELETE' })
+      },
+
+      /** Categories and saved references in one payload — the board needs
+       * both to render. */
+      obtenerTablero() {
+        return call<Tablero>('/inspiraciones')
+      },
+
+      crearCategoria(nombre: string) {
+        return call<Categoria>('/categorias', { method: 'POST', body: JSON.stringify({ nombre }) })
+      },
+
+      renombrarCategoria(id: string, nombre: string) {
+        return call<Categoria>(`/categorias/${id}`, { method: 'PATCH', body: JSON.stringify({ nombre }) })
+      },
+
+      /** The final order, whole. The server never has to work out how the
+       * other positions shifted. */
+      ordenarCategorias(orden: string[]) {
+        return call<{ categorias: Categoria[] }>('/categorias', { method: 'PATCH', body: JSON.stringify({ orden }) })
+      },
+
+      /** The photos filed here survive and turn up uncategorised. */
+      borrarCategoria(id: string) {
+        return call<{ ok: boolean }>(`/categorias/${id}`, { method: 'DELETE' })
+      },
+
+      /** Claims a photo already uploaded through subirFoto onto the board. */
+      guardarInspiracion(stagedId: string, categoriaId: string | null, nota?: string) {
+        return call<Inspiracion>('/inspiraciones', {
+          method: 'POST',
+          body: JSON.stringify({ stagedId, categoriaId, nota }),
+        })
+      },
+
+      moverInspiracion(id: string, categoriaId: string | null) {
+        return call<Inspiracion>(`/inspiraciones/${id}`, { method: 'PATCH', body: JSON.stringify({ categoriaId }) })
+      },
+
+      borrarInspiracion(id: string) {
+        return call<{ ok: boolean }>(`/inspiraciones/${id}`, { method: 'DELETE' })
       },
     }),
     [call, enviarFormulario],

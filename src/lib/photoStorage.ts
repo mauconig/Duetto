@@ -4,17 +4,16 @@
  * fallback for anything without OffscreenCanvas. */
 
 import {
-  CALIDAD,
-  CALIDAD_MINIATURA,
-  MAX_DIM,
-  MAX_DIM_MINIATURA,
   medidas,
   OPCIONES_BITMAP,
+  PRESET_RECUERDO,
   type FotoProcesada,
+  type Preset,
 } from './photoResize'
 import type { PedidoWorker, RespuestaWorker } from './photoWorker'
 
-export type { FotoProcesada }
+export type { FotoProcesada, Preset }
+export { PRESET_RECUERDO, PRESET_REFERENCIA } from './photoResize'
 
 /** Two at a time: one is slower than the phone can go, and a dozen 2500px
  * bitmaps decoded at once is enough to exhaust memory on a phone. */
@@ -22,6 +21,7 @@ const MAX_WORKERS = 2
 
 interface Tarea {
   file: File
+  preset: Preset
   resolve: (foto: FotoProcesada) => void
   reject: (e: Error) => void
 }
@@ -77,13 +77,13 @@ function despachar() {
     }
     const tarea = cola.shift()!
     ocupados.set(worker, tarea)
-    worker.postMessage({ file: tarea.file } satisfies PedidoWorker)
+    worker.postMessage({ file: tarea.file, preset: tarea.preset } satisfies PedidoWorker)
   }
 }
 
-function enWorker(file: File): Promise<FotoProcesada> {
+function enWorker(file: File, preset: Preset): Promise<FotoProcesada> {
   return new Promise((resolve, reject) => {
-    cola.push({ file, resolve, reject })
+    cola.push({ file, preset, resolve, reject })
     despachar()
   })
 }
@@ -101,28 +101,28 @@ async function escalar(bitmap: ImageBitmap, maxDim: number, calidad: number): Pr
 
 /** Both sizes come off one decode of the original, which is the expensive
  * part — decoding a 12MP camera file twice would double the wait. */
-async function enHiloPrincipal(file: File): Promise<FotoProcesada> {
+async function enHiloPrincipal(file: File, preset: Preset): Promise<FotoProcesada> {
   const bitmap = await createImageBitmap(file, OPCIONES_BITMAP)
   try {
     return {
-      completa: await escalar(bitmap, MAX_DIM, CALIDAD),
-      miniatura: await escalar(bitmap, MAX_DIM_MINIATURA, CALIDAD_MINIATURA),
+      completa: await escalar(bitmap, preset.maxDim, preset.calidad),
+      miniatura: await escalar(bitmap, preset.maxDimMin, preset.calidadMin),
     }
   } finally {
     bitmap.close?.()
   }
 }
 
-export async function fileToWebpBlob(file: File): Promise<FotoProcesada> {
+export async function fileToWebpBlob(file: File, preset: Preset = PRESET_RECUERDO): Promise<FotoProcesada> {
   if (soportado) {
     try {
-      return await enWorker(file)
+      return await enWorker(file, preset)
     } catch {
       // Whatever went wrong — no WebP encoder, a module that wouldn't load —
       // the photo is worth more than the thread it was processed on.
     }
   }
-  return enHiloPrincipal(file)
+  return enHiloPrincipal(file, preset)
 }
 
 /** URL the app uses to display a stored photo. Requires the session cookie,

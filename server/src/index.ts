@@ -85,6 +85,26 @@ const q = {
   stagedFilesOfCouple: db.prepare('SELECT archivo, archivo_min FROM staged_photos WHERE couple_id = ?'),
   stagedVencidas: db.prepare('SELECT id, archivo, archivo_min FROM staged_photos WHERE couple_id = ? AND created_at < ?'),
 
+  categoriasOfCouple: db.prepare('SELECT id, nombre FROM categorias WHERE couple_id = ? ORDER BY posicion, created_at'),
+  categoriaForCouple: db.prepare('SELECT id FROM categorias WHERE id = ? AND couple_id = ?'),
+  countCategorias: db.prepare('SELECT COUNT(*) AS n FROM categorias WHERE couple_id = ?'),
+  maxPosCategoria: db.prepare('SELECT MAX(posicion) AS maxpos FROM categorias WHERE couple_id = ?'),
+  insertCategoria: db.prepare('INSERT INTO categorias (id, couple_id, nombre, posicion, created_at) VALUES (?, ?, ?, ?, ?)'),
+  updateCategoria: db.prepare('UPDATE categorias SET nombre = ?, posicion = ? WHERE id = ? AND couple_id = ?'),
+  deleteCategoria: db.prepare('DELETE FROM categorias WHERE id = ? AND couple_id = ?'),
+
+  inspiracionesOfCouple: db.prepare(
+    'SELECT id, categoria_id, nota FROM inspiraciones WHERE couple_id = ? ORDER BY created_at DESC',
+  ),
+  countInspiraciones: db.prepare('SELECT COUNT(*) AS n FROM inspiraciones WHERE couple_id = ?'),
+  insertInspiracion: db.prepare(
+    'INSERT INTO inspiraciones (id, couple_id, categoria_id, archivo, archivo_min, nota, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  ),
+  inspiracionForCouple: db.prepare('SELECT archivo, archivo_min FROM inspiraciones WHERE id = ? AND couple_id = ?'),
+  moveInspiracion: db.prepare('UPDATE inspiraciones SET categoria_id = ? WHERE id = ? AND couple_id = ?'),
+  deleteInspiracion: db.prepare('DELETE FROM inspiraciones WHERE id = ? AND couple_id = ?'),
+  inspiracionFilesOfCouple: db.prepare('SELECT archivo, archivo_min FROM inspiraciones WHERE couple_id = ?'),
+
   ideasOfCouple: db.prepare('SELECT id, texto FROM ideas WHERE couple_id = ? ORDER BY posicion, created_at'),
   countIdeas: db.prepare('SELECT COUNT(*) AS n FROM ideas WHERE couple_id = ?'),
   maxPosIdea: db.prepare('SELECT MAX(posicion) AS maxpos FROM ideas WHERE couple_id = ?'),
@@ -267,13 +287,15 @@ app.delete('/api/couple/me', requireAuth, async (req: AuthedRequest, res) => {
     return
   }
 
-  // Staged photos included: they belong to nobody once the couple is gone,
-  // and nothing else would ever come looking for them.
+  // Staging and inspiraciones included: they belong to nobody once the
+  // couple is gone, and nothing else would ever come looking for them.
   const archivos = [
     ...(q.photoFilesOfCouple.all(member.couple_id) as { archivo: string; archivo_min: string | null }[]),
     ...(q.stagedFilesOfCouple.all(member.couple_id) as { archivo: string; archivo_min: string | null }[]),
+    ...(q.inspiracionFilesOfCouple.all(member.couple_id) as { archivo: string; archivo_min: string | null }[]),
   ]
-  // ON DELETE CASCADE takes members, entries, photos, staging and ideas.
+  // ON DELETE CASCADE takes members, entries, photos, staging, ideas,
+  // categorías and inspiraciones.
   q.deleteCouple.run(member.couple_id)
   // Files go last: a failure here leaves orphans on disk rather than rows
   // pointing at photos that no longer exist.
@@ -688,6 +710,224 @@ app.delete('/api/ideas/:id', requireAuth, (req: AuthedRequest, res) => {
   res.json({ ok: true })
 })
 
+// ── Inspiración: saved photo references, filed under the couple's own
+// categories ─────────────────────────────────────────────────────────────
+
+const MAX_CATEGORIAS = 20
+const MAX_LARGO_CATEGORIA = 30
+const MAX_INSPIRACIONES = 400
+const MAX_LARGO_NOTA = 140
+
+/** Categories and photos in one payload: the screen needs both to render,
+ * and the lists are small enough that splitting them into two round trips
+ * would only add a loading state. */
+app.get('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const fotos = q.inspiracionesOfCouple.all(coupleId) as {
+    id: string
+    categoria_id: string | null
+    nota: string | null
+  }[]
+  res.json({
+    categorias: q.categoriasOfCouple.all(coupleId),
+    fotos: fotos.map((f) => ({ id: f.id, categoriaId: f.categoria_id, nota: f.nota ?? undefined })),
+  })
+})
+
+function leerNombreCategoria(body: Record<string, unknown> | undefined): string | null {
+  const nombre = String(body?.nombre ?? '').trim()
+  if (!nombre || nombre.length > MAX_LARGO_CATEGORIA) return null
+  return nombre
+}
+
+app.post('/api/categorias', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const nombre = leerNombreCategoria(req.body)
+  if (!nombre) {
+    res.status(400).json({ error: `Poné un nombre de hasta ${MAX_LARGO_CATEGORIA} caracteres` })
+    return
+  }
+  const { n } = q.countCategorias.get(coupleId) as { n: number }
+  if (Number(n) >= MAX_CATEGORIAS) {
+    res.status(409).json({ error: `No podés tener más de ${MAX_CATEGORIAS} categorías` })
+    return
+  }
+  const { maxpos } = q.maxPosCategoria.get(coupleId) as { maxpos: number | null }
+  const id = randomUUID()
+  q.insertCategoria.run(id, coupleId, nombre, Number(maxpos ?? -1) + 1, new Date().toISOString())
+  res.status(201).json({ id, nombre })
+})
+
+/** Reorders the whole list at once: the client sends the final order it
+ * arranged, so neither side has to work out how the other positions shifted.
+ * Ids missing from `orden` keep their place after the ones listed. */
+app.patch('/api/categorias', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const crudo = req.body?.orden
+  const orden = (Array.isArray(crudo) ? crudo : []).map(String)
+  if (orden.length === 0) {
+    res.status(400).json({ error: 'Falta el orden' })
+    return
+  }
+
+  const actuales = q.categoriasOfCouple.all(coupleId) as { id: string; nombre: string }[]
+  const porId = new Map(actuales.map((c) => [c.id, c]))
+  const ordenadas = orden.filter((id) => porId.has(id))
+  const resto = actuales.filter((c) => !ordenadas.includes(c.id)).map((c) => c.id)
+
+  db.exec('BEGIN')
+  try {
+    ;[...ordenadas, ...resto].forEach((id, i) => q.updateCategoria.run(porId.get(id)!.nombre, i, id, coupleId))
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+  res.json({ categorias: q.categoriasOfCouple.all(coupleId) })
+})
+
+app.patch('/api/categorias/:id', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const actuales = q.categoriasOfCouple.all(coupleId) as { id: string; nombre: string }[]
+  const posicion = actuales.findIndex((c) => c.id === req.params.id)
+  if (posicion === -1) {
+    res.status(404).json({ error: 'No encontramos esa categoría' })
+    return
+  }
+  const nombre = leerNombreCategoria(req.body)
+  if (!nombre) {
+    res.status(400).json({ error: `Poné un nombre de hasta ${MAX_LARGO_CATEGORIA} caracteres` })
+    return
+  }
+  // Position unchanged: renaming and reordering are separate operations.
+  q.updateCategoria.run(nombre, posicion, req.params.id, coupleId)
+  res.json({ id: req.params.id, nombre })
+})
+
+/** The photos filed here survive — ON DELETE SET NULL drops them back to
+ * "Sin categoría". Losing saved references because a label was renamed away
+ * is not something the user could undo. */
+app.delete('/api/categorias/:id', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const { changes } = q.deleteCategoria.run(req.params.id, coupleId)
+  if (!Number(changes)) {
+    res.status(404).json({ error: 'No encontramos esa categoría' })
+    return
+  }
+  res.json({ ok: true })
+})
+
+/** Claims an already-uploaded photo into the board. Same row move the
+ * recuerdos use: the bytes reached the disk through POST /api/photos, so
+ * nothing is copied here. */
+app.post('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+
+  const stagedId = String(req.body?.stagedId ?? '').trim()
+  if (!stagedId) {
+    res.status(400).json({ error: 'Falta la foto' })
+    return
+  }
+  const staged = q.stagedForCouple.get(stagedId, coupleId) as
+    | { archivo: string; archivo_min: string | null }
+    | undefined
+  if (!staged) {
+    // Swept after its day, or from another couple. Either way, failing beats
+    // storing a row that points at nothing.
+    res.status(400).json({ error: 'Esa foto ya no está disponible, probá de nuevo' })
+    return
+  }
+
+  const categoriaId = req.body?.categoriaId ? String(req.body.categoriaId) : null
+  if (categoriaId && !q.categoriaForCouple.get(categoriaId, coupleId)) {
+    res.status(404).json({ error: 'No encontramos esa categoría' })
+    return
+  }
+
+  const nota = String(req.body?.nota ?? '').trim().slice(0, MAX_LARGO_NOTA) || null
+
+  const { n } = q.countInspiraciones.get(coupleId) as { n: number }
+  if (Number(n) >= MAX_INSPIRACIONES) {
+    res.status(409).json({ error: `No podés guardar más de ${MAX_INSPIRACIONES} referencias` })
+    return
+  }
+
+  const id = randomUUID()
+  db.exec('BEGIN')
+  try {
+    q.insertInspiracion.run(id, coupleId, categoriaId, staged.archivo, staged.archivo_min, nota, new Date().toISOString())
+    q.deleteStaged.run(stagedId)
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+  res.status(201).json({ id, categoriaId, nota: nota ?? undefined })
+})
+
+app.patch('/api/inspiraciones/:id', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const categoriaId = req.body?.categoriaId ? String(req.body.categoriaId) : null
+  if (categoriaId && !q.categoriaForCouple.get(categoriaId, coupleId)) {
+    res.status(404).json({ error: 'No encontramos esa categoría' })
+    return
+  }
+  const { changes } = q.moveInspiracion.run(categoriaId, req.params.id, coupleId)
+  if (!Number(changes)) {
+    res.status(404).json({ error: 'No encontramos esa foto' })
+    return
+  }
+  res.json({ id: req.params.id, categoriaId })
+})
+
+app.delete('/api/inspiraciones/:id', requireAuth, async (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const foto = q.inspiracionForCouple.get(req.params.id, coupleId) as
+    | { archivo: string; archivo_min: string | null }
+    | undefined
+  if (!foto) {
+    res.status(404).json({ error: 'No encontramos esa foto' })
+    return
+  }
+  q.deleteInspiracion.run(req.params.id, coupleId)
+  // Files after the row, so a failure here leaves an orphan on disk rather
+  // than a row pointing at a photo that is gone.
+  await borrarArchivos(nombresDe(foto))
+  res.json({ ok: true })
+})
+
 /** Photo files. Cookie-authenticated so <img> works, and scoped to the
  * caller's couple so a leaked id is useless to anyone else.
  *
@@ -700,7 +940,11 @@ app.get('/api/photos/:id', requireCookie, (req: AuthedRequest, res) => {
     res.status(404).json({ error: 'No encontramos esa foto' })
     return
   }
-  const foto = q.photoForCouple.get(req.params.id, coupleId) as
+  // Recuerdo photos and saved references share this route and so share one
+  // URL shape on the client. Both lookups are scoped to the couple, so an id
+  // from anywhere else resolves to nothing either way.
+  const foto = (q.photoForCouple.get(req.params.id, coupleId) ??
+    q.inspiracionForCouple.get(req.params.id, coupleId)) as
     | { archivo: string; archivo_min: string | null }
     | undefined
   if (!foto) {

@@ -8,15 +8,7 @@
  * One message in, one message out — the caller only ever has a single photo
  * in flight per worker, so there's no need for request ids. */
 
-import {
-  CALIDAD,
-  CALIDAD_MINIATURA,
-  MAX_DIM,
-  MAX_DIM_MINIATURA,
-  medidas,
-  OPCIONES_BITMAP,
-  type FotoProcesada,
-} from './photoResize'
+import { medidas, OPCIONES_BITMAP, PRESET_RECUERDO, type FotoProcesada, type Preset } from './photoResize'
 
 /** `lib` is DOM rather than WebWorker (see tsconfig.app.json), so the worker
  * globals need naming by hand. */
@@ -27,6 +19,8 @@ const ctx = self as unknown as {
 
 export interface PedidoWorker {
   file: File
+  /** Optional so an older message still means "a recuerdo photo". */
+  preset?: Preset
 }
 
 export type RespuestaWorker = { foto: FotoProcesada } | { error: string }
@@ -42,12 +36,13 @@ ctx.onmessage = async (e) => {
   try {
     // Both sizes come off one decode of the original, which is the expensive
     // part — decoding a 12MP camera file twice would double the wait.
+    const preset = e.data.preset ?? PRESET_RECUERDO
     const bitmap = await createImageBitmap(e.data.file, OPCIONES_BITMAP)
     try {
       ctx.postMessage({
         foto: {
-          completa: await escalar(bitmap, MAX_DIM, CALIDAD),
-          miniatura: await escalar(bitmap, MAX_DIM_MINIATURA, CALIDAD_MINIATURA),
+          completa: await escalar(bitmap, preset.maxDim, preset.calidad),
+          miniatura: await escalar(bitmap, preset.maxDimMin, preset.calidadMin),
         },
       })
     } finally {

@@ -1130,6 +1130,128 @@ h2 {
   opacity: 0.5;
   cursor: default;
 }
+/* ── Inspiración ──────────────────────────────────────────────── */
+
+.insp-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  /* The row scrolls on its own so a dozen categories never push the page
+     sideways. */
+  scrollbar-width: none;
+}
+.insp-tabs::-webkit-scrollbar {
+  display: none;
+}
+.insp-tab {
+  flex: none;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 99px;
+  padding: 8px 14px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.insp-tab--activa {
+  background: var(--cta-fondo);
+  color: var(--cta-texto);
+}
+.insp-tab--gestion {
+  color: var(--acento-fuerte);
+  background: transparent;
+  border-color: var(--riel);
+}
+
+.insp-gestion {
+  background: var(--superficie);
+  border-radius: 20px;
+  padding: 6px 16px 14px;
+  box-shadow: 0 8px 24px rgba(var(--sombra-rgb), 0.1);
+}
+.insp-gestion__fila {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--borde-sutil);
+}
+.insp-gestion__nombre {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.insp-gestion__fila button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--texto-3);
+  padding: 4px;
+}
+.insp-gestion__borrar {
+  color: var(--acento-fuerte) !important;
+}
+.insp-gestion__nueva {
+  width: 100%;
+  margin-top: 8px;
+  cursor: pointer;
+  border: 2px dashed var(--riel);
+  border-radius: 16px;
+  background: none;
+  padding: 10px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--acento-fuerte);
+}
+
+.insp-subiendo {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--texto-3);
+}
+
+.insp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.insp-celda {
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 14px;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: var(--suave);
+}
+.insp-celda img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.lightbox-acciones {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.lightbox-edit--borrar {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
 /* ── Fotos compartidas desde el celular ───────────────────────── */
 
 .compartir-opcion {

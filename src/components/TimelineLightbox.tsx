@@ -8,17 +8,37 @@ interface TimelineLightboxProps {
   startIndex: number
   onClose: () => void
   onEditar: () => void
+  /** Wording for the main action. Defaults to the timeline's. */
+  etiquetaEditar?: string
+  /** Shown only when given — the timeline deletes through its edit sheet. */
+  onBorrar?: () => void
+  /** Fires on every swipe or arrow, so a caller acting on "the photo being
+   * looked at" doesn't keep acting on the one that was opened. */
+  onIndice?: (i: number) => void
 }
 
-export function TimelineLightbox({ slots, startIndex, onClose, onEditar }: TimelineLightboxProps) {
+export function TimelineLightbox({
+  slots,
+  startIndex,
+  onClose,
+  onEditar,
+  etiquetaEditar = 'Editar recuerdo',
+  onBorrar,
+  onIndice,
+}: TimelineLightboxProps) {
   const [i, setI] = useState(startIndex)
   const touchStartX = useRef<number | null>(null)
 
+  function mover(siguiente: number) {
+    const destino = Math.min(Math.max(siguiente, 0), slots.length - 1)
+    setI(destino)
+    onIndice?.(destino)
+  }
   function anterior() {
-    setI((cur) => Math.max(cur - 1, 0))
+    mover(i - 1)
   }
   function siguiente() {
-    setI((cur) => Math.min(cur + 1, slots.length - 1))
+    mover(i + 1)
   }
 
   function onTouchStart(e: React.TouchEvent) {
@@ -67,16 +87,30 @@ export function TimelineLightbox({ slots, startIndex, onClose, onEditar }: Timel
         )}
       </div>
 
-      <button
-        type="button"
-        className="lightbox-edit"
-        onClick={(e) => {
-          e.stopPropagation()
-          onEditar()
-        }}
-      >
-        Editar recuerdo
-      </button>
+      <div className="lightbox-acciones">
+        <button
+          type="button"
+          className="lightbox-edit"
+          onClick={(e) => {
+            e.stopPropagation()
+            onEditar()
+          }}
+        >
+          {etiquetaEditar}
+        </button>
+        {onBorrar && (
+          <button
+            type="button"
+            className="lightbox-edit lightbox-edit--borrar"
+            onClick={(e) => {
+              e.stopPropagation()
+              onBorrar()
+            }}
+          >
+            Borrar
+          </button>
+        )}
+      </div>
     </div>
   )
 }

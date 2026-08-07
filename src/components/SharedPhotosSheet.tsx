@@ -7,13 +7,23 @@ interface SharedPhotosSheetProps {
   albumes: Album[]
   onNuevo: () => void
   onExistente: (entry: Album) => void
+  onInspiracion: () => void
   onDescartar: () => void
 }
 
-/** Shown when photos arrive from Android's share sheet: they can start a new
- * recuerdo or join one that already exists. Newest entries first — a photo
- * being shared now almost always belongs to something recent. */
-export function SharedPhotosSheet({ fotos, albumes, onNuevo, onExistente, onDescartar }: SharedPhotosSheetProps) {
+/** Shown when photos arrive from Android's share sheet. Three destinations:
+ * a new recuerdo, one that already exists, or the inspiración board — which
+ * is the point of sharing from Pinterest or Instagram rather than from the
+ * camera roll. Newest entries first, since a photo being shared now almost
+ * always belongs to something recent. */
+export function SharedPhotosSheet({
+  fotos,
+  albumes,
+  onNuevo,
+  onExistente,
+  onInspiracion,
+  onDescartar,
+}: SharedPhotosSheetProps) {
   const recientes = sortByFecha(albumes).slice(-6).reverse()
 
   useEffect(() => {
@@ -46,6 +56,20 @@ export function SharedPhotosSheet({ fotos, albumes, onNuevo, onExistente, onDesc
               </svg>
             </div>
             <span className="compartir-opcion__titulo">En un recuerdo nuevo</span>
+          </button>
+
+          <button type="button" className="compartir-opcion" onClick={onInspiracion}>
+            <div className="compartir-opcion__icono">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--acento-fuerte)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18h6" />
+                <path d="M10 22h4" />
+                <path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2Z" />
+              </svg>
+            </div>
+            <span className="compartir-opcion__texto">
+              <span className="compartir-opcion__titulo">En inspiración</span>
+              <span className="compartir-opcion__fecha">Para copiarla más adelante</span>
+            </span>
           </button>
 
           {recientes.length > 0 && (

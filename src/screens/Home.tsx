@@ -1,5 +1,5 @@
 import { ImageSlot } from '../components/ImageSlot'
-import type { Album, Articulo } from '../types'
+import type { Album } from '../types'
 import type { Edad, Hito, PhotoSlot } from '../lib/duette'
 import { formatFechaEntrada, pad, photoSlots } from '../lib/duette'
 
@@ -14,12 +14,12 @@ interface HomeProps {
   /** Undefined until the couple saves their first memory. */
   ultimoAlbum: Album | undefined
   albumFoto: PhotoSlot | undefined
-  articuloDelDia: Articulo
+  numInspiraciones: number
   recuerdo: Album | null
   ideaSugerida: string | null
   onIrRuleta: () => void
   onIrAlbumes: () => void
-  onIrArticulos: () => void
+  onIrInspiracion: () => void
   onAbrirRecuerdo: (recuerdo: Album) => void
 }
 
@@ -33,12 +33,12 @@ export function Home({
   hito,
   ultimoAlbum,
   albumFoto,
-  articuloDelDia,
+  numInspiraciones,
   recuerdo,
   ideaSugerida,
   onIrRuleta,
   onIrAlbumes,
-  onIrArticulos,
+  onIrInspiracion,
   onAbrirRecuerdo,
 }: HomeProps) {
   const recuerdoFoto = recuerdo ? photoSlots(recuerdo)[0] : undefined
@@ -140,10 +140,18 @@ export function Home({
             </div>
           </div>
         </div>
-        <div className="mini-card mini-card--article" onClick={onIrArticulos} role="button">
-          <span className="tag-pill">Para hoy</span>
-          <div className="mini-card__title mini-card__title--flex">{articuloDelDia.titulo}</div>
-          <div className="mini-card__meta">{articuloDelDia.min} min de lectura</div>
+        <div className="mini-card mini-card--article" onClick={onIrInspiracion} role="button">
+          <span className="tag-pill">Inspiración</span>
+          <div className="mini-card__title mini-card__title--flex">
+            {numInspiraciones === 0 ? 'Guardá fotos que quieran copiar' : 'Fotos que quieren copiar'}
+          </div>
+          <div className="mini-card__meta">
+            {numInspiraciones === 0
+              ? 'Todavía no hay ninguna'
+              : numInspiraciones === 1
+                ? '1 guardada'
+                : `${numInspiraciones} guardadas`}
+          </div>
         </div>
       </div>
 
