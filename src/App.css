@@ -173,6 +173,31 @@ h2 {
 .onboarding__input:focus {
   border-color: var(--acento);
 }
+/* Consent tick on the first onboarding step. Deliberately not styled down to
+ * fine print: it gates the button, so it has to be readable. */
+.consentimiento {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--texto-3);
+  cursor: pointer;
+}
+.consentimiento input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--acento);
+  cursor: pointer;
+}
+.consentimiento a {
+  color: var(--acento-fuerte);
+  text-decoration: underline;
+}
+
 .onboarding__opciones {
   display: flex;
   flex-direction: column;
@@ -1897,4 +1922,17 @@ h2 {
   letter-spacing: 0.08em;
   padding: 6px 12px;
   border-radius: 99px;
+}
+
+/* Small print under the profile panel. Legally it only has to be reachable;
+ * it sits above the nav bar so it isn't hidden behind it. */
+.legal-nota {
+  margin: 20px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--texto-4);
+}
+.legal-nota a {
+  color: var(--texto-4);
+  text-decoration: underline;
 }

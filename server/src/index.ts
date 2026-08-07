@@ -42,7 +42,9 @@ const q = {
   coupleByCode: db.prepare('SELECT * FROM couples WHERE code = ?'),
   membersOfCouple: db.prepare('SELECT user_id, nombre FROM members WHERE couple_id = ? ORDER BY joined_at'),
   insertCouple: db.prepare('INSERT INTO couples (id, code, created_at) VALUES (?, ?, ?)'),
-  insertMember: db.prepare('INSERT INTO members (user_id, couple_id, nombre, joined_at) VALUES (?, ?, ?, ?)'),
+  insertMember: db.prepare(
+    'INSERT INTO members (user_id, couple_id, nombre, joined_at, privacidad_version, privacidad_at) VALUES (?, ?, ?, ?, ?, ?)',
+  ),
   updateNombre: db.prepare('UPDATE members SET nombre = ? WHERE user_id = ?'),
   updatePerfil: db.prepare('UPDATE couples SET fecha_aniversario = ?, proximo_hito = ? WHERE id = ?'),
   deleteMember: db.prepare('DELETE FROM members WHERE user_id = ?'),
@@ -137,6 +139,16 @@ function estadoPareja(coupleId: string, userId: string) {
   }
 }
 
+/** Which version of the privacy policy the client says it showed. Recorded
+ * as evidence of consent, so it takes whatever the client sent rather than a
+ * constant here — the point is to know what the person actually read, and a
+ * server-side constant would just record what was current at insert time.
+ * Unrecognisable input is stored as null instead of being trusted. */
+function versionPrivacidad(req: AuthedRequest): string | null {
+  const v = String(req.body?.privacidadVersion ?? '').trim()
+  return /^\d+\.\d+$/.test(v) ? v : null
+}
+
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true })
 })
@@ -173,7 +185,7 @@ app.post('/api/couple', requireAuth, (req: AuthedRequest, res) => {
   db.exec('BEGIN')
   try {
     q.insertCouple.run(id, code, ahora)
-    q.insertMember.run(req.userId!, id, nombre, ahora)
+    q.insertMember.run(req.userId!, id, nombre, ahora, versionPrivacidad(req), ahora)
     sembrarIdeas(id)
     db.exec('COMMIT')
   } catch (e) {
@@ -214,7 +226,8 @@ app.post('/api/couple/join', requireAuth, (req: AuthedRequest, res) => {
     return
   }
 
-  q.insertMember.run(req.userId!, couple.id, nombre, new Date().toISOString())
+  const ahoraJoin = new Date().toISOString()
+  q.insertMember.run(req.userId!, couple.id, nombre, ahoraJoin, versionPrivacidad(req), ahoraJoin)
   res.json(estadoPareja(couple.id, req.userId!))
 })
 

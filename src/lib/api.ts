@@ -3,6 +3,11 @@ import { useAuth } from '@clerk/react'
 import type { Album } from '../types'
 import type { FotoProcesada } from './photoStorage'
 
+/** Version of the privacy policy the consent tick refers to. Bump it here and
+ * in `public/privacidad.html` together whenever the policy changes materially,
+ * so the stored record says which text the person actually agreed to. */
+export const VERSION_PRIVACIDAD = '1.0'
+
 export interface Pareja {
   coupleId: string
   codigo: string
@@ -103,10 +108,16 @@ export function useApi() {
         }
       },
       crearPareja(nombre: string) {
-        return call<Pareja>('/couple', { method: 'POST', body: JSON.stringify({ nombre }) })
+        return call<Pareja>('/couple', {
+          method: 'POST',
+          body: JSON.stringify({ nombre, privacidadVersion: VERSION_PRIVACIDAD }),
+        })
       },
       unirsePareja(nombre: string, codigo: string) {
-        return call<Pareja>('/couple/join', { method: 'POST', body: JSON.stringify({ nombre, codigo }) })
+        return call<Pareja>('/couple/join', {
+          method: 'POST',
+          body: JSON.stringify({ nombre, codigo, privacidadVersion: VERSION_PRIVACIDAD }),
+        })
       },
       /** Any subset of the fields; omitted ones are left untouched. */
       guardarPerfil(cambios: { fechaAniversario?: string; proximoHito?: Pareja['proximoHito']; nombre?: string }) {

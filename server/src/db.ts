@@ -30,11 +30,17 @@ db.exec(`
     ideas_sembradas   INTEGER NOT NULL DEFAULT 0
   );
 
+  /* The privacidad_ columns record that this person ticked the consent box,
+   * and which version of the policy they saw. Ley 7593/2025 puts the burden of
+   * proving consent on whoever collects the data, so a tick that stores
+   * nothing is worth nothing. */
   CREATE TABLE IF NOT EXISTS members (
-    user_id    TEXT PRIMARY KEY,
-    couple_id  TEXT NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
-    nombre     TEXT NOT NULL,
-    joined_at  TEXT NOT NULL
+    user_id             TEXT PRIMARY KEY,
+    couple_id           TEXT NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    nombre              TEXT NOT NULL,
+    joined_at           TEXT NOT NULL,
+    privacidad_version  TEXT,
+    privacidad_at       TEXT
   );
 
   CREATE INDEX IF NOT EXISTS idx_members_couple ON members(couple_id);
@@ -130,6 +136,11 @@ addColumnIfMissing('couples', 'fecha_aniversario', 'TEXT')
 addColumnIfMissing('couples', 'proximo_hito', 'TEXT')
 addColumnIfMissing('couples', 'ideas_sembradas', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('photos', 'archivo_min', 'TEXT')
+// Nullable on purpose: the two people who joined before the policy existed
+// can't have consented to it, and inventing a timestamp for them would make
+// the record a lie.
+addColumnIfMissing('members', 'privacidad_version', 'TEXT')
+addColumnIfMissing('members', 'privacidad_at', 'TEXT')
 
 /** What the wheel used to be hardcoded with on the client. */
 const IDEAS_INICIALES = [

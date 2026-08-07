@@ -168,6 +168,12 @@ export function Profile({
           </div>
         </SignOutButton>
       </div>
+
+      <p className="legal-nota">
+        <a href="/privacidad.html" target="_blank" rel="noopener noreferrer">
+          Política de Privacidad
+        </a>
+      </p>
     </div>
   )
 }
