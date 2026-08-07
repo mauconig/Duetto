@@ -1188,6 +1188,17 @@ h2 {
   background: transparent;
   border-color: var(--riel);
 }
+/* Reads as an action rather than as one more carpeta to filter by, which is
+   what it would look like if it just said "Nueva". */
+.insp-tab--nueva {
+  color: var(--acento-fuerte);
+  background: transparent;
+  border-color: var(--riel);
+  font-size: 18px;
+  line-height: 1;
+  padding-left: 14px;
+  padding-right: 14px;
+}
 
 .insp-gestion {
   background: var(--superficie);
@@ -1335,6 +1346,45 @@ h2 {
   font-size: 12px;
   font-weight: 700;
   color: var(--texto-3);
+}
+/* The photo, while the sheet asks where it goes. The whole reason this
+   question can be asked at all now is that it comes with a picture. */
+.compartir-vista {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 14px;
+  margin-bottom: 4px;
+}
+.compartir-nueva {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.compartir-nueva__input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--riel);
+  background: var(--input-fondo);
+  color: var(--texto);
+  font: inherit;
+}
+.compartir-nueva__ok {
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--cta-fondo);
+  color: var(--cta-texto);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.compartir-nueva__ok:disabled {
+  opacity: 0.5;
 }
 .compartir-separador {
   font-size: 12px;

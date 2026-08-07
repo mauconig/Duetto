@@ -302,6 +302,21 @@ function AppContent({
     }
   }
 
+  /** Creates a carpeta and hands it back. The board screen only needs the
+   * list to refresh, but the share sheet needs the id: it files the photo
+   * into the carpeta the user just invented, in one gesture. */
+  async function crearCarpeta(nombre: string): Promise<Categoria | null> {
+    setErrorTablero(null)
+    try {
+      const c = await api.crearCategoria(nombre)
+      setCategorias((prev) => [...prev, c])
+      return c
+    } catch (e) {
+      setErrorTablero(e instanceof Error ? e.message : 'No pudimos crear la carpeta')
+      return null
+    }
+  }
+
   const propio = pareja.nombrePropio ?? 'Vos'
   // Until the other partner enters the code there's only one name to show.
   const nombres = pareja.nombrePareja ? `${propio} & ${pareja.nombrePareja}` : propio
@@ -442,12 +457,9 @@ function AppContent({
           onAgregarFotos={(lista, categoriaId) =>
             guardarReferencias(Array.from(lista ?? []).filter((f) => f.type.startsWith('image/')), categoriaId)
           }
-          onCrearCategoria={(nombre) =>
-            conErrorDelTablero(async () => {
-              const c = await api.crearCategoria(nombre)
-              setCategorias((prev) => [...prev, c])
-            })
-          }
+          onCrearCategoria={async (nombre) => {
+            await crearCarpeta(nombre)
+          }}
           onRenombrarCategoria={(id, nombre) =>
             conErrorDelTablero(async () => {
               const c = await api.renombrarCategoria(id, nombre)
@@ -554,17 +566,20 @@ function AppContent({
         <SharedPhotosSheet
           fotos={compartidas}
           albumes={albumes}
+          categorias={categorias}
+          onCrearCarpeta={crearCarpeta}
           onNuevo={() => setDestino({})}
           onExistente={(entry) => setDestino({ entry })}
-          onInspiracion={async () => {
+          onInspiracion={async (categoriaId) => {
             const archivos = compartidas
             // Clear first: the upload runs on its own and the sheet has no
             // reason to sit there while it does.
             await cerrarCompartido()
             setTab('inspiracion')
-            // Straight to "Sin categoría" — asking where it goes before the
-            // photo is even on screen is a question with no picture attached.
-            await guardarReferencias(archivos, null)
+            // The sheet asks which carpeta before we get here, and it can
+            // show the photo while it asks — which is what the question was
+            // missing when this used to file everything under "Sin categoría".
+            await guardarReferencias(archivos, categoriaId)
           }}
           onDescartar={cerrarCompartido}
         />

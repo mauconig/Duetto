@@ -85,6 +85,17 @@ export function Inspiracion({
               {c.id === SIN_CATEGORIA ? ` · ${fotos.length}` : ` · ${fotos.filter((f) => f.categoriaId === c.id).length}`}
             </button>
           ))}
+          {/* Creating sat two taps inside "Editar", behind a word that says
+              nothing about making anything. Making a carpeta is the ordinary
+              thing here — renaming and deleting are the rare ones. */}
+          <button
+            type="button"
+            className="insp-tab insp-tab--nueva"
+            aria-label="Nueva carpeta"
+            onClick={() => setNombrando({ valor: '' })}
+          >
+            +
+          </button>
           <button type="button" className="insp-tab insp-tab--gestion" onClick={() => setGestionando((v) => !v)}>
             {gestionando ? 'Listo' : 'Editar'}
           </button>
@@ -103,16 +114,16 @@ export function Inspiracion({
                 </button>
               </div>
             ))}
-            <p className="sheet__hint">Borrar una categoría no borra sus fotos: quedan sin categoría.</p>
+            <p className="sheet__hint">Borrar una carpeta no borra sus fotos: quedan sueltas.</p>
             <button type="button" className="insp-gestion__nueva" onClick={() => setNombrando({ valor: '' })}>
-              + Nueva categoría
+              + Nueva carpeta
             </button>
           </div>
         )}
 
         {sinCategoria > 0 && activa === SIN_CATEGORIA && categorias.length > 0 && (
           <p className="sheet__hint">
-            {sinCategoria === 1 ? 'Hay 1 foto sin categoría' : `Hay ${sinCategoria} fotos sin categoría`}. Tocá una para
+            {sinCategoria === 1 ? 'Hay 1 foto sin carpeta' : `Hay ${sinCategoria} fotos sin carpeta`}. Tocá una para
             archivarla.
           </p>
         )}
@@ -170,7 +181,7 @@ export function Inspiracion({
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet__handle" />
             <div className="sheet__header">
-              <h3>{nombrando.id ? 'Renombrar categoría' : 'Nueva categoría'}</h3>
+              <h3>{nombrando.id ? 'Renombrar carpeta' : 'Nueva carpeta'}</h3>
               <button type="button" className="sheet__close" aria-label="Cerrar" onClick={() => setNombrando(null)}>
                 ×
               </button>
@@ -251,7 +262,7 @@ function InspiracionAbierta({ fotos, slots, indice, categorias, onIndice, onCerr
             </button>
           </div>
           <div className="sheet__form">
-            {categorias.length === 0 && <p className="sheet__hint">Todavía no creaste ninguna categoría.</p>}
+            {categorias.length === 0 && <p className="sheet__hint">Todavía no creaste ninguna carpeta.</p>}
             {categorias.map((c) => (
               <button
                 type="button"
@@ -276,7 +287,7 @@ function InspiracionAbierta({ fotos, slots, indice, categorias, onIndice, onCerr
                   onCerrar()
                 }}
               >
-                Sacar de la categoría
+                Sacar de la carpeta
               </button>
             )}
           </div>
