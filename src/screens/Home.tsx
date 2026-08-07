@@ -1,6 +1,6 @@
 import { ImageSlot } from '../components/ImageSlot'
 import type { Album } from '../types'
-import type { Edad, Hito, PhotoSlot } from '../lib/duette'
+import type { Edad, Hito, HitoDeHoy, PhotoSlot } from '../lib/duette'
 import { formatFechaEntrada, pad, photoSlots } from '../lib/duette'
 
 interface HomeProps {
@@ -11,6 +11,9 @@ interface HomeProps {
   fechaInicioTexto: string
   edad: Edad
   hito: Hito
+  /** Set only on the day a milestone lands, when the countdown to the next
+   * one is beside the point. */
+  hitoHoy: HitoDeHoy | null
   /** Undefined until the couple saves their first memory. */
   ultimoAlbum: Album | undefined
   albumFoto: PhotoSlot | undefined
@@ -31,6 +34,7 @@ export function Home({
   fechaInicioTexto,
   edad,
   hito,
+  hitoHoy,
   ultimoAlbum,
   albumFoto,
   numInspiraciones,
@@ -91,16 +95,25 @@ export function Home({
           </svg>
         </div>
         <div className="milestone-card__body">
-          <div className="milestone-card__kicker">Próximo hito</div>
-          <div className="milestone-card__title">{hito.titulo}</div>
+          <div className="milestone-card__kicker">{hitoHoy ? '¡Es hoy!' : 'Próximo hito'}</div>
+          <div className="milestone-card__title">{hitoHoy?.titulo ?? hito.titulo}</div>
           <div className="milestone-card__track">
-            <div className="milestone-card__fill" style={{ width: hito.progreso }} />
+            <div className="milestone-card__fill" style={{ width: hitoHoy ? '100%' : hito.progreso }} />
           </div>
         </div>
-        <div className="milestone-card__days">
-          <div className="milestone-card__days-num">{hito.diasNum}</div>
-          <div className="milestone-card__days-label">{hito.diasLabel}</div>
-        </div>
+        {/* On the day itself the countdown is the wrong thing to show: the
+            next milestone is a year or a month away and saying so is a way of
+            missing the point. */}
+        {hitoHoy ? (
+          <div className="milestone-card__days milestone-card__days--hoy">
+            <div className="milestone-card__days-num">🎉</div>
+          </div>
+        ) : (
+          <div className="milestone-card__days">
+            <div className="milestone-card__days-num">{hito.diasNum}</div>
+            <div className="milestone-card__days-label">{hito.diasLabel}</div>
+          </div>
+        )}
       </div>
 
       <button type="button" className="cta-button" onClick={onIrRuleta}>

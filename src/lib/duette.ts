@@ -47,6 +47,44 @@ export interface Hito {
   progreso: string
 }
 
+export interface HitoDeHoy {
+  titulo: string
+  /** Identifies the milestone itself, not the date, so the celebration can
+   * be shown once and not again on every app open that day. */
+  clave: string
+  numero: number
+}
+
+/** A couple that started on the 31st still has a cumplemes in April, and one
+ * that started on Feb 29 still has an anniversary in ordinary years. Clamp to
+ * the last day of the month instead of letting the date roll into the next
+ * one, which is what `new Date(y, m, 31)` quietly does. */
+function diaEnMes(mes: Date, dia: number): number {
+  return Math.min(dia, new Date(mes.getFullYear(), mes.getMonth() + 1, 0).getDate())
+}
+
+/** The milestone that lands today, or null on every other day.
+ *
+ * `calcularHito` looks forward on purpose, and on the day itself it is
+ * already pointing at the next one — the card goes from "faltan 1 día"
+ * straight to "faltan 365". So the one day that's worth something was the
+ * one day the app had no way to name. */
+export function hitoDeHoy(hoy: Date, ini: Date, tipo: 'cumplemes' | 'aniversario'): HitoDeHoy | null {
+  const hoy0 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+  const ini0 = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate())
+  // The first day isn't an anniversary of anything yet.
+  if (hoy0 <= ini0) return null
+  if (hoy0.getDate() !== diaEnMes(hoy0, ini0.getDate())) return null
+
+  if (tipo === 'aniversario') {
+    if (hoy0.getMonth() !== ini0.getMonth()) return null
+    const numero = hoy0.getFullYear() - ini0.getFullYear()
+    return { titulo: `Aniversario n.º ${numero}`, clave: `aniversario-${numero}`, numero }
+  }
+  const numero = (hoy0.getFullYear() - ini0.getFullYear()) * 12 + (hoy0.getMonth() - ini0.getMonth())
+  return { titulo: `Cumplemes n.º ${numero}`, clave: `cumplemes-${numero}`, numero }
+}
+
 export function calcularHito(hoy: Date, ini: Date, tipo: 'cumplemes' | 'aniversario'): Hito {
   const hoy0 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
   let prox: Date

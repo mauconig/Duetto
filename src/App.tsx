@@ -24,11 +24,20 @@ import {
   diasJuntos,
   formatFecha,
   formatFechaHoy,
+  hitoDeHoy,
   parseFecha,
   photoSlots,
   pickDaily,
   sortByFecha,
 } from './lib/duette'
+import { Celebracion } from './components/Celebracion'
+
+/** The last milestone this device threw confetti for. */
+const HITO_CELEBRADO = 'pictogether:hito-celebrado'
+
+/** Read once at load, so navigating around doesn't re-trigger it. Its clave
+ * is never stored, so the preview can be opened as many times as needed. */
+const PREVISUALIZAR_HITO = new URLSearchParams(window.location.search).has('celebrar')
 
 function App() {
   return (
@@ -204,6 +213,31 @@ function AppContent({
   const [resolviendoEnlace, setResolviendoEnlace] = useState(false)
   const [errorEnlace, setErrorEnlace] = useState<string | null>(null)
 
+  // Which milestone this device has already celebrated. Read once: a
+  // celebration that came back on every render would be a strobe light, and
+  // one that came back on every app open that day would be a nag.
+  const [hitoCelebrado, setHitoCelebrado] = useState(() => {
+    try {
+      return localStorage.getItem(HITO_CELEBRADO) ?? ''
+    } catch {
+      // Private mode, or storage turned off. The celebration then shows once
+      // per load, which beats never showing it.
+      return ''
+    }
+  })
+
+  function marcarHitoCelebrado(clave: string) {
+    setHitoCelebrado(clave)
+    // The preview is meant to be repeatable, so it never records itself as
+    // spent — otherwise looking at it once would be the last time.
+    if (PREVISUALIZAR_HITO) return
+    try {
+      localStorage.setItem(HITO_CELEBRADO, clave)
+    } catch {
+      // Same as above: nothing to do, and nothing worth interrupting for.
+    }
+  }
+
   // The inspiración board. Fetched up front rather than on first visit: the
   // payload is only ids and category names, and the card on Inicio counts
   // what's in it — deferring the fetch would have that card claim the board
@@ -324,6 +358,16 @@ function AppContent({
   const ini = parseFecha(pareja.fechaAniversario!)
   const edad = calcularEdad(hoy, ini)
   const hito = calcularHito(hoy, ini, pareja.proximoHito!)
+  // A celebration that shows up one day a year is one nobody can look at
+  // before the day it matters — and the day it matters is the worst possible
+  // time to find out it's broken. `?celebrar=1` shows it on demand.
+  const hitoHoy = PREVISUALIZAR_HITO
+    ? { titulo: 'Aniversario n.º 3', clave: 'previsualizacion', numero: 3 }
+    : hitoDeHoy(hoy, ini, pareja.proximoHito!)
+  // Kept per device rather than on the couple: both partners should get
+  // their own confetti, and one opening the app first shouldn't spend it
+  // for the other.
+  const celebrando = hitoHoy !== null && hitoCelebrado !== hitoHoy.clave
   const inicial1 = propio[0]
   const inicial2 = pareja.nombrePareja?.[0] ?? '+'
   const recuerdo = pickDaily(albumes, hoy)
@@ -418,6 +462,7 @@ function AppContent({
           fechaInicioTexto={formatFecha(ini)}
           edad={edad}
           hito={hito}
+          hitoHoy={hitoHoy}
           ultimoAlbum={ultimoAlbum}
           albumFoto={albumFoto}
           numInspiraciones={referencias.length}
@@ -543,6 +588,10 @@ function AppContent({
             setEditando(null)
           }}
         />
+      )}
+
+      {celebrando && hitoHoy && (
+        <Celebracion hito={hitoHoy} nombres={nombres} onCerrar={() => marcarHitoCelebrado(hitoHoy.clave)} />
       )}
 
       {(resolviendoEnlace || errorEnlace) && (
