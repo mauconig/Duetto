@@ -31,6 +31,8 @@ import {
   sortByFecha,
 } from './lib/duette'
 import { Celebracion } from './components/Celebracion'
+import { useIdiomaContexto } from './lib/i18n/contexto'
+import { traducirError } from './lib/i18n/erroresServidor'
 
 /** The last milestone this device threw confetti for. */
 const HITO_CELEBRADO = 'pictogether:hito-celebrado'
@@ -58,6 +60,7 @@ function App() {
  * app itself. Mounted only when signed in, so the token is available. */
 function SignedInApp() {
   const api = useApi()
+  const { t } = useIdiomaContexto()
   const [pareja, setPareja] = useState<Pareja | null>(null)
   const [albumes, setAlbumes] = useState<Album[]>([])
   const [ideas, setIdeas] = useState<Idea[]>([])
@@ -81,7 +84,7 @@ function SignedInApp() {
           }
         }
       } catch (e) {
-        if (!cancelado) setError(e instanceof Error ? e.message : 'No pudimos conectar')
+        if (!cancelado) setError(e instanceof Error ? traducirError(e.message, t) : t('app_error_conectar'))
       } finally {
         if (!cancelado) setCargando(false)
       }
@@ -90,6 +93,11 @@ function SignedInApp() {
     return () => {
       cancelado = true
     }
+    // `t` deliberately left out: it only matters inside the error branch,
+    // and this load runs exactly once — switching language mid-request
+    // shouldn't refetch the couple, it should just leave the message in
+    // whatever language it already loaded in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api])
 
   function alCrear(nueva: Album) {
@@ -136,7 +144,7 @@ function SignedInApp() {
       <div className="screen app-loading">
         <div className="onboarding__error">{error}</div>
         <button type="button" className="sheet__submit" onClick={() => window.location.reload()}>
-          Reintentar
+          {t('app_reintentar')}
         </button>
       </div>
     )
@@ -186,6 +194,7 @@ function AppContent({
   onDesvincular,
 }: AppContentProps) {
   const api = useApi()
+  const { t, resuelto } = useIdiomaContexto()
   // Our own avatar comes straight from Clerk, which fills it in from Google
   // on sign-in and updates it when we upload a new one. hasImage is what
   // separates a real photo from the initials-on-a-colour that Clerk
@@ -291,7 +300,7 @@ function AppContent({
         const { archivo } = await api.imagenDeEnlace(enlace)
         if (!cancelado) setCompartidas([archivo])
       } catch (e) {
-        if (!cancelado) setErrorEnlace(e instanceof Error ? e.message : 'No pudimos abrir ese enlace')
+        if (!cancelado) setErrorEnlace(e instanceof Error ? traducirError(e.message, t) : t('app_error_enlace'))
       } finally {
         if (!cancelado) setResolviendoEnlace(false)
       }
@@ -299,6 +308,9 @@ function AppContent({
     return () => {
       cancelado = true
     }
+    // Same reasoning as the couple's own load above: `t` only feeds the
+    // error branch, and this runs once per app open regardless of language.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api])
 
   async function cerrarCompartido() {
@@ -318,11 +330,13 @@ function AppContent({
         setReferencias(tablero.fotos)
       })
       .catch((e) => {
-        if (!cancelado) setErrorTablero(e instanceof Error ? e.message : 'No pudimos cargar la inspiración')
+        if (!cancelado) setErrorTablero(e instanceof Error ? traducirError(e.message, t) : t('app_error_cargar_inspiracion'))
       })
     return () => {
       cancelado = true
     }
+    // `t` only feeds the error branch; see the couple's own load above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api])
 
   /** Downscale, stage, then claim onto the board — the same two steps the
@@ -339,13 +353,13 @@ function AppContent({
           const guardada = await api.guardarInspiracion(stagedId, categoriaId)
           setReferencias((prev) => [guardada, ...prev])
         } catch (e) {
-          setErrorTablero(e instanceof Error ? e.message : 'No pudimos guardar la foto')
+          setErrorTablero(e instanceof Error ? traducirError(e.message, t) : t('app_error_guardar_foto'))
         } finally {
           setSubiendo((n) => n - 1)
         }
       }
     },
-    [api],
+    [api, t],
   )
 
   async function conErrorDelTablero(fn: () => Promise<void>) {
@@ -353,7 +367,7 @@ function AppContent({
     try {
       await fn()
     } catch (e) {
-      setErrorTablero(e instanceof Error ? e.message : 'Algo salió mal')
+      setErrorTablero(e instanceof Error ? traducirError(e.message, t) : t('comun_algo_salio_mal'))
     }
   }
 
@@ -367,12 +381,12 @@ function AppContent({
       setCategorias((prev) => [...prev, c])
       return c
     } catch (e) {
-      setErrorTablero(e instanceof Error ? e.message : 'No pudimos crear la carpeta')
+      setErrorTablero(e instanceof Error ? traducirError(e.message, t) : t('insp_error_crear_carpeta'))
       return null
     }
   }
 
-  const propio = pareja.nombrePropio ?? 'Vos'
+  const propio = pareja.nombrePropio ?? t('app_nombre_generico')
   // Until the other partner enters the code there's only one name to show.
   const nombres = pareja.nombrePareja ? `${propio} & ${pareja.nombrePareja}` : propio
   const hoy = new Date()
@@ -383,7 +397,7 @@ function AppContent({
   // before the day it matters — and the day it matters is the worst possible
   // time to find out it's broken. `?celebrar=1` shows it on demand.
   const hitoHoy = PREVISUALIZAR_HITO
-    ? { titulo: 'Aniversario n.º 3', clave: 'previsualizacion', numero: 3 }
+    ? { tipo: 'aniversario' as const, clave: 'previsualizacion', numero: 3 }
     : hitoDeHoy(hoy, ini, pareja.proximoHito!)
   // Kept per device rather than on the couple: both partners should get
   // their own confetti, and one opening the app first shouldn't spend it
@@ -451,17 +465,17 @@ function AppContent({
   // adding and removing wait for the write before touching the list — a
   // slice that vanishes and comes back would be worse than a short pause.
   async function agregarIdea() {
-    const t = nuevaIdea.trim()
-    if (!t || ideaEnCurso) return
+    const texto = nuevaIdea.trim()
+    if (!texto || ideaEnCurso) return
     setIdeaEnCurso(true)
     setErrorIdea(null)
     try {
-      const idea = await api.agregarIdea(t)
+      const idea = await api.agregarIdea(texto)
       onIdeasCambiadas([...ideas, idea])
       setNuevaIdea('')
       setResultado(null)
     } catch (err) {
-      setErrorIdea(err instanceof Error ? err.message : 'No pudimos guardar la idea')
+      setErrorIdea(err instanceof Error ? traducirError(err.message, t) : t('ruleta_error_guardar_idea'))
     } finally {
       setIdeaEnCurso(false)
     }
@@ -476,7 +490,7 @@ function AppContent({
       onIdeasCambiadas(ideas.filter((i) => i.id !== id))
       setResultado(null)
     } catch (err) {
-      setErrorIdea(err instanceof Error ? err.message : 'No pudimos borrar la idea')
+      setErrorIdea(err instanceof Error ? traducirError(err.message, t) : t('ruleta_error_borrar_idea'))
     } finally {
       setIdeaEnCurso(false)
     }
@@ -487,12 +501,12 @@ function AppContent({
       {tab === 'inicio' && (
         <Home
           nombres={nombres}
-          fechaHoy={formatFechaHoy(hoy)}
+          fechaHoy={formatFechaHoy(hoy, resuelto)}
           inicial1={inicial1}
           inicial2={inicial2}
           imagenPropia={imagenPropia}
           imagenPareja={pareja.imagenPareja}
-          fechaInicioTexto={formatFecha(ini)}
+          fechaInicioTexto={formatFecha(ini, resuelto)}
           edad={edad}
           hito={hito}
           hitoHoy={hitoHoy}
@@ -577,7 +591,7 @@ function AppContent({
           inicial2={inicial2}
           imagenPropia={imagenPropia}
           imagenPareja={pareja.imagenPareja}
-          fechaInicioTexto={formatFecha(ini)}
+          fechaInicioTexto={formatFecha(ini, resuelto)}
           diasJuntos={diasJuntos(hoy, ini)}
           numAlbumes={albumes.length}
           numIdeas={ideas.length}
@@ -637,11 +651,11 @@ function AppContent({
               <>
                 <p className="enlace-aviso__texto">{errorEnlace}</p>
                 <button type="button" className="enlace-aviso__boton" onClick={cerrarCompartido}>
-                  Entendido
+                  {t('app_entendido')}
                 </button>
               </>
             ) : (
-              <p className="enlace-aviso__texto">Buscando la imagen…</p>
+              <p className="enlace-aviso__texto">{t('app_buscando_imagen')}</p>
             )}
           </div>
         </div>

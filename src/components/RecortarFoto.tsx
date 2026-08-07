@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { OPCIONES_BITMAP } from '../lib/photoResize'
+import { useT } from '../lib/i18n/contexto'
 
 /** What the avatar is finally stored at. Drawn at 48px and never zoomed, so
  * this is already generous — it exists so a face still holds up on a screen
@@ -23,6 +24,7 @@ interface RecortarFotoProps {
  * most photos people have of themselves — a face is rarely dead centre of a
  * portrait, and never of a group shot. */
 export function RecortarFoto({ archivo, onListo, onCancelar }: RecortarFotoProps) {
+  const t = useT()
   const [bitmap, setBitmap] = useState<ImageBitmap | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Made once and revoked on the way out. Built in render it would mint a
@@ -48,11 +50,14 @@ export function RecortarFoto({ archivo, onListo, onCancelar }: RecortarFotoProps
         creado = bm
         setBitmap(bm)
       })
-      .catch(() => vivo && setError('No pudimos abrir esa imagen'))
+      .catch(() => vivo && setError(t('recorte_error_abrir')))
     return () => {
       vivo = false
       creado?.close()
     }
+    // `t` only feeds the error branch; re-decoding the bitmap on a language
+    // change would be wasted work for something that never touches pixels.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [archivo])
 
   useEffect(() => {
@@ -144,10 +149,10 @@ export function RecortarFoto({ archivo, onListo, onCancelar }: RecortarFotoProps
         LADO_SALIDA,
       )
       const blob = await new Promise<Blob | null>((r) => lienzo.toBlob(r, 'image/webp', 0.85))
-      if (!blob) throw new Error('No pudimos preparar la imagen')
+      if (!blob) throw new Error(t('recorte_error_preparar'))
       onListo(blob)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No pudimos recortar la imagen')
+    } catch {
+      setError(t('recorte_error_recortar'))
       setGuardando(false)
     }
   }
@@ -155,7 +160,7 @@ export function RecortarFoto({ archivo, onListo, onCancelar }: RecortarFotoProps
   return (
     <div className="sheet-backdrop" onClick={onCancelar}>
       <div className="recorte" onClick={(e) => e.stopPropagation()}>
-        <h3 className="recorte__titulo">Elegí qué se ve</h3>
+        <h3 className="recorte__titulo">{t('recorte_titulo')}</h3>
 
         {error ? (
           <p className="recorte__error">{error}</p>
@@ -195,19 +200,19 @@ export function RecortarFoto({ archivo, onListo, onCancelar }: RecortarFotoProps
               max={ZOOM_MAX}
               step={0.01}
               value={zoom}
-              aria-label="Acercar"
+              aria-label={t('recorte_acercar')}
               onChange={(e) => setZoom(Number(e.target.value))}
             />
-            <p className="recorte__ayuda">Arrastrá para mover, o pellizcá para acercar.</p>
+            <p className="recorte__ayuda">{t('recorte_ayuda')}</p>
           </>
         )}
 
         <div className="recorte__acciones">
           <button type="button" className="sheet__cancelar" onClick={onCancelar}>
-            Cancelar
+            {t('comun_cancelar')}
           </button>
           <button type="button" className="sheet__submit" onClick={confirmar} disabled={!bitmap || guardando || !!error}>
-            {guardando ? 'Guardando…' : 'Usar esta foto'}
+            {guardando ? t('comun_guardando') : t('recorte_usar_foto')}
           </button>
         </div>
       </div>

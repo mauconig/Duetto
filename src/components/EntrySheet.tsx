@@ -4,6 +4,8 @@ import { fileToWebpBlob } from '../lib/photoStorage'
 import { photoSlots, randomFondo } from '../lib/duette'
 import { readExifDate } from '../lib/exif'
 import { useApi } from '../lib/api'
+import { useT } from '../lib/i18n/contexto'
+import { traducirError } from '../lib/i18n/erroresServidor'
 
 /** Kept in step with the server's own cap in server/src/index.ts. */
 const MAX_FOTOS = 30
@@ -74,6 +76,7 @@ function fotosIniciales(entry: Album | undefined, extra: File[] | undefined): Fo
 }
 
 export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: EntrySheetProps) {
+  const t = useT()
   const editando = !!entry
   const [fecha, setFecha] = useState(entry?.fecha ?? hoyIso())
   const [rango, setRango] = useState(!!entry?.fechaFin)
@@ -299,7 +302,7 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
       await api.borrarEntrada(entry.id)
       onBorrar(entry.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No pudimos borrar el recuerdo')
+      setError(err instanceof Error ? traducirError(err.message, t) : t('recuerdo_error_borrar'))
       setGuardando(false)
     }
   }
@@ -335,7 +338,7 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
       const guardada = entry ? await api.editarEntrada(entry.id, datos) : await api.crearEntrada(datos)
       onGuardar(guardada)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No pudimos guardar el recuerdo')
+      setError(err instanceof Error ? traducirError(err.message, t) : t('recuerdo_error_guardar'))
       setGuardando(false)
     }
   }
@@ -345,14 +348,14 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet__handle" />
         <div className="sheet__header">
-          <h3>{editando ? 'Editar recuerdo' : 'Nuevo recuerdo'}</h3>
-          <button type="button" className="sheet__close" aria-label="Cerrar" onClick={onClose}>
+          <h3>{editando ? t('lightbox_editar_recuerdo') : t('recuerdo_nuevo_titulo')}</h3>
+          <button type="button" className="sheet__close" aria-label={t('comun_cerrar')} onClick={onClose}>
             ×
           </button>
         </div>
         <form className="sheet__form" onSubmit={handleSubmit}>
           <label className="sheet__field">
-            <span>Fecha</span>
+            <span>{t('comun_fecha')}</span>
             <input
               type="date"
               value={fecha}
@@ -363,8 +366,8 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
               }}
               required
             />
-            {fechaDetectada && !fechaManual && <span className="sheet__hint">Detectada de tus fotos</span>}
-            {sinMetadata && <span className="sheet__toast">No se pudo encontrar la fecha en las fotos</span>}
+            {fechaDetectada && !fechaManual && <span className="sheet__hint">{t('recuerdo_fecha_detectada')}</span>}
+            {sinMetadata && <span className="sheet__toast">{t('recuerdo_fecha_no_encontrada')}</span>}
           </label>
 
           <label className="sheet__checkbox">
@@ -376,12 +379,12 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
                 setRango(e.target.checked)
               }}
             />
-            <span>Fue un rango de fechas (viaje de varios días)</span>
+            <span>{t('recuerdo_rango_checkbox')}</span>
           </label>
 
           {rango && (
             <label className="sheet__field">
-              <span>Hasta</span>
+              <span>{t('recuerdo_hasta')}</span>
               <input
                 type="date"
                 value={fechaFin}
@@ -395,17 +398,17 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
           )}
 
           <label className="sheet__field">
-            <span>Nota (opcional)</span>
+            <span>{t('recuerdo_nota_label')}</span>
             <textarea
               value={nota}
               maxLength={140}
-              placeholder="Un par de palabras sobre este recuerdo..."
+              placeholder={t('recuerdo_nota_placeholder')}
               onChange={(e) => setNota(e.target.value)}
             />
           </label>
 
           <div className="sheet__field">
-            <span>Fotos</span>
+            <span>{t('comun_fotos')}</span>
             <div
               className="sheet__photos"
               onPointerMove={alArrastrar}
@@ -420,15 +423,15 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
                   onPointerDown={(e) => alPresionar(e, i)}
                 >
                   <img src={url} alt="" draggable={false} />
-                  <button type="button" className="sheet__photo-remove" aria-label="Quitar foto" onClick={() => quitarFoto(i)}>
+                  <button type="button" className="sheet__photo-remove" aria-label={t('recuerdo_quitar_foto')} onClick={() => quitarFoto(i)}>
                     ×
                   </button>
                   {previews.length > 1 && (
                     <div className="sheet__photo-order">
-                      <button type="button" disabled={i === 0} aria-label="Mover antes" onClick={() => moverFoto(i, -1)}>
+                      <button type="button" disabled={i === 0} aria-label={t('recuerdo_mover_antes')} onClick={() => moverFoto(i, -1)}>
                         ‹
                       </button>
-                      <button type="button" disabled={i === previews.length - 1} aria-label="Mover después" onClick={() => moverFoto(i, 1)}>
+                      <button type="button" disabled={i === previews.length - 1} aria-label={t('recuerdo_mover_despues')} onClick={() => moverFoto(i, 1)}>
                         ›
                       </button>
                     </div>
@@ -436,7 +439,7 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
                 </div>
               ))}
               {fotos.length < MAX_FOTOS && (
-                <button type="button" className="sheet__photo-add" aria-label="Agregar fotos" onClick={() => fileInputRef.current?.click()}>
+                <button type="button" className="sheet__photo-add" aria-label={t('recuerdo_agregar_fotos')} onClick={() => fileInputRef.current?.click()}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                     <path d="M12 5v14" />
                     <path d="M5 12h14" />
@@ -445,15 +448,9 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
               )}
             </div>
             {enCamino > 0 && (
-              <span className="sheet__hint">
-                Subiendo {listas} de {nuevas.length}...
-              </span>
+              <span className="sheet__hint">{t('recuerdo_subiendo_progreso', listas, nuevas.length)}</span>
             )}
-            {fallidas > 0 && (
-              <span className="sheet__hint">
-                {fallidas === 1 ? 'Una foto no subió' : `${fallidas} fotos no subieron`}; se reintentan al guardar.
-              </span>
-            )}
+            {fallidas > 0 && <span className="sheet__hint">{t('recuerdo_fotos_fallidas', fallidas)}</span>}
             <input
               ref={fileInputRef}
               type="file"
@@ -472,32 +469,29 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
           <button type="submit" className="sheet__submit" disabled={!fecha || guardando}>
             {guardando
               ? enCamino > 0 || fallidas > 0
-                ? 'Subiendo fotos...'
-                : 'Guardando...'
+                ? t('recuerdo_subiendo_fotos')
+                : t('comun_guardando')
               : editando
-                ? 'Guardar cambios'
-                : 'Guardar recuerdo'}
+                ? t('comun_guardar_cambios')
+                : t('recuerdo_guardar_nuevo')}
           </button>
 
           {editando &&
             (confirmandoBorrado ? (
               <div className="sheet__confirmar">
-                <p className="sheet__confirmar-texto">
-                  Se borra para los dos, con sus {fotos.length === 1 ? 'foto' : `${fotos.length} fotos`}. No se puede
-                  deshacer.
-                </p>
+                <p className="sheet__confirmar-texto">{t('recuerdo_confirmar_borrado', fotos.length)}</p>
                 <div className="sheet__confirmar-acciones">
                   <button type="button" className="sheet__cancelar" onClick={() => setConfirmandoBorrado(false)}>
-                    Cancelar
+                    {t('comun_cancelar')}
                   </button>
                   <button type="button" className="sheet__borrar-confirmar" disabled={guardando} onClick={borrar}>
-                    {guardando ? 'Borrando...' : 'Sí, borrar'}
+                    {guardando ? t('recuerdo_borrando') : t('recuerdo_confirmar_si')}
                   </button>
                 </div>
               </div>
             ) : (
               <button type="button" className="sheet__borrar" disabled={guardando} onClick={() => setConfirmandoBorrado(true)}>
-                Borrar recuerdo
+                {t('recuerdo_borrar_boton')}
               </button>
             ))}
         </form>

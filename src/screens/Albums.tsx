@@ -3,6 +3,7 @@ import { PhotoGallery } from '../components/PhotoGallery'
 import { EntrySheet } from '../components/EntrySheet'
 import type { Album } from '../types'
 import { formatFechaEntrada, photoSlots, sortByFecha } from '../lib/duette'
+import { useIdiomaContexto } from '../lib/i18n/contexto'
 
 interface AlbumsProps {
   albumes: Album[]
@@ -14,6 +15,7 @@ interface AlbumsProps {
 type SheetState = { mode: 'crear' } | { mode: 'editar'; entry: Album } | null
 
 export function Albums({ albumes, onCrear, onEditar, onBorrar }: AlbumsProps) {
+  const { t, resuelto } = useIdiomaContexto()
   const entradas = sortByFecha(albumes)
   const [fabVisible, setFabVisible] = useState(true)
   const [sheet, setSheet] = useState<SheetState>(null)
@@ -36,7 +38,7 @@ export function Albums({ albumes, onCrear, onEditar, onBorrar }: AlbumsProps) {
   return (
     <>
       <div className="screen">
-        <h2>Recuerdos</h2>
+        <h2>{t('nav_recuerdos')}</h2>
 
         {entradas.length === 0 && (
           <div className="timeline-vacio">
@@ -47,10 +49,8 @@ export function Albums({ albumes, onCrear, onEditar, onBorrar }: AlbumsProps) {
                 <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
               </svg>
             </div>
-            <div className="timeline-vacio__titulo">Todavía no hay recuerdos</div>
-            <p className="timeline-vacio__texto">
-              Tocá el botón + y guardá su primer momento juntos. Lo que suban lo van a ver los dos.
-            </p>
+            <div className="timeline-vacio__titulo">{t('recuerdos_vacio_titulo')}</div>
+            <p className="timeline-vacio__texto">{t('recuerdos_vacio_texto')}</p>
           </div>
         )}
 
@@ -62,7 +62,7 @@ export function Albums({ albumes, onCrear, onEditar, onBorrar }: AlbumsProps) {
                 <div className="timeline__line" />
               </div>
               <div className="timeline__content">
-                <div className="timeline__fecha">{formatFechaEntrada(entrada)}</div>
+                <div className="timeline__fecha">{formatFechaEntrada(entrada, resuelto)}</div>
                 {entrada.nota && <div className="timeline__nota">{entrada.nota}</div>}
                 <PhotoGallery slots={photoSlots(entrada)} fondo={entrada.fondo} onEditar={() => setSheet({ mode: 'editar', entry: entrada })} />
               </div>

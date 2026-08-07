@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useApi, type Pareja } from '../lib/api'
+import { useT } from '../lib/i18n/contexto'
+import { traducirError } from '../lib/i18n/erroresServidor'
 
 interface LeaveCoupleSheetProps {
   pareja: Pareja
@@ -13,6 +15,7 @@ interface LeaveCoupleSheetProps {
  * says which of the two is about to happen. */
 export function LeaveCoupleSheet({ pareja, onClose, onSalio }: LeaveCoupleSheetProps) {
   const api = useApi()
+  const t = useT()
   const [saliendo, setSaliendo] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,7 +26,7 @@ export function LeaveCoupleSheet({ pareja, onClose, onSalio }: LeaveCoupleSheetP
     }
   }, [])
 
-  const partner = pareja.nombrePareja ?? 'tu pareja'
+  const partner = pareja.nombrePareja ?? t('salir_pareja_generica')
 
   async function salir() {
     if (saliendo) return
@@ -33,7 +36,7 @@ export function LeaveCoupleSheet({ pareja, onClose, onSalio }: LeaveCoupleSheetP
       await api.salirDePareja()
       onSalio()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No pudimos desvincularte')
+      setError(err instanceof Error ? traducirError(err.message, t) : t('salir_error'))
       setSaliendo(false)
     }
   }
@@ -43,33 +46,26 @@ export function LeaveCoupleSheet({ pareja, onClose, onSalio }: LeaveCoupleSheetP
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet__handle" />
         <div className="sheet__header">
-          <h3>Desvincularte</h3>
-          <button type="button" className="sheet__close" aria-label="Cerrar" onClick={onClose}>
+          <h3>{t('salir_titulo')}</h3>
+          <button type="button" className="sheet__close" aria-label={t('comun_cerrar')} onClick={onClose}>
             ×
           </button>
         </div>
         <div className="sheet__form">
           {pareja.vinculada ? (
-            <p className="sheet__confirmar-texto">
-              Vas a salir de la pareja con {partner}. Dejás de ver los recuerdos, las fotos y las ideas compartidas —
-              {' '}
-              {partner} los conserva. Si querés volver, te alcanza con entrar de nuevo con el mismo código.
-            </p>
+            <p className="sheet__confirmar-texto">{t('salir_texto_vinculada', partner)}</p>
           ) : (
-            <p className="sheet__confirmar-texto">
-              Todavía no se unió nadie a tu código, así que no queda nadie para guardar lo que subiste: se borran todos
-              tus recuerdos, sus fotos y las ideas de la ruleta. No se puede deshacer.
-            </p>
+            <p className="sheet__confirmar-texto">{t('salir_texto_sola')}</p>
           )}
 
           {error && <div className="onboarding__error">{error}</div>}
 
           <div className="sheet__confirmar-acciones">
             <button type="button" className="sheet__cancelar" onClick={onClose}>
-              Cancelar
+              {t('comun_cancelar')}
             </button>
             <button type="button" className="sheet__borrar-confirmar" disabled={saliendo} onClick={salir}>
-              {saliendo ? 'Saliendo...' : 'Sí, desvincularme'}
+              {saliendo ? t('salir_saliendo') : t('salir_confirmar')}
             </button>
           </div>
         </div>

@@ -1,8 +1,29 @@
 import type { Album } from '../types'
 import { photoUrl } from './photoStorage'
+import type { IdiomaResuelto } from './i18n'
 
-const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+/** Hand-rolled per language rather than `Intl.DateTimeFormat`: Intl's short
+ * form adds a period after the month in Spanish and Portuguese ("7 ago.
+ * 2026", "7 de ago. de 2026") that this app's compact badges never had, and
+ * mixing that punctuation style with the plain one already in use would
+ * read as inconsistent rather than as three languages. This keeps every
+ * locale byte-for-byte predictable, the same reason the rest of the project
+ * avoids letting a big dependency make small formatting decisions for it. */
+const MESES: Record<IdiomaResuelto, string[]> = {
+  es: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  pt: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'],
+}
+const MESES_LARGOS: Record<IdiomaResuelto, string[]> = {
+  es: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  pt: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
+}
+const DIAS: Record<IdiomaResuelto, string[]> = {
+  es: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'],
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  pt: ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'],
+}
 
 export const pad = (n: number) => String(Math.max(n, 0)).padStart(2, '0')
 
@@ -11,12 +32,16 @@ export function parseFecha(iso: string): Date {
   return new Date(y, m - 1, d)
 }
 
-export function formatFecha(f: Date): string {
-  return `${f.getDate()} ${MESES[f.getMonth()]} ${f.getFullYear()}`
+export function formatFecha(f: Date, idioma: IdiomaResuelto): string {
+  return `${f.getDate()} ${MESES[idioma][f.getMonth()]} ${f.getFullYear()}`
 }
 
-export function formatFechaHoy(hoy: Date): string {
-  return `${DIAS[hoy.getDay()]}, ${hoy.getDate()} de ${MESES[hoy.getMonth()]}`
+/** English drops the "de": "Friday, August 7" reads right, "Friday, 7 of
+ * August" doesn't. Spanish and Portuguese share the same "<día>, <n> de
+ * <mes>" shape. */
+export function formatFechaHoy(hoy: Date, idioma: IdiomaResuelto): string {
+  if (idioma === 'en') return `${DIAS.en[hoy.getDay()]}, ${MESES_LARGOS.en[hoy.getMonth()]} ${hoy.getDate()}`
+  return `${DIAS[idioma][hoy.getDay()]}, ${hoy.getDate()} de ${MESES_LARGOS[idioma][hoy.getMonth()]}`
 }
 
 export interface Edad {
@@ -40,15 +65,19 @@ export function calcularEdad(hoy: Date, ini: Date): Edad {
   return { anios: a, meses: m, dias: d }
 }
 
+/** Neither this nor `HitoDeHoy` carries a title string: "Aniversario n.º 3"
+ * is Spanish text, and this file doesn't know what language is active — nor
+ * should it, it's date arithmetic. `tipo` and `numero` are what the caller
+ * needs to build the title with `t()`. */
 export interface Hito {
-  titulo: string
+  tipo: 'cumplemes' | 'aniversario'
+  numero: number
   diasNum: number
-  diasLabel: string
   progreso: string
 }
 
 export interface HitoDeHoy {
-  titulo: string
+  tipo: 'cumplemes' | 'aniversario'
   /** Identifies the milestone itself, not the date, so the celebration can
    * be shown once and not again on every app open that day. */
   clave: string
@@ -79,34 +108,34 @@ export function hitoDeHoy(hoy: Date, ini: Date, tipo: 'cumplemes' | 'aniversario
   if (tipo === 'aniversario') {
     if (hoy0.getMonth() !== ini0.getMonth()) return null
     const numero = hoy0.getFullYear() - ini0.getFullYear()
-    return { titulo: `Aniversario n.º ${numero}`, clave: `aniversario-${numero}`, numero }
+    return { tipo, clave: `aniversario-${numero}`, numero }
   }
   const numero = (hoy0.getFullYear() - ini0.getFullYear()) * 12 + (hoy0.getMonth() - ini0.getMonth())
-  return { titulo: `Cumplemes n.º ${numero}`, clave: `cumplemes-${numero}`, numero }
+  return { tipo, clave: `cumplemes-${numero}`, numero }
 }
 
 export function calcularHito(hoy: Date, ini: Date, tipo: 'cumplemes' | 'aniversario'): Hito {
   const hoy0 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
   let prox: Date
-  let titulo: string
+  let numero: number
   let totalTramo: number
 
   if (tipo === 'aniversario') {
     prox = new Date(hoy.getFullYear(), ini.getMonth(), ini.getDate())
     if (prox <= hoy0) prox = new Date(hoy.getFullYear() + 1, ini.getMonth(), ini.getDate())
-    titulo = `Aniversario n.º ${prox.getFullYear() - ini.getFullYear()}`
+    numero = prox.getFullYear() - ini.getFullYear()
     totalTramo = 365
   } else {
     prox = new Date(hoy.getFullYear(), hoy.getMonth(), ini.getDate())
     if (prox <= hoy0) prox = new Date(hoy.getFullYear(), hoy.getMonth() + 1, ini.getDate())
-    titulo = `Cumplemes n.º ${(prox.getFullYear() - ini.getFullYear()) * 12 + (prox.getMonth() - ini.getMonth())}`
+    numero = (prox.getFullYear() - ini.getFullYear()) * 12 + (prox.getMonth() - ini.getMonth())
     totalTramo = 30
   }
 
   const diasNum = Math.round((prox.getTime() - hoy0.getTime()) / 864e5)
   const progreso = Math.round(Math.min(Math.max(1 - diasNum / totalTramo, 0.04), 1) * 100) + '%'
 
-  return { titulo, diasNum, diasLabel: diasNum === 1 ? 'día' : 'días', progreso }
+  return { tipo, numero, diasNum, progreso }
 }
 
 export function diasJuntos(hoy: Date, ini: Date): number {
@@ -140,10 +169,10 @@ export function sortByFecha(albumes: Album[]): Album[] {
   return [...albumes].sort((a, b) => parseFecha(a.fecha).getTime() - parseFecha(b.fecha).getTime())
 }
 
-export function formatFechaEntrada(album: Album): string {
-  const inicio = formatFecha(parseFecha(album.fecha))
+export function formatFechaEntrada(album: Album, idioma: IdiomaResuelto): string {
+  const inicio = formatFecha(parseFecha(album.fecha), idioma)
   if (!album.fechaFin) return inicio
-  return `${inicio} – ${formatFecha(parseFecha(album.fechaFin))}`
+  return `${inicio} – ${formatFecha(parseFecha(album.fechaFin), idioma)}`
 }
 
 const FONDOS = [

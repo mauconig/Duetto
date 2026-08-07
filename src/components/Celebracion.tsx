@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import type { HitoDeHoy } from '../lib/duette'
+import { useT } from '../lib/i18n/contexto'
 
 interface CelebracionProps {
   hito: HitoDeHoy
@@ -16,6 +17,7 @@ const COLORES = ['var(--acento)', 'var(--acento-claro)', 'var(--acento-fuerte)',
 /** Shown once, on the day a couple actually reaches something. Everything
  * about the timing lives in the caller — this only knows how to celebrate. */
 export function Celebracion({ hito, nombres, onCerrar }: CelebracionProps) {
+  const t = useT()
   // Fixed at mount: recomputing on every render would reshuffle the confetti
   // mid-fall.
   const papelitos = useMemo(
@@ -65,10 +67,12 @@ export function Celebracion({ hito, nombres, onCerrar }: CelebracionProps) {
 
       <div className="celebracion__tarjeta" role="status" onClick={(e) => e.stopPropagation()}>
         <div className="celebracion__numero">{hito.numero}</div>
-        <h2 className="celebracion__titulo">{hito.titulo}</h2>
-        <p className="celebracion__texto">Hoy es el día, {nombres}.</p>
+        <h2 className="celebracion__titulo">
+          {hito.tipo === 'aniversario' ? t('hito_titulo_aniversario', hito.numero) : t('hito_titulo_cumplemes', hito.numero)}
+        </h2>
+        <p className="celebracion__texto">{t('celebracion_texto', nombres)}</p>
         <button type="button" className="celebracion__boton" onClick={onCerrar}>
-          Festejar
+          {t('celebracion_boton')}
         </button>
       </div>
     </div>

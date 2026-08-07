@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ImageSlot } from './ImageSlot'
 import { TimelineLightbox } from './TimelineLightbox'
 import type { PhotoSlot } from '../lib/duette'
+import { useT } from '../lib/i18n/contexto'
 
 const FALLBACK_ICON = (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -20,6 +21,7 @@ interface PhotoGalleryProps {
 }
 
 export function PhotoGallery({ slots, fondo, onEditar }: PhotoGalleryProps) {
+  const t = useT()
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
   if (slots.length === 0) {
@@ -49,7 +51,7 @@ export function PhotoGallery({ slots, fondo, onEditar }: PhotoGalleryProps) {
           src={slots[0].miniatura}
           shape="rounded"
           radius={18}
-          placeholder="Foto"
+          placeholder={t('comun_foto_placeholder')}
           className="timeline__photo"
           onOpen={() => setOpenIndex(0)}
         />
@@ -69,7 +71,7 @@ export function PhotoGallery({ slots, fondo, onEditar }: PhotoGalleryProps) {
           src={main.miniatura}
           shape="rounded"
           radius={18}
-          placeholder="Foto"
+          placeholder={t('comun_foto_placeholder')}
           className="timeline__gallery-main"
           onOpen={() => setOpenIndex(0)}
         />

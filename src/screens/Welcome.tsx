@@ -1,6 +1,8 @@
 import { SignInButton, SignUpButton } from '@clerk/react'
+import { useT } from '../lib/i18n/contexto'
 
 export function Welcome() {
+  const t = useT()
   return (
     <div className="screen welcome">
       <div className="welcome__hero">
@@ -31,18 +33,18 @@ export function Welcome() {
           </g>
         </svg>
         <h1 className="welcome__title">Pictogether</h1>
-        <p className="welcome__subtitle">Su espacio para guardar recuerdos, ideas y momentos juntos.</p>
+        <p className="welcome__subtitle">{t('bienvenida_subtitulo')}</p>
       </div>
 
       <SignInButton mode="modal">
         <button type="button" className="cta-button welcome__signin">
-          Iniciar sesión
+          {t('bienvenida_iniciar_sesion')}
         </button>
       </SignInButton>
 
       <SignUpButton mode="modal">
         <button type="button" className="welcome__signup">
-          Crear una cuenta
+          {t('bienvenida_crear_cuenta')}
         </button>
       </SignUpButton>
     </div>

@@ -3,6 +3,7 @@ import { TimelineLightbox } from '../components/TimelineLightbox'
 import { photoUrl } from '../lib/photoStorage'
 import type { Categoria, Inspiracion as Referencia } from '../lib/api'
 import type { PhotoSlot } from '../lib/duette'
+import { useT } from '../lib/i18n/contexto'
 
 /** The bucket for photos with no category, and for those whose category was
  * deleted. Not a row in the database — it only exists on screen. */
@@ -34,6 +35,7 @@ export function Inspiracion({
   onMoverFoto,
   onBorrarFoto,
 }: InspiracionProps) {
+  const t = useT()
   const [activa, setActiva] = useState<string>(SIN_CATEGORIA)
   const [abierta, setAbierta] = useState<number | null>(null)
   const [nombrando, setNombrando] = useState<{ id?: string; valor: string } | null>(null)
@@ -42,8 +44,8 @@ export function Inspiracion({
 
   // "Todas" first so a board with one category still reads as a board.
   const pestanas = useMemo(
-    () => [{ id: SIN_CATEGORIA, nombre: 'Todas' }, ...categorias],
-    [categorias],
+    () => [{ id: SIN_CATEGORIA, nombre: t('insp_tab_todas') }, ...categorias],
+    [categorias, t],
   )
   const visibles = useMemo(
     () => (activa === SIN_CATEGORIA ? fotos : fotos.filter((f) => f.categoriaId === activa)),
@@ -69,8 +71,8 @@ export function Inspiracion({
     <>
       <div className="screen">
         <div>
-          <h2>Inspiración</h2>
-          <div className="page-subtitle">Fotos que quieren copiar, guardadas de a dos</div>
+          <h2>{t('nav_inspiracion')}</h2>
+          <div className="page-subtitle">{t('insp_subtitulo')}</div>
         </div>
 
         <div className="insp-tabs">
@@ -91,13 +93,13 @@ export function Inspiracion({
           <button
             type="button"
             className="insp-tab insp-tab--nueva"
-            aria-label="Nueva carpeta"
+            aria-label={t('insp_nueva_carpeta')}
             onClick={() => setNombrando({ valor: '' })}
           >
             +
           </button>
           <button type="button" className="insp-tab insp-tab--gestion" onClick={() => setGestionando((v) => !v)}>
-            {gestionando ? 'Listo' : 'Editar'}
+            {gestionando ? t('insp_listo') : t('insp_editar')}
           </button>
         </div>
 
@@ -107,29 +109,26 @@ export function Inspiracion({
               <div className="insp-gestion__fila" key={c.id}>
                 <span className="insp-gestion__nombre">{c.nombre}</span>
                 <button type="button" onClick={() => setNombrando({ id: c.id, valor: c.nombre })}>
-                  Renombrar
+                  {t('comun_renombrar')}
                 </button>
                 <button type="button" className="insp-gestion__borrar" onClick={() => onBorrarCategoria(c.id)}>
-                  Borrar
+                  {t('comun_borrar')}
                 </button>
               </div>
             ))}
-            <p className="sheet__hint">Borrar una carpeta no borra sus fotos: quedan sueltas.</p>
+            <p className="sheet__hint">{t('insp_borrar_carpeta_hint')}</p>
             <button type="button" className="insp-gestion__nueva" onClick={() => setNombrando({ valor: '' })}>
-              + Nueva carpeta
+              + {t('insp_nueva_carpeta')}
             </button>
           </div>
         )}
 
         {sinCategoria > 0 && activa === SIN_CATEGORIA && categorias.length > 0 && (
-          <p className="sheet__hint">
-            {sinCategoria === 1 ? 'Hay 1 foto sin carpeta' : `Hay ${sinCategoria} fotos sin carpeta`}. Tocá una para
-            archivarla.
-          </p>
+          <p className="sheet__hint">{t('insp_fotos_sin_carpeta', sinCategoria)}</p>
         )}
 
         {error && <div className="onboarding__error">{error}</div>}
-        {subiendo > 0 && <div className="insp-subiendo">Subiendo {subiendo}...</div>}
+        {subiendo > 0 && <div className="insp-subiendo">{t('insp_subiendo', subiendo)}</div>}
 
         {visibles.length === 0 && subiendo === 0 && (
           <div className="timeline-vacio">
@@ -140,10 +139,8 @@ export function Inspiracion({
                 <path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2Z" />
               </svg>
             </div>
-            <div className="timeline-vacio__titulo">Todavía no hay nada acá</div>
-            <p className="timeline-vacio__texto">
-              Guardá fotos que les gusten con el botón +, o compartilas a Pictogether desde donde las hayas visto.
-            </p>
+            <div className="timeline-vacio__titulo">{t('insp_vacio_titulo')}</div>
+            <p className="timeline-vacio__texto">{t('insp_vacio_texto')}</p>
           </div>
         )}
 
@@ -181,8 +178,8 @@ export function Inspiracion({
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet__handle" />
             <div className="sheet__header">
-              <h3>{nombrando.id ? 'Renombrar carpeta' : 'Nueva carpeta'}</h3>
-              <button type="button" className="sheet__close" aria-label="Cerrar" onClick={() => setNombrando(null)}>
+              <h3>{nombrando.id ? t('insp_renombrar_carpeta_titulo') : t('insp_nueva_carpeta')}</h3>
+              <button type="button" className="sheet__close" aria-label={t('comun_cerrar')} onClick={() => setNombrando(null)}>
                 ×
               </button>
             </div>
@@ -194,18 +191,18 @@ export function Inspiracion({
               }}
             >
               <label className="sheet__field">
-                <span>Nombre</span>
+                <span>{t('comun_nombre')}</span>
                 <input
                   type="text"
                   autoFocus
                   maxLength={30}
                   value={nombrando.valor}
-                  placeholder="Poses, Historias, Viajes..."
+                  placeholder={t('insp_nombre_placeholder')}
                   onChange={(e) => setNombrando({ ...nombrando, valor: e.target.value })}
                 />
               </label>
               <button type="submit" className="sheet__submit" disabled={!nombrando.valor.trim()}>
-                Guardar
+                {t('comun_guardar')}
               </button>
             </form>
           </div>
@@ -247,6 +244,7 @@ interface AbiertaProps {
  * whatever was tapped, so swiping to another photo first still does the
  * right thing. */
 function InspiracionAbierta({ fotos, slots, indice, categorias, onIndice, onCerrar, onMover, onBorrar }: AbiertaProps) {
+  const t = useT()
   const [archivando, setArchivando] = useState(false)
   const foto = fotos[indice]
 
@@ -256,13 +254,13 @@ function InspiracionAbierta({ fotos, slots, indice, categorias, onIndice, onCerr
         <div className="sheet" onClick={(e) => e.stopPropagation()}>
           <div className="sheet__handle" />
           <div className="sheet__header">
-            <h3>Archivar en</h3>
-            <button type="button" className="sheet__close" aria-label="Cerrar" onClick={() => setArchivando(false)}>
+            <h3>{t('insp_archivar_en')}</h3>
+            <button type="button" className="sheet__close" aria-label={t('comun_cerrar')} onClick={() => setArchivando(false)}>
               ×
             </button>
           </div>
           <div className="sheet__form">
-            {categorias.length === 0 && <p className="sheet__hint">Todavía no creaste ninguna carpeta.</p>}
+            {categorias.length === 0 && <p className="sheet__hint">{t('insp_sin_carpetas')}</p>}
             {categorias.map((c) => (
               <button
                 type="button"
@@ -287,7 +285,7 @@ function InspiracionAbierta({ fotos, slots, indice, categorias, onIndice, onCerr
                   onCerrar()
                 }}
               >
-                Sacar de la carpeta
+                {t('insp_sacar_de_carpeta')}
               </button>
             )}
           </div>
@@ -302,7 +300,7 @@ function InspiracionAbierta({ fotos, slots, indice, categorias, onIndice, onCerr
       startIndex={indice}
       onIndice={onIndice}
       onClose={onCerrar}
-      etiquetaEditar="Archivar"
+      etiquetaEditar={t('insp_archivar')}
       onEditar={() => setArchivando(true)}
       onBorrar={() => onBorrar(foto.id)}
     />

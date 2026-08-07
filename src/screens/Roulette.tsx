@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import type { Idea } from '../lib/api'
 import { RULETA_COLORES, RULETA_TEXTO, ruedaFondo, truncarEtiqueta } from '../lib/duette'
+import { useT } from '../lib/i18n/contexto'
 
 interface RouletteProps {
   ideas: Idea[]
@@ -31,6 +32,7 @@ export function Roulette({
   onAgregarIdea,
   onBorrarIdea,
 }: RouletteProps) {
+  const t = useT()
   const seg = 360 / Math.max(ideas.length, 1)
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -40,8 +42,8 @@ export function Roulette({
   return (
     <div className="screen">
       <div>
-        <h2>Ruleta de citas</h2>
-        <div className="page-subtitle">Sus ideas deciden la próxima cita</div>
+        <h2>{t('ruleta_titulo')}</h2>
+        <div className="page-subtitle">{t('ruleta_subtitulo')}</div>
       </div>
 
       <div className="wheel">
@@ -71,18 +73,18 @@ export function Roulette({
         disabled={girando || ideas.length < 2}
         style={{ opacity: girando ? 0.6 : 1 }}
       >
-        {girando ? 'Girando…' : 'Girar la ruleta'}
+        {girando ? t('ruleta_girando') : t('ruleta_girar')}
       </button>
 
       {resultado && (
         <div className="result-card">
-          <div className="result-card__kicker">Esta vez toca</div>
+          <div className="result-card__kicker">{t('ruleta_resultado_kicker')}</div>
           <div className="result-card__title">{resultado}</div>
         </div>
       )}
 
       <div>
-        <div className="ideas-heading">IDEAS EN JUEGO · {ideas.length}</div>
+        <div className="ideas-heading">{t('ruleta_ideas_en_juego', ideas.length)}</div>
         <div className="ideas-panel">
           {ideas.map((idea, i) => (
             <div className="idea-row" key={idea.id}>
@@ -91,7 +93,7 @@ export function Roulette({
               <button
                 type="button"
                 className="idea-row__delete"
-                aria-label={`Borrar ${idea.texto}`}
+                aria-label={t('ruleta_borrar_idea_aria', idea.texto)}
                 disabled={ocupado}
                 onClick={() => onBorrarIdea(idea.id)}
               >
@@ -105,7 +107,7 @@ export function Roulette({
           ))}
           <div className="idea-input-row">
             <input
-              placeholder="Nueva idea de cita"
+              placeholder={t('ruleta_idea_placeholder')}
               value={nuevaIdea}
               maxLength={60}
               onChange={(e) => onCambiarNuevaIdea(e.target.value)}
@@ -121,7 +123,7 @@ export function Roulette({
           </div>
           {error && <div className="ideas-error">{error}</div>}
         </div>
-        <div className="ideas-nota">Lo que agreguen acá lo ven los dos.</div>
+        <div className="ideas-nota">{t('ruleta_nota')}</div>
       </div>
     </div>
   )

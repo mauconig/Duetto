@@ -3,6 +3,7 @@ import { ImageSlot } from '../components/ImageSlot'
 import type { Album } from '../types'
 import type { Edad, Hito, HitoDeHoy, PhotoSlot } from '../lib/duette'
 import { formatFechaEntrada, pad, photoSlots } from '../lib/duette'
+import { useIdiomaContexto } from '../lib/i18n/contexto'
 
 interface HomeProps {
   nombres: string
@@ -55,14 +56,22 @@ export function Home({
   onIrInspiracion,
   onAbrirRecuerdo,
 }: HomeProps) {
+  const { t, resuelto } = useIdiomaContexto()
   const recuerdoFoto = recuerdo ? photoSlots(recuerdo)[0] : undefined
+  const tituloHito = hitoHoy
+    ? hitoHoy.tipo === 'aniversario'
+      ? t('hito_titulo_aniversario', hitoHoy.numero)
+      : t('hito_titulo_cumplemes', hitoHoy.numero)
+    : hito.tipo === 'aniversario'
+      ? t('hito_titulo_aniversario', hito.numero)
+      : t('hito_titulo_cumplemes', hito.numero)
 
   return (
     <div className="screen">
       <div className="topbar">
         <div>
           <div className="topbar__date">{fechaHoy}</div>
-          <div className="topbar__greeting">Hola, {nombres}</div>
+          <div className="topbar__greeting">{t('inicio_saludo', nombres)}</div>
         </div>
         {/* Two overlapping faces when there are photos, the initials badge
             when there aren't. A half-photo half-letter pair looked like a
@@ -83,21 +92,21 @@ export function Home({
       <div className="hero-card">
         <div className="hero-card__decor hero-card__decor--a" />
         <div className="hero-card__decor hero-card__decor--b" />
-        <div className="hero-card__label">Juntos desde el {fechaInicioTexto}</div>
+        <div className="hero-card__label">{t('inicio_juntos_desde', fechaInicioTexto)}</div>
         <div className="hero-card__countdown">
           <div className="hero-card__unit">
             <div className="hero-card__num">{pad(edad.anios)}</div>
-            <div className="hero-card__unit-label">años</div>
+            <div className="hero-card__unit-label">{t('inicio_unidad_anios')}</div>
           </div>
           <div className="hero-card__colon">:</div>
           <div className="hero-card__unit">
             <div className="hero-card__num">{pad(edad.meses)}</div>
-            <div className="hero-card__unit-label">meses</div>
+            <div className="hero-card__unit-label">{t('inicio_unidad_meses')}</div>
           </div>
           <div className="hero-card__colon">:</div>
           <div className="hero-card__unit">
             <div className="hero-card__num">{pad(edad.dias)}</div>
-            <div className="hero-card__unit-label">días</div>
+            <div className="hero-card__unit-label">{t('inicio_unidad_dias')}</div>
           </div>
           <svg width="34" height="34" viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)" stroke="none" className="hero-card__heart">
             <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
@@ -115,8 +124,8 @@ export function Home({
           </svg>
         </div>
         <div className="milestone-card__body">
-          <div className="milestone-card__kicker">{hitoHoy ? '¡Es hoy!' : 'Próximo hito'}</div>
-          <div className="milestone-card__title">{hitoHoy?.titulo ?? hito.titulo}</div>
+          <div className="milestone-card__kicker">{hitoHoy ? t('inicio_es_hoy') : t('inicio_proximo_hito')}</div>
+          <div className="milestone-card__title">{tituloHito}</div>
           <div className="milestone-card__track">
             <div className="milestone-card__fill" style={{ width: hitoHoy ? '100%' : hito.progreso }} />
           </div>
@@ -131,7 +140,7 @@ export function Home({
         ) : (
           <div className="milestone-card__days">
             <div className="milestone-card__days-num">{hito.diasNum}</div>
-            <div className="milestone-card__days-label">{hito.diasLabel}</div>
+            <div className="milestone-card__days-label">{t('hito_dias_unidad', hito.diasNum)}</div>
           </div>
         )}
       </div>
@@ -144,7 +153,7 @@ export function Home({
           <path d="m19 17-4.9-2.8" />
           <path d="m5 17 4.9-2.8" />
         </svg>
-        Girar la ruleta de citas
+        {t('inicio_girar_ruleta')}
       </button>
 
       <div className="grid-2">
@@ -166,9 +175,9 @@ export function Home({
               </div>
             )}
             <div className="mini-card__overlay">
-              <div className="mini-card__overlay-kicker">{ultimoAlbum ? 'Último recuerdo' : 'Recuerdos'}</div>
+              <div className="mini-card__overlay-kicker">{ultimoAlbum ? t('inicio_ultimo_recuerdo') : t('nav_recuerdos')}</div>
               <div className="mini-card__overlay-meta">
-                {ultimoAlbum ? formatFechaEntrada(ultimoAlbum) : 'Sumá su primer recuerdo'}
+                {ultimoAlbum ? formatFechaEntrada(ultimoAlbum, resuelto) : t('inicio_sumar_primer_recuerdo')}
               </div>
             </div>
           </div>
@@ -187,17 +196,15 @@ export function Home({
             <div className="mini-card__image">
               <ImageSlot src={inspiracionFoto.miniatura} shape="rect" placeholder="" />
               <div className="mini-card__overlay">
-                <div className="mini-card__overlay-kicker">Inspiración</div>
-                <div className="mini-card__overlay-meta">
-                  {numInspiraciones === 1 ? '1 guardada' : `${numInspiraciones} guardadas`}
-                </div>
+                <div className="mini-card__overlay-kicker">{t('nav_inspiracion')}</div>
+                <div className="mini-card__overlay-meta">{t('inicio_insp_guardadas', numInspiraciones)}</div>
               </div>
             </div>
           ) : (
             <>
-              <span className="tag-pill">Inspiración</span>
-              <div className="mini-card__title mini-card__title--flex">Guardá fotos que quieran copiar</div>
-              <div className="mini-card__meta">Todavía no hay ninguna</div>
+              <span className="tag-pill">{t('nav_inspiracion')}</span>
+              <div className="mini-card__title mini-card__title--flex">{t('inicio_insp_vacio_titulo')}</div>
+              <div className="mini-card__meta">{t('inicio_insp_vacio_texto')}</div>
             </>
           )}
         </div>
@@ -218,8 +225,8 @@ export function Home({
               </div>
             )}
             <div className="memory-card__overlay">
-              <div className="memory-card__kicker">Recuerdo del día</div>
-              <div className="memory-card__fecha">{formatFechaEntrada(recuerdo)}</div>
+              <div className="memory-card__kicker">{t('inicio_recuerdo_del_dia')}</div>
+              <div className="memory-card__fecha">{formatFechaEntrada(recuerdo, resuelto)}</div>
             </div>
           </div>
         </div>
@@ -237,7 +244,7 @@ export function Home({
             </svg>
           </div>
           <div className="idea-teaser-card__body">
-            <div className="idea-teaser-card__kicker">Idea para la próxima cita</div>
+            <div className="idea-teaser-card__kicker">{t('inicio_idea_kicker')}</div>
             <div className="idea-teaser-card__text">{ideaSugerida}</div>
           </div>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--icono-tenue)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Album } from '../types'
 import type { Categoria } from '../lib/api'
 import { formatFechaEntrada, photoSlots, sortByFecha } from '../lib/duette'
+import { useIdiomaContexto } from '../lib/i18n/contexto'
 
 interface SharedPhotosSheetProps {
   fotos: File[]
@@ -31,6 +32,7 @@ export function SharedPhotosSheet({
   onInspiracion,
   onDescartar,
 }: SharedPhotosSheetProps) {
+  const { t, resuelto } = useIdiomaContexto()
   const recientes = sortByFecha(albumes).slice(-6).reverse()
   // Second step: which carpeta the photo goes into. Asking this used to be
   // skipped because the question arrived before the photo did — here the
@@ -65,7 +67,7 @@ export function SharedPhotosSheet({
     if (carpeta) onInspiracion(carpeta.id)
   }
 
-  const cuantas = fotos.length === 1 ? 'Llegó 1 foto' : `Llegaron ${fotos.length} fotos`
+  const cuantas = t('compartir_cuantas', fotos.length)
 
   if (eligiendoCarpeta) {
     return (
@@ -73,8 +75,8 @@ export function SharedPhotosSheet({
         <div className="sheet" onClick={(e) => e.stopPropagation()}>
           <div className="sheet__handle" />
           <div className="sheet__header">
-            <h3>¿En qué carpeta?</h3>
-            <button type="button" className="sheet__close" aria-label="Volver" onClick={() => setEligiendoCarpeta(false)}>
+            <h3>{t('compartir_que_carpeta')}</h3>
+            <button type="button" className="sheet__close" aria-label={t('comun_volver')} onClick={() => setEligiendoCarpeta(false)}>
               ×
             </button>
           </div>
@@ -93,14 +95,14 @@ export function SharedPhotosSheet({
                     <path d="M5 12h14" />
                   </svg>
                 </div>
-                <span className="compartir-opcion__titulo">Nueva carpeta</span>
+                <span className="compartir-opcion__titulo">{t('insp_nueva_carpeta')}</span>
               </button>
             ) : (
               <div className="compartir-nueva">
                 <input
                   className="compartir-nueva__input"
                   autoFocus
-                  placeholder="Nombre de la carpeta"
+                  placeholder={t('compartir_nombre_carpeta_placeholder')}
                   value={nombreNuevo}
                   maxLength={40}
                   onChange={(e) => setNombreNuevo(e.target.value)}
@@ -115,7 +117,7 @@ export function SharedPhotosSheet({
                   disabled={!nombreNuevo.trim() || creando}
                   onClick={confirmarCarpetaNueva}
                 >
-                  {creando ? 'Creando…' : 'Crear y guardar'}
+                  {creando ? t('compartir_creando') : t('compartir_crear_y_guardar')}
                 </button>
               </div>
             )}
@@ -136,7 +138,7 @@ export function SharedPhotosSheet({
             )}
 
             <button type="button" className="sheet__cancelar sheet__cancelar--ancho" onClick={() => onInspiracion(null)}>
-              Sin carpeta
+              {t('compartir_sin_carpeta')}
             </button>
           </div>
         </div>
@@ -150,12 +152,12 @@ export function SharedPhotosSheet({
         <div className="sheet__handle" />
         <div className="sheet__header">
           <h3>{cuantas}</h3>
-          <button type="button" className="sheet__close" aria-label="Descartar" onClick={onDescartar}>
+          <button type="button" className="sheet__close" aria-label={t('compartir_descartar')} onClick={onDescartar}>
             ×
           </button>
         </div>
         <div className="sheet__form">
-          <p className="sheet__hint">¿Dónde las guardamos?</p>
+          <p className="sheet__hint">{t('compartir_donde_guardamos')}</p>
 
           <button type="button" className="compartir-opcion compartir-opcion--nueva" onClick={onNuevo}>
             <div className="compartir-opcion__icono">
@@ -164,7 +166,7 @@ export function SharedPhotosSheet({
                 <path d="M5 12h14" />
               </svg>
             </div>
-            <span className="compartir-opcion__titulo">En un recuerdo nuevo</span>
+            <span className="compartir-opcion__titulo">{t('compartir_en_recuerdo_nuevo')}</span>
           </button>
 
           <button type="button" className="compartir-opcion" onClick={() => setEligiendoCarpeta(true)}>
@@ -176,14 +178,14 @@ export function SharedPhotosSheet({
               </svg>
             </div>
             <span className="compartir-opcion__texto">
-              <span className="compartir-opcion__titulo">En inspiración</span>
-              <span className="compartir-opcion__fecha">Para copiarla más adelante</span>
+              <span className="compartir-opcion__titulo">{t('compartir_en_inspiracion')}</span>
+              <span className="compartir-opcion__fecha">{t('compartir_para_copiar_mas_adelante')}</span>
             </span>
           </button>
 
           {recientes.length > 0 && (
             <>
-              <div className="compartir-separador">o sumalas a uno que ya existe</div>
+              <div className="compartir-separador">{t('compartir_o_sumalas')}</div>
               <div className="compartir-lista">
                 {recientes.map((entry) => {
                   const portada = photoSlots(entry)[0]
@@ -195,8 +197,8 @@ export function SharedPhotosSheet({
                         <div className="compartir-opcion__foto" style={{ background: entry.fondo }} />
                       )}
                       <span className="compartir-opcion__texto">
-                        <span className="compartir-opcion__titulo">{entry.nota || 'Sin nota'}</span>
-                        <span className="compartir-opcion__fecha">{formatFechaEntrada(entry)}</span>
+                        <span className="compartir-opcion__titulo">{entry.nota || t('compartir_sin_nota')}</span>
+                        <span className="compartir-opcion__fecha">{formatFechaEntrada(entry, resuelto)}</span>
                       </span>
                     </button>
                   )
@@ -206,7 +208,7 @@ export function SharedPhotosSheet({
           )}
 
           <button type="button" className="sheet__cancelar sheet__cancelar--ancho" onClick={onDescartar}>
-            Descartar
+            {t('compartir_descartar')}
           </button>
         </div>
       </div>

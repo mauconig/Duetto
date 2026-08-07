@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApi, type Pareja } from '../lib/api'
+import { useT } from '../lib/i18n/contexto'
+import { traducirError } from '../lib/i18n/erroresServidor'
 
 type Paso = 'nombre' | 'vincular' | 'codigo' | 'ingresar' | 'fecha' | 'hito'
 
@@ -21,6 +23,7 @@ interface OnboardingProps {
 
 export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
   const api = useApi()
+  const t = useT()
   const [pareja, setPareja] = useState<Pareja | null>(parejaInicial)
   const [paso, setPaso] = useState<Paso>(parejaInicial ? 'fecha' : 'nombre')
   const [ruta, setRuta] = useState<Paso[]>(RUTA_CREAR)
@@ -59,7 +62,7 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
     try {
       await fn()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Algo salió mal')
+      setError(e instanceof Error ? traducirError(e.message, t) : t('comun_algo_salio_mal'))
     } finally {
       setOcupado(false)
     }
@@ -117,7 +120,7 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
       setCopiado(true)
       window.setTimeout(() => setCopiado(false), 2500)
     } catch {
-      setError('No se pudo copiar. Anotalo a mano.')
+      setError(t('onboarding_no_se_pudo_copiar'))
     }
   }
 
@@ -125,7 +128,7 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
     <div className="screen onboarding">
       <div className="onboarding__top">
         {puedeVolver ? (
-          <button type="button" className="back-btn" aria-label="Volver" onClick={() => setPaso(ruta[indice - 1])}>
+          <button type="button" className="back-btn" aria-label={t('comun_volver')} onClick={() => setPaso(ruta[indice - 1])}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m15 18-6-6 6-6" />
             </svg>
@@ -143,14 +146,14 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
       <form className="onboarding__form" onSubmit={siguiente}>
         {paso === 'nombre' && (
           <div className="onboarding__paso">
-            <h2>¿Cómo te llamás?</h2>
-            <p className="page-subtitle">Así sabemos cómo saludarte cada día.</p>
+            <h2>{t('onboarding_nombre_titulo')}</h2>
+            <p className="page-subtitle">{t('onboarding_nombre_subtitulo')}</p>
             <input
               ref={inputRef}
               className="onboarding__input"
               type="text"
               value={nombre}
-              placeholder="Tu nombre"
+              placeholder={t('onboarding_nombre_placeholder')}
               autoComplete="given-name"
               maxLength={40}
               onChange={(e) => setNombre(e.target.value)}
@@ -162,11 +165,11 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
                 onChange={(e) => setAcepto(e.target.checked)}
               />
               <span>
-                Leí y acepto la{' '}
+                {t('onboarding_consentimiento_pre')}{' '}
                 <a href="/privacidad.html" target="_blank" rel="noopener noreferrer">
-                  Política de Privacidad
+                  {t('comun_politica_privacidad')}
                 </a>
-                , incluido que mis fotos se guardan en un servidor en Estados Unidos.
+                {t('onboarding_consentimiento_post')}
               </span>
             </label>
           </div>
@@ -174,16 +177,16 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
 
         {paso === 'vincular' && (
           <div className="onboarding__paso">
-            <h2>Conectá con tu pareja</h2>
-            <p className="page-subtitle">Pictogether se comparte de a dos: uno crea un código y el otro lo usa para entrar.</p>
+            <h2>{t('onboarding_vincular_titulo')}</h2>
+            <p className="page-subtitle">{t('onboarding_vincular_subtitulo')}</p>
             <div className="onboarding__opciones">
               <button type="button" className="onboarding__opcion" disabled={ocupado} onClick={elegirCrear}>
-                <span className="onboarding__opcion-titulo">Crear un código</span>
-                <span className="onboarding__opcion-desc">Generá uno y compartíselo a tu pareja.</span>
+                <span className="onboarding__opcion-titulo">{t('onboarding_crear_codigo_titulo')}</span>
+                <span className="onboarding__opcion-desc">{t('onboarding_crear_codigo_desc')}</span>
               </button>
               <button type="button" className="onboarding__opcion" disabled={ocupado} onClick={elegirUnirse}>
-                <span className="onboarding__opcion-titulo">Ya tengo un código</span>
-                <span className="onboarding__opcion-desc">Tu pareja ya creó el suyo y te lo pasó.</span>
+                <span className="onboarding__opcion-titulo">{t('onboarding_tengo_codigo_titulo')}</span>
+                <span className="onboarding__opcion-desc">{t('onboarding_tengo_codigo_desc')}</span>
               </button>
             </div>
           </div>
@@ -191,12 +194,12 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
 
         {paso === 'codigo' && pareja && (
           <div className="onboarding__paso">
-            <h2>Este es su código</h2>
-            <p className="page-subtitle">Pasáselo a tu pareja para que lo ingrese. Podés seguir usando la app mientras tanto.</p>
+            <h2>{t('onboarding_codigo_titulo')}</h2>
+            <p className="page-subtitle">{t('onboarding_codigo_subtitulo')}</p>
             <div className="codigo-box">
               <div className="codigo-box__valor">{pareja.codigo}</div>
               <button type="button" className="codigo-box__copiar" onClick={copiarCodigo}>
-                {copiado ? '¡Copiado!' : 'Copiar'}
+                {copiado ? t('comun_copiado') : t('comun_copiar')}
               </button>
             </div>
           </div>
@@ -204,8 +207,8 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
 
         {paso === 'ingresar' && (
           <div className="onboarding__paso">
-            <h2>Ingresá el código</h2>
-            <p className="page-subtitle">El que te pasó tu pareja.</p>
+            <h2>{t('onboarding_ingresar_titulo')}</h2>
+            <p className="page-subtitle">{t('onboarding_ingresar_subtitulo')}</p>
             <input
               ref={inputRef}
               className="onboarding__input onboarding__input--codigo"
@@ -222,8 +225,8 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
 
         {paso === 'fecha' && (
           <div className="onboarding__paso">
-            <h2>¿Cuándo empezaron?</h2>
-            <p className="page-subtitle">Desde esta fecha contamos el tiempo juntos.</p>
+            <h2>{t('onboarding_fecha_titulo')}</h2>
+            <p className="page-subtitle">{t('onboarding_fecha_subtitulo')}</p>
             <input
               ref={inputRef}
               className="onboarding__input"
@@ -237,24 +240,24 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
 
         {paso === 'hito' && (
           <div className="onboarding__paso">
-            <h2>¿Qué querés ver primero?</h2>
-            <p className="page-subtitle">El hito que Pictogether les va a mostrar en la pantalla de inicio.</p>
+            <h2>{t('onboarding_hito_titulo')}</h2>
+            <p className="page-subtitle">{t('onboarding_hito_subtitulo')}</p>
             <div className="onboarding__opciones">
               <button
                 type="button"
                 className={`onboarding__opcion${hito === 'aniversario' ? ' onboarding__opcion--activa' : ''}`}
                 onClick={() => setHito('aniversario')}
               >
-                <span className="onboarding__opcion-titulo">Próximo aniversario</span>
-                <span className="onboarding__opcion-desc">Una vez al año, la fecha en que empezaron.</span>
+                <span className="onboarding__opcion-titulo">{t('hito_opcion_aniversario_titulo')}</span>
+                <span className="onboarding__opcion-desc">{t('hito_opcion_aniversario_desc')}</span>
               </button>
               <button
                 type="button"
                 className={`onboarding__opcion${hito === 'cumplemes' ? ' onboarding__opcion--activa' : ''}`}
                 onClick={() => setHito('cumplemes')}
               >
-                <span className="onboarding__opcion-titulo">Próximo cumplemés</span>
-                <span className="onboarding__opcion-desc">Todos los meses, el mismo día del mes.</span>
+                <span className="onboarding__opcion-titulo">{t('hito_opcion_cumplemes_titulo')}</span>
+                <span className="onboarding__opcion-desc">{t('hito_opcion_cumplemes_desc')}</span>
               </button>
             </div>
           </div>
@@ -264,7 +267,7 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
 
         {paso !== 'vincular' && (
           <button type="submit" className="sheet__submit" disabled={!valido || ocupado}>
-            {ocupado ? 'Un momento...' : paso === 'hito' ? 'Empezar' : 'Continuar'}
+            {ocupado ? t('comun_un_momento') : paso === 'hito' ? t('onboarding_empezar') : t('comun_continuar')}
           </button>
         )}
       </form>

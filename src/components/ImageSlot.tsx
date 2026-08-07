@@ -1,3 +1,5 @@
+import { useT } from '../lib/i18n/contexto'
+
 interface ImageSlotProps {
   shape?: 'rect' | 'rounded' | 'circle'
   radius?: number
@@ -11,7 +13,11 @@ interface ImageSlotProps {
 
 /** Displays a photo (or an empty placeholder). Adding and replacing photos
  * happens in EntrySheet, which owns the whole set for an entry. */
-export function ImageSlot({ shape = 'rounded', radius = 12, placeholder = 'Foto', src, className, style, onOpen }: ImageSlotProps) {
+/** No default caption: every caller in this app passes one, or passes an
+ * empty string to opt out on purpose — a hardcoded Spanish default here
+ * would be a trap for whichever one forgets. */
+export function ImageSlot({ shape = 'rounded', radius = 12, placeholder = '', src, className, style, onOpen }: ImageSlotProps) {
+  const t = useT()
   return (
     <div
       className={`image-slot image-slot--${shape}${src ? '' : ' image-slot--empty'}${className ? ' ' + className : ''}`}
@@ -25,7 +31,7 @@ export function ImageSlot({ shape = 'rounded', radius = 12, placeholder = 'Foto'
           : undefined
       }
       role={onOpen ? 'button' : undefined}
-      aria-label={onOpen ? 'Ver foto' : undefined}
+      aria-label={onOpen ? t('imageslot_ver_foto') : undefined}
     >
       {src ? (
         <img src={src} alt="" className="image-slot__img" loading="lazy" decoding="async" />

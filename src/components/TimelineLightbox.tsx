@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { PhotoSlot } from '../lib/duette'
+import { useT } from '../lib/i18n/contexto'
 
 const SWIPE_THRESHOLD = 40
 
@@ -22,10 +23,11 @@ export function TimelineLightbox({
   startIndex,
   onClose,
   onEditar,
-  etiquetaEditar = 'Editar recuerdo',
+  etiquetaEditar,
   onBorrar,
   onIndice,
 }: TimelineLightboxProps) {
+  const t = useT()
   const [i, setI] = useState(startIndex)
   const touchStartX = useRef<number | null>(null)
 
@@ -56,7 +58,7 @@ export function TimelineLightbox({
 
   return (
     <div className="lightbox-backdrop" onClick={onClose}>
-      <button type="button" className="lightbox-close" aria-label="Cerrar" onClick={onClose}>
+      <button type="button" className="lightbox-close" aria-label={t('comun_cerrar')} onClick={onClose}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
           <path d="M6 6 18 18" />
           <path d="M18 6 6 18" />
@@ -71,7 +73,7 @@ export function TimelineLightbox({
 
       <div className="lightbox-stage" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {slots.length > 1 && i > 0 && (
-          <button type="button" className="lightbox-arrow lightbox-arrow--prev" aria-label="Foto anterior" onClick={anterior}>
+          <button type="button" className="lightbox-arrow lightbox-arrow--prev" aria-label={t('lightbox_foto_anterior')} onClick={anterior}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="m15 18-6-6 6-6" />
             </svg>
@@ -79,7 +81,7 @@ export function TimelineLightbox({
         )}
         {src && <img src={src} alt="" className="lightbox-img" />}
         {slots.length > 1 && i < slots.length - 1 && (
-          <button type="button" className="lightbox-arrow lightbox-arrow--next" aria-label="Foto siguiente" onClick={siguiente}>
+          <button type="button" className="lightbox-arrow lightbox-arrow--next" aria-label={t('lightbox_foto_siguiente')} onClick={siguiente}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="m9 6 6 6-6 6" />
             </svg>
@@ -96,7 +98,7 @@ export function TimelineLightbox({
             onEditar()
           }}
         >
-          {etiquetaEditar}
+          {etiquetaEditar ?? t('lightbox_editar_recuerdo')}
         </button>
         {onBorrar && (
           <button
@@ -107,7 +109,7 @@ export function TimelineLightbox({
               onBorrar()
             }}
           >
-            Borrar
+            {t('comun_borrar')}
           </button>
         )}
       </div>
