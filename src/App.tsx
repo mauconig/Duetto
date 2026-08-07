@@ -227,11 +227,11 @@ function AppContent({
   // app would sit there looking like the share did nothing.
   const [resolviendoEnlace, setResolviendoEnlace] = useState(false)
   const [errorEnlace, setErrorEnlace] = useState<string | null>(null)
-  // Set only when the resolved link turned out to be a video pin — Pinterest
-  // hands over the cover frame either way, so without this the sheet would
-  // show a still photo with no hint that the clip itself got left behind.
-  // `enlaceOrigen` rides along so a video saved to the board can still link
-  // back to the pin that actually plays it.
+  // Set whenever the share resolved to a Pinterest pin, whatever it's a
+  // photo of or a video — so anything saved from Pinterest can link back to
+  // the pin it came from. `enlaceEsVideo` only still matters for the cover
+  // frame case: Pinterest hands that over either way, so it never told the
+  // client anything by itself.
   const [enlaceEsVideo, setEnlaceEsVideo] = useState(false)
   const [enlaceOrigen, setEnlaceOrigen] = useState<string | null>(null)
 
@@ -301,15 +301,16 @@ function AppContent({
         setCompartidas(fotos)
         // A video pin arrives as *both*: Pinterest hands over a cover image
         // as a file and the pin's link alongside it. The bytes are already
-        // here, so only the link's nature is still missing — asked for in
-        // the background, since the sheet has nothing to wait for and two
-        // taps have to happen before the answer is needed.
+        // here, so only whether it's a Pinterest link at all is still
+        // missing — asked for in the background, since the sheet has
+        // nothing to wait for and two taps have to happen before the answer
+        // is needed.
         if (enlace) {
           api
             .infoDeEnlace(enlace)
             .then(({ esVideo }) => {
-              if (cancelado || !esVideo) return
-              setEnlaceEsVideo(true)
+              if (cancelado) return
+              setEnlaceEsVideo(esVideo)
               setEnlaceOrigen(enlace)
             })
             .catch(() => {
@@ -372,10 +373,14 @@ function AppContent({
 
   /** Downscale, stage, then claim onto the board — the same two steps the
    * recuerdo sheet uses, at reference sizes instead of camera ones.
-   * `origenVideo` applies to every file in the batch, which in practice
-   * means one: a Pinterest video pin only ever arrives as a single photo. */
+   * `origenPinterest` applies to every file in the batch, which in practice
+   * means one: a share from Pinterest only ever arrives as a single photo. */
   const guardarReferencias = useCallback(
-    async (archivos: File[], categoriaId: string | null, origenVideo?: { esVideo: boolean; urlOrigen: string }) => {
+    async (
+      archivos: File[],
+      categoriaId: string | null,
+      origenPinterest?: { esVideo: boolean; urlOrigen: string },
+    ) => {
       if (archivos.length === 0) return
       setErrorTablero(null)
       setSubiendo((n) => n + archivos.length)
@@ -383,7 +388,7 @@ function AppContent({
         try {
           const foto = await fileToWebpBlob(archivo, PRESET_REFERENCIA)
           const stagedId = await api.subirFoto(foto)
-          const guardada = await api.guardarInspiracion(stagedId, categoriaId, undefined, origenVideo)
+          const guardada = await api.guardarInspiracion(stagedId, categoriaId, undefined, origenPinterest)
           setReferencias((prev) => [guardada, ...prev])
         } catch (e) {
           setErrorTablero(e instanceof Error ? traducirError(e.message, t) : t('app_error_guardar_foto'))
@@ -704,8 +709,11 @@ function AppContent({
           onExistente={(entry) => setDestino({ entry })}
           onInspiracion={async (categoriaId) => {
             const archivos = compartidas
-            // Read before cerrarCompartido clears them.
-            const origenVideo = enlaceEsVideo && enlaceOrigen ? { esVideo: true, urlOrigen: enlaceOrigen } : undefined
+            // Read before cerrarCompartido clears them. Any resolved
+            // Pinterest link counts, not just a video's — the badge this
+            // feeds is "see the original pin", which is just as true of a
+            // photo pin.
+            const origenPinterest = enlaceOrigen ? { esVideo: enlaceEsVideo, urlOrigen: enlaceOrigen } : undefined
             // Clear first: the upload runs on its own and the sheet has no
             // reason to sit there while it does.
             await cerrarCompartido()
@@ -713,7 +721,7 @@ function AppContent({
             // The sheet asks which carpeta before we get here, and it can
             // show the photo while it asks — which is what the question was
             // missing when this used to file everything under "Sin categoría".
-            await guardarReferencias(archivos, categoriaId, origenVideo)
+            await guardarReferencias(archivos, categoriaId, origenPinterest)
           }}
           onDescartar={cerrarCompartido}
         />

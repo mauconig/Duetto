@@ -192,11 +192,12 @@ export interface PhotoSlot {
   src?: string
   /** 800px copy for the timeline grid. */
   miniatura?: string
-  /** Set only on a moodboard slot saved from a Pinterest video pin — the
-   * file is still just its cover frame, this is what tells the grid and the
-   * lightbox to say so. */
+  /** True when the moodboard slot was saved from a Pinterest *video* pin —
+   * the file is still just its cover frame. Informational only. */
   esVideo?: boolean
-  /** Where the actual clip lives, alongside esVideo. */
+  /** Where the pin this slot was saved from lives, set on any moodboard slot
+   * that came from Pinterest — photo pin or video pin alike. This is what
+   * tells the lightbox to offer "Ver en Pinterest". */
   urlOrigen?: string | null
 }
 

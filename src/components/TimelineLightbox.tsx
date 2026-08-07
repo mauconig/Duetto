@@ -197,10 +197,11 @@ export function TimelineLightbox({
       </div>
 
       <div className="lightbox-acciones">
-        {/* Only on a video pin's cover frame — the one place the clip
-            actually plays. A link and not a button: it leaves the app, and
-            should behave like it (long-press, open in a tab). */}
-        {slotActual?.esVideo && slotActual.urlOrigen && (
+        {/* Any moodboard slot saved from Pinterest, not just a video's cover
+            frame — this points back to the pin itself, photo or video. A
+            link and not a button: it leaves the app, and should behave like
+            it (long-press, open in a tab). */}
+        {slotActual?.urlOrigen && (
           <a
             className="lightbox-pinterest"
             href={slotActual.urlOrigen}

@@ -43,10 +43,13 @@ export interface Inspiracion {
   id: string
   categoriaId: string | null
   nota?: string
-  /** True when this was saved from a Pinterest video pin — the file itself
-   * is still just the cover frame, since that's all Pinterest ever gives up. */
+  /** True when this was saved from a Pinterest *video* pin — the file itself
+   * is still just the cover frame, since that's all Pinterest ever gives up.
+   * Doesn't gate anything on its own; `urlOrigen` is set for a photo pin
+   * just as much as a video one. */
   esVideo: boolean
-  /** Where to send someone who wants the actual clip. Only set alongside esVideo. */
+  /** Where the pin this was saved from lives, whenever it came from
+   * Pinterest at all — photo pin or video pin. */
   urlOrigen?: string
 }
 
@@ -218,18 +221,18 @@ export function useApi() {
       },
 
       /** Claims a photo already uploaded through subirFoto onto the board.
-       * `origenVideo` only ever comes from a resolved Pinterest video pin —
-       * the file is its cover frame either way, this just remembers that
-       * and where the clip itself actually lives. */
+       * `origenPinterest` only ever comes from a resolved Pinterest link —
+       * photo pin or video pin alike — and remembers where it came from, so
+       * the board can link back to the pin itself. */
       guardarInspiracion(
         stagedId: string,
         categoriaId: string | null,
         nota?: string,
-        origenVideo?: { esVideo: boolean; urlOrigen: string },
+        origenPinterest?: { esVideo: boolean; urlOrigen: string },
       ) {
         return call<Inspiracion>('/inspiraciones', {
           method: 'POST',
-          body: JSON.stringify({ stagedId, categoriaId, nota, ...origenVideo }),
+          body: JSON.stringify({ stagedId, categoriaId, nota, ...origenPinterest }),
         })
       },
 
