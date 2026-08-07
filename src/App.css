@@ -61,16 +61,13 @@ h2 {
   align-items: center;
   gap: 10px;
 }
-.welcome__heart {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--acento-claro), var(--acento));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 24px rgba(var(--sombra-rgb), 0.35);
-  margin-bottom: 6px;
+/* The mark carries its own colour, so it needs no tile behind it — a crimson
+ * disc on the crimson-tinted welcome gradient only muddied both. */
+.welcome__marca {
+  width: 148px;
+  height: auto;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 8px 18px rgba(var(--sombra-rgb), 0.28));
 }
 .welcome__title {
   margin: 0;
