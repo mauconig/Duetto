@@ -14,9 +14,23 @@ const INDICE = '/__compartido/indice'
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
 
+/** Apps that share a picture send a file. Apps that share a *page* — the
+ * Pinterest app is the one that matters here — send a link instead, and
+ * whether it lands in `enlace` or gets appended to `texto` depends on the
+ * Android version, so take the first thing that looks like a URL. */
+function primerEnlace(...campos) {
+  for (const campo of campos) {
+    const m = /https?:\/\/\S+/.exec(typeof campo === 'string' ? campo : '')
+    if (m) return m[0]
+  }
+  return null
+}
+
 async function guardarCompartido(request) {
   const form = await request.formData()
   const fotos = form.getAll('fotos').filter((f) => f && typeof f === 'object' && f.size > 0)
+  const enlace = primerEnlace(form.get('enlace'), form.get('texto'))
+  const titulo = typeof form.get('titulo') === 'string' ? form.get('titulo') : ''
 
   const cache = await caches.open(CACHE)
   // Drop anything left from an earlier share that was never consumed, so a
@@ -33,9 +47,10 @@ async function guardarCompartido(request) {
   )
   await cache.put(
     INDICE,
-    new Response(JSON.stringify({ cantidad: fotos.length, nombres: fotos.map((f) => f.name ?? '') }), {
-      headers: { 'Content-Type': 'application/json' },
-    }),
+    new Response(
+      JSON.stringify({ cantidad: fotos.length, nombres: fotos.map((f) => f.name ?? ''), enlace, titulo }),
+      { headers: { 'Content-Type': 'application/json' } },
+    ),
   )
 }
 

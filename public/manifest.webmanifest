@@ -21,6 +21,7 @@
     "params": {
       "title": "titulo",
       "text": "texto",
+      "url": "enlace",
       "files": [
         {
           "name": "fotos",

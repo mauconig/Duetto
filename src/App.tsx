@@ -198,6 +198,11 @@ function AppContent({
   // here — there's no sheet to open for it.
   const [compartidas, setCompartidas] = useState<File[]>([])
   const [destino, setDestino] = useState<{ entry?: Album } | null>(null)
+  // A shared *link* — what Pinterest sends instead of a file — takes a round
+  // trip through the server before there's anything to show. Without this the
+  // app would sit there looking like the share did nothing.
+  const [resolviendoEnlace, setResolviendoEnlace] = useState(false)
+  const [errorEnlace, setErrorEnlace] = useState<string | null>(null)
 
   // The inspiración board. Fetched up front rather than on first visit: the
   // payload is only ids and category names, and the card on Inicio counts
@@ -212,19 +217,39 @@ function AppContent({
 
   // Read the cache rather than the URL: if the share had to go through
   // sign-in first, the query string is long gone but the files are not.
+  //
+  // Two shapes arrive here. Gallery apps send files and there is nothing to
+  // do. Pinterest sends a link to the pin, and the image behind it has to be
+  // fetched by the server before the rest of the app — which only knows how
+  // to deal with a File — can take over.
   useEffect(() => {
     let cancelado = false
-    recogerFotosCompartidas().then((fotos) => {
-      if (!cancelado && fotos.length > 0) setCompartidas(fotos)
+    recogerFotosCompartidas().then(async ({ fotos, enlace }) => {
+      if (cancelado) return
+      if (fotos.length > 0) {
+        setCompartidas(fotos)
+        return
+      }
+      if (!enlace) return
+      setResolviendoEnlace(true)
+      try {
+        const { archivo } = await api.imagenDeEnlace(enlace)
+        if (!cancelado) setCompartidas([archivo])
+      } catch (e) {
+        if (!cancelado) setErrorEnlace(e instanceof Error ? e.message : 'No pudimos abrir ese enlace')
+      } finally {
+        if (!cancelado) setResolviendoEnlace(false)
+      }
     })
     return () => {
       cancelado = true
     }
-  }, [])
+  }, [api])
 
   async function cerrarCompartido() {
     setCompartidas([])
     setDestino(null)
+    setErrorEnlace(null)
     await limpiarFotosCompartidas()
   }
 
@@ -506,6 +531,23 @@ function AppContent({
             setEditando(null)
           }}
         />
+      )}
+
+      {(resolviendoEnlace || errorEnlace) && (
+        <div className="sheet-backdrop" onClick={() => errorEnlace && cerrarCompartido()}>
+          <div className="enlace-aviso" onClick={(e) => e.stopPropagation()}>
+            {errorEnlace ? (
+              <>
+                <p className="enlace-aviso__texto">{errorEnlace}</p>
+                <button type="button" className="enlace-aviso__boton" onClick={cerrarCompartido}>
+                  Entendido
+                </button>
+              </>
+            ) : (
+              <p className="enlace-aviso__texto">Buscando la imagen…</p>
+            )}
+          </div>
+        </div>
       )}
 
       {compartidas.length > 0 && !destino && (

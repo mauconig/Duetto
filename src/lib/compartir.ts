@@ -15,16 +15,33 @@ export function registrarServiceWorker() {
   })
 }
 
-/** Anything waiting from a share, or an empty array. Reads the cache rather
- * than trusting the `?compartido=1` marker, so photos still arrive if the
- * app had to route through sign-in first and lost the query string. */
-export async function recogerFotosCompartidas(): Promise<File[]> {
-  if (!('caches' in window)) return []
+/** What a share left behind. `fotos` when the other app sent files, `enlace`
+ * when it sent a page instead — Pinterest only ever does the second, and the
+ * link has to be resolved to an image before the rest of the app can use
+ * it. */
+export interface Compartido {
+  fotos: File[]
+  enlace: string | null
+  titulo: string
+}
+
+const VACIO: Compartido = { fotos: [], enlace: null, titulo: '' }
+
+/** Anything waiting from a share. Reads the cache rather than trusting the
+ * `?compartido=1` marker, so photos still arrive if the app had to route
+ * through sign-in first and lost the query string. */
+export async function recogerFotosCompartidas(): Promise<Compartido> {
+  if (!('caches' in window)) return VACIO
   try {
     const cache = await caches.open(CACHE)
     const indice = await cache.match(INDICE)
-    if (!indice) return []
-    const { cantidad, nombres } = (await indice.json()) as { cantidad: number; nombres: string[] }
+    if (!indice) return VACIO
+    const { cantidad, nombres, enlace, titulo } = (await indice.json()) as {
+      cantidad: number
+      nombres: string[]
+      enlace?: string | null
+      titulo?: string
+    }
 
     const fotos: File[] = []
     for (let i = 0; i < cantidad; i++) {
@@ -33,9 +50,9 @@ export async function recogerFotosCompartidas(): Promise<File[]> {
       const blob = await res.blob()
       fotos.push(new File([blob], nombres[i] || `compartida-${i}.jpg`, { type: blob.type }))
     }
-    return fotos
+    return { fotos, enlace: enlace ?? null, titulo: titulo ?? '' }
   } catch {
-    return []
+    return VACIO
   }
 }
 

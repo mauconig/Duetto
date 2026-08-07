@@ -214,8 +214,29 @@ export function useApi() {
       borrarInspiracion(id: string) {
         return call<{ ok: boolean }>(`/inspiraciones/${id}`, { method: 'DELETE' })
       },
+
+      /** The image behind a shared link, as a File the rest of the app can
+       * treat like any picked photo. Pinterest shares a pin as a URL and
+       * never as a file, and i.pinimg.com sends no CORS headers, so the
+       * server is the only one that can go get the bytes. */
+      async imagenDeEnlace(enlace: string): Promise<{ archivo: File; titulo: string | null }> {
+        const token = await getToken()
+        const res = await fetch(`/api/enlace/imagen?url=${encodeURIComponent(enlace)}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        if (!res.ok) {
+          const cuerpo = (await res.json().catch(() => ({}))) as { error?: string }
+          throw new ApiError(cuerpo?.error ?? 'No pudimos abrir ese enlace', res.status)
+        }
+        const blob = await res.blob()
+        const crudo = res.headers.get('X-Titulo')
+        return {
+          archivo: new File([blob], 'compartida.jpg', { type: blob.type || 'image/jpeg' }),
+          titulo: crudo ? decodeURIComponent(crudo) : null,
+        }
+      },
     }),
-    [call, enviarFormulario],
+    [call, enviarFormulario, getToken],
   )
 }
 

@@ -1621,6 +1621,35 @@ h2 {
   align-items: flex-end;
   justify-content: center;
 }
+/* Sits in the middle rather than sliding up from the bottom like a sheet:
+   it isn't a choice the user makes, it's the app saying wait — or saying the
+   link led nowhere. The backdrop aligns to flex-end, so this overrides it. */
+.enlace-aviso {
+  align-self: center;
+  margin: 0 24px;
+  padding: 24px;
+  border-radius: 20px;
+  background: var(--superficie);
+  box-shadow: 0 12px 40px rgb(var(--sombra-rgb) / 0.18);
+  text-align: center;
+  max-width: 320px;
+}
+.enlace-aviso__texto {
+  margin: 0;
+  font-size: 15px;
+  color: var(--texto);
+}
+.enlace-aviso__boton {
+  margin-top: 16px;
+  padding: 10px 24px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cta-fondo);
+  color: var(--cta-texto);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
 .sheet {
   width: 100%;
   max-width: 430px;

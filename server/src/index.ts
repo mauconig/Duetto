@@ -935,6 +935,129 @@ app.delete('/api/inspiraciones/:id', requireAuth, async (req: AuthedRequest, res
   res.json({ ok: true })
 })
 
+/** Hosts this server will fetch on a caller's behalf. Handing the server a
+ * URL to go get is an SSRF primitive — without a list it would happily read
+ * `http://169.254.169.254/` or anything else on the box's own network — so
+ * the list is the feature's boundary, not a nicety. Sharing from anywhere
+ * else lands as a plain link, which is what the share sheet already gives us
+ * when there's nothing to resolve. */
+const HOSTS_ENLACE = new Set([
+  'pin.it',
+  'pinterest.com',
+  'www.pinterest.com',
+  'ar.pinterest.com',
+  'es.pinterest.com',
+  'i.pinimg.com',
+])
+
+/** Pinterest shares a pin as a link, never as a file, so the image has to be
+ * looked up from the page. Every size of a pin lives at the same path with a
+ * different segment — /736x/ab/cd/ef/hash.jpg — so the one the page
+ * advertises can be traded up for a bigger one. */
+const TAMANOS_PINIMG = ['originals', '1200x']
+
+const MAX_BYTES_ENLACE = 12 * 1024 * 1024
+
+function hostPermitido(u: string): URL | null {
+  let url: URL
+  try {
+    url = new URL(u)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'https:') return null
+  return HOSTS_ENLACE.has(url.hostname) ? url : null
+}
+
+/** Attribute order isn't fixed — Pinterest emits `content` before
+ * `property` — so match the tag first and read the attribute after. */
+function imagenDeOpenGraph(html: string): string | null {
+  for (const m of html.matchAll(/<meta[^>]*>/gi)) {
+    if (!/property=["']og:image["']/i.test(m[0])) continue
+    const contenido = /content=["']([^"']+)["']/i.exec(m[0])
+    if (contenido) return contenido[1]
+  }
+  return null
+}
+
+function textoDeOpenGraph(html: string, propiedad: string): string | null {
+  for (const m of html.matchAll(/<meta[^>]*>/gi)) {
+    if (!new RegExp(`property=["']og:${propiedad}["']`, 'i').test(m[0])) continue
+    const contenido = /content=["']([^"']+)["']/i.exec(m[0])
+    if (contenido) return contenido[1]
+  }
+  return null
+}
+
+/** Bytes plus the content type, or null if this URL doesn't lead anywhere
+ * usable. Tries the larger sizes first and settles for what the page said. */
+async function bajarImagen(url: string): Promise<{ bytes: Buffer; tipo: string } | null> {
+  const candidatos = [url]
+  const pinimg = /^https:\/\/i\.pinimg\.com\/([^/]+)\/(.+)$/.exec(url)
+  if (pinimg) candidatos.unshift(...TAMANOS_PINIMG.map((t) => `https://i.pinimg.com/${t}/${pinimg[2]}`))
+
+  for (const candidato of candidatos) {
+    if (!hostPermitido(candidato)) continue
+    const r = await fetch(candidato, { redirect: 'follow' })
+    if (!r.ok) continue
+    const tipo = r.headers.get('content-type') ?? ''
+    if (!tipo.startsWith('image/')) continue
+    const largo = Number(r.headers.get('content-length') ?? 0)
+    if (largo > MAX_BYTES_ENLACE) continue
+    const bytes = Buffer.from(await r.arrayBuffer())
+    // Checked again after the fact: content-length is a claim, not a promise.
+    if (bytes.length > MAX_BYTES_ENLACE) continue
+    return { bytes, tipo }
+  }
+  return null
+}
+
+/** Turns a shared link into the image behind it. Pinterest's share sheet
+ * hands over a URL rather than a file, so without this a shared pin arrives
+ * as nothing at all. The browser can't do this itself: i.pinimg.com sends no
+ * CORS headers, so the fetch has to happen here.
+ *
+ * Answers with the raw bytes rather than JSON so the client can wrap them in
+ * a File and push them through the same pipeline as a photo picked from the
+ * gallery — downscale, thumbnail, staging. Nothing downstream needs to know
+ * a pin was involved. */
+app.get('/api/enlace/imagen', requireAuth, async (req: AuthedRequest, res) => {
+  const pedido = hostPermitido(String(req.query.url ?? ''))
+  if (!pedido) {
+    res.status(400).json({ error: 'Ese enlace no se puede abrir desde acá' })
+    return
+  }
+
+  const pagina = await fetch(pedido.href, { redirect: 'follow' })
+  // The short link (pin.it) redirects into the site proper; make sure it
+  // didn't redirect somewhere off the list on the way.
+  if (!pagina.ok || !hostPermitido(pagina.url)) {
+    res.status(404).json({ error: 'No pudimos leer ese enlace' })
+    return
+  }
+
+  const html = await pagina.text()
+  const origen = imagenDeOpenGraph(html)
+  if (!origen) {
+    res.status(404).json({ error: 'No encontramos ninguna imagen en ese enlace' })
+    return
+  }
+
+  const imagen = await bajarImagen(origen)
+  if (!imagen) {
+    res.status(404).json({ error: 'No pudimos descargar esa imagen' })
+    return
+  }
+
+  // The title rides along in a header so the client can offer it as the note
+  // without a second request. Encoded because headers are latin-1 and pin
+  // titles are not.
+  const titulo = textoDeOpenGraph(html, 'title')
+  if (titulo) res.setHeader('X-Titulo', encodeURIComponent(titulo))
+  res.setHeader('Content-Type', imagen.tipo)
+  res.send(imagen.bytes)
+})
+
 /** Photo files. Cookie-authenticated so <img> works, and scoped to the
  * caller's couple so a leaked id is useless to anyone else.
  *
