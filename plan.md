@@ -145,38 +145,46 @@ siendo `disco`. Del 5 en adelante es trabajo en el VPS y en Cloudflare.
 8. **`DUETTE_ALMACEN=r2`** en `/etc/duette-api.env` y reiniciar. Los archivos
    locales **se quedan donde están**.
 9. **Usar la app un tiempo.** Subir, ver, borrar, salir de una pareja.
-10. **Montar el respaldo de vuelta al VPS** (abajo). Y **no** borrar
-    `uploads/`: a 85 MB con 133 GB libres, borrarla no compra nada y te saca
-    la única copia de recuperación.
+10. **No borrar `uploads/`.** A 85 MB con 133 GB libres, borrarla no compra
+    nada y es la única copia que no vive en R2.
 
-### El respaldo, que es lo que reemplaza al versionado
+**Hecho el 7/8/2026.** La migración cerró limpia —254 nombres, 254 archivos,
+254 objetos, 10/10 verificados por hash, cero huérfanos— y el servidor sirve
+desde R2 desde las 17:16. Quedaron probadas contra el bucket real las cuatro
+operaciones, incluida `DeleteObjects`, que la migración no ejercitaba. Copia
+del env previo en `/etc/duette-api.env.bak-2026-08-07-1713`.
 
-R2 resuelve que el disco se muera. No resuelve que un bug borre objetos —
-para eso hace falta una copia que las credenciales de la app no puedan tocar,
-y el VPS ya es ese lugar.
+Latencia medida desde el VPS: 101 ms una miniatura, 488 ms una foto completa
+con el handshake incluido. La grilla pide miniaturas, así que el número que
+importa es el primero.
 
-Con la migración hecha, `uploads/` queda como estaba y se congela: las fotos
-nuevas van sólo a R2. Un cron diario que baje del bucket al disco lo mantiene
-al día, con el **token de sólo lectura** del paso 5:
+### El respaldo continuo: decidido que no
 
-```
-rclone copy r2:pictogether /var/lib/duette-api/uploads
-```
+La idea era un cron que bajara de R2 al disco con un token de sólo lectura,
+para tener una copia que las credenciales de la app no pudieran borrar. Se
+descartó el 7/8/2026: no se va a montar.
 
-**`copy`, nunca `sync`.** `sync` borra en el destino lo que ya no está en el
-origen, así que un borrado accidental en R2 se propagaría a la copia local y
-te quedarías sin ninguna de las dos — exactamente el escenario del que esto
-protege. El precio de usar `copy` es que la copia local acumula fotos que ya
-se borraron legítimamente; a esta escala, barato.
+Lo que eso deja en pie y lo que no, para que la decisión se pueda revisar con
+la información y no de memoria:
 
-Con eso hay dos copias en dos lugares, y el token que las escribe no es el
-que las borra.
+- **R2 cubre el hardware.** Los objetos están replicados; el disco que se
+  muere dejó de ser el riesgo, que era la razón original de todo esto.
+- **Lo que queda descubierto es el borrado por error** — un bug en la app,
+  un script corrido de más. R2 no versiona y los Bucket Locks están
+  descartados por lo de abajo, así que ahí no hay red.
+- **`uploads/` en el VPS ya es una copia completa hasta hoy**, y sale gratis:
+  alcanza con no borrarla. Cubre las 254 fotos que existían al migrar y se
+  congela ahí. Las que se suban desde ahora viven sólo en R2.
 
-**El backup de SQLite también tiene que salir de la máquina.** Hoy vive en el
-mismo disco que la base, que era la mitad del problema original. Subir el
-snapshot comprimido a R2 lo cierra, y no contradice el "no mover la base a
-R2" de abajo: correr SQLite desde object storage es imposible, guardar ahí una
-copia es trivial.
+Si alguna vez se quiere retomar, era `rclone copy` —nunca `sync`, que
+propagaría un borrado accidental de R2 a la copia local— con el token de sólo
+lectura, en un timer al lado de `duette-backup.service`.
+
+**El backup de SQLite sigue viviendo en el mismo disco que la base**, que era
+la otra mitad del problema original y sigue abierta. Subir el snapshot
+comprimido a R2 lo cerraría, y no contradice el "no mover la base a R2" de
+abajo: correr SQLite desde object storage es imposible, guardar ahí una copia
+es trivial.
 
 ### Cómo se habla con R2
 
