@@ -1,14 +1,8 @@
 import { useRef, useState } from 'react'
 import { SignOutButton, useUser } from '@clerk/react'
 import { Avatar } from '../components/Avatar'
-import { fileToWebpBlob, type Preset } from '../lib/photoStorage'
+import { RecortarFoto } from '../components/RecortarFoto'
 import { useTema, type Tema } from '../lib/tema'
-
-/** An avatar is drawn at 48px and never zoomed, so a 4000px camera original
- * would be uploaded, stored and thrown away at every size that matters.
- * Reuses the same worker the recuerdo photos go through, and its thumbnail
- * half goes unused here. */
-const PRESET_AVATAR: Preset = { maxDim: 512, calidad: 0.85, maxDimMin: 128, calidadMin: 0.8 }
 
 const OPCIONES_TEMA: { valor: Tema; etiqueta: string }[] = [
   { valor: 'auto', etiqueta: 'Auto' },
@@ -53,19 +47,23 @@ export function Profile({
   const [copiado, setCopiado] = useState(false)
   const [cambiandoImagen, setCambiandoImagen] = useState(false)
   const [errorImagen, setErrorImagen] = useState<string | null>(null)
+  /** The picked file, while its owner decides what part of it to keep. */
+  const [recortando, setRecortando] = useState<File | null>(null)
   const imagenInputRef = useRef<HTMLInputElement>(null)
   const { user } = useUser()
   const { tema, setTema } = useTema()
 
   /** Clerk stores the photo and hands back a URL; App picks the change up
-   * through useUser and tells the server, so the partner sees it too. */
-  async function cambiarImagen(archivo: File) {
-    if (cambiandoImagen) return
+   * through useUser and tells the server, so the partner sees it too.
+   *
+   * The blob arrives already square and already the right size, cropped
+   * where its owner chose — there is nothing left to downscale. */
+  async function guardarRecorte(recorte: Blob) {
+    setRecortando(null)
     setCambiandoImagen(true)
     setErrorImagen(null)
     try {
-      const { completa } = await fileToWebpBlob(archivo, PRESET_AVATAR)
-      await user?.setProfileImage({ file: new File([completa], 'perfil.webp', { type: 'image/webp' }) })
+      await user?.setProfileImage({ file: new File([recorte], 'perfil.webp', { type: 'image/webp' }) })
     } catch (e) {
       setErrorImagen(e instanceof Error ? e.message : 'No pudimos cambiar la foto')
     } finally {
@@ -136,7 +134,7 @@ export function Profile({
               // Cleared straight away so picking the same file twice still
               // fires a change.
               e.target.value = ''
-              if (archivo) cambiarImagen(archivo)
+              if (archivo) setRecortando(archivo)
             }}
           />
         </div>
@@ -261,6 +259,10 @@ export function Profile({
           Política de Privacidad
         </a>
       </p>
+
+      {recortando && (
+        <RecortarFoto archivo={recortando} onListo={guardarRecorte} onCancelar={() => setRecortando(null)} />
+      )}
     </div>
   )
 }
