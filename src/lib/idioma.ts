@@ -8,11 +8,12 @@ const CLAVE = 'duette-idioma'
  * `auto` entry: it's still the default for someone who hasn't chosen yet
  * (see `leerPreferencia` below), but it isn't a button — a wrong guess gets
  * fixed by tapping the right language, not by round-tripping through a mode
- * called "Auto". */
-export const OPCIONES_IDIOMA: { valor: IdiomaResuelto; clave: ClaveTexto }[] = [
-  { valor: 'es', clave: 'perfil_idioma_es' },
-  { valor: 'en', clave: 'perfil_idioma_en' },
-  { valor: 'pt', clave: 'perfil_idioma_pt' },
+ * called "Auto". `clave` still names the language for screen readers — the
+ * flag is what's shown, not what's read out. */
+export const OPCIONES_IDIOMA: { valor: IdiomaResuelto; bandera: string; clave: ClaveTexto }[] = [
+  { valor: 'es', bandera: '🇪🇸', clave: 'perfil_idioma_es' },
+  { valor: 'en', bandera: '🇺🇸', clave: 'perfil_idioma_en' },
+  { valor: 'pt', bandera: '🇧🇷', clave: 'perfil_idioma_pt' },
 ]
 
 function leerPreferencia(): Idioma {

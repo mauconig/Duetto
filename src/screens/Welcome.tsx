@@ -11,10 +11,12 @@ export function Welcome() {
           <button
             key={o.valor}
             type="button"
-            className={`tema-selector__opcion${resuelto === o.valor ? ' tema-selector__opcion--activa' : ''}`}
+            className={`tema-selector__opcion tema-selector__opcion--bandera${resuelto === o.valor ? ' tema-selector__opcion--activa' : ''}`}
+            aria-label={t(o.clave)}
+            title={t(o.clave)}
             onClick={() => setIdioma(o.valor)}
           >
-            {t(o.clave)}
+            {o.bandera}
           </button>
         ))}
       </div>
