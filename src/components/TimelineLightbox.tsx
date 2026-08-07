@@ -83,13 +83,9 @@ export function TimelineLightbox({
         {src && (
           <div className="lightbox-media">
             <img src={src} alt="" className="lightbox-img" />
-            {slot.esVideo && (
-              <span className="lightbox-play" aria-hidden="true">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff">
-                  <path d="M8 5v14l11-7Z" />
-                </svg>
-              </span>
-            )}
+            {/* The cover image already carries Pinterest's play symbol, so
+                the only thing worth adding is the way back to the pin —
+                which is the one place the clip actually plays. */}
             {slot.esVideo && slot.urlOrigen && (
               <a
                 className="lightbox-pinterest"

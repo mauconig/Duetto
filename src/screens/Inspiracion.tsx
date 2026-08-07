@@ -151,17 +151,14 @@ export function Inspiracion({
           </div>
         )}
 
+        {/* No play badge of our own on a video: the cover image arrives with
+            Pinterest's already drawn into it, and a second one stacked on top
+            just looks like a mistake. The way back to the pin lives in the
+            lightbox instead. */}
         <div className="insp-grid">
           {visibles.map((foto, i) => (
             <button type="button" className="insp-celda" key={foto.id} onClick={() => setAbierta(i)}>
               <img src={photoUrl(foto.id, 'miniatura')} alt={foto.nota ?? ''} loading="lazy" decoding="async" />
-              {foto.esVideo && (
-                <span className="insp-celda__play" aria-hidden="true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff">
-                    <path d="M8 5v14l11-7Z" />
-                  </svg>
-                </span>
-              )}
             </button>
           ))}
         </div>

@@ -134,7 +134,6 @@ export const es = {
   insp_archivar: 'Archivar',
   insp_error_crear_carpeta: 'No pudimos crear la carpeta',
   insp_ver_en_pinterest: 'Ver en Pinterest',
-  insp_es_video: 'Video',
 
   // Celebración
   celebracion_texto: (nombres: string) => `Hoy es el día, ${nombres}.`,

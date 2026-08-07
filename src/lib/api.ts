@@ -245,6 +245,13 @@ export function useApi() {
        * treat like any picked photo. Pinterest shares a pin as a URL and
        * never as a file, and i.pinimg.com sends no CORS headers, so the
        * server is the only one that can go get the bytes. */
+      /** What the link is, without fetching the picture behind it — for when
+       * the share already handed us the image as a file and only the pin's
+       * nature is missing. */
+      infoDeEnlace(enlace: string) {
+        return call<{ esVideo: boolean; titulo?: string }>(`/enlace/info?url=${encodeURIComponent(enlace)}`)
+      },
+
       async imagenDeEnlace(enlace: string): Promise<{ archivo: File; titulo: string | null; esVideo: boolean }> {
         const token = await getToken()
         const res = await fetch(`/api/enlace/imagen?url=${encodeURIComponent(enlace)}`, {

@@ -1147,6 +1147,29 @@ app.get('/api/enlace/imagen', requireAuth, async (req: AuthedRequest, res) => {
   res.send(imagen.bytes)
 })
 
+/** Just what the link *is*, without downloading the picture behind it.
+ *
+ * The share sheet doesn't always send a link on its own: sharing a video pin
+ * hands over a cover image as a file *and* the link, and in that case the
+ * bytes are already on the phone — only the pin's nature is missing. Asking
+ * /enlace/imagen for that would re-download a picture we already have. */
+app.get('/api/enlace/info', requireAuth, async (req: AuthedRequest, res) => {
+  const pedido = hostPermitido(String(req.query.url ?? ''))
+  if (!pedido) {
+    res.status(400).json({ error: 'Ese enlace no se puede abrir desde acá' })
+    return
+  }
+
+  const pagina = await fetch(pedido.href, { redirect: 'follow' })
+  if (!pagina.ok || !hostPermitido(pagina.url)) {
+    res.status(404).json({ error: 'No pudimos leer ese enlace' })
+    return
+  }
+
+  const html = await pagina.text()
+  res.json({ esVideo: esPinDeVideo(html), titulo: textoDeOpenGraph(html, 'title') ?? undefined })
+})
+
 /** Photo files. Cookie-authenticated so <img> works, and scoped to the
  * caller's couple so a leaked id is useless to anyone else.
  *

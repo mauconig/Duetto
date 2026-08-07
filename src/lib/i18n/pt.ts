@@ -118,7 +118,6 @@ export const pt: Diccionario = {
   insp_archivar: 'Arquivar',
   insp_error_crear_carpeta: 'Não conseguimos criar a pasta',
   insp_ver_en_pinterest: 'Ver no Pinterest',
-  insp_es_video: 'Vídeo',
 
   celebracion_texto: (nombres) => `Hoje é o dia, ${nombres}.`,
   celebracion_boton: 'Comemorar',

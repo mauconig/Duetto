@@ -299,6 +299,24 @@ function AppContent({
       if (cancelado) return
       if (fotos.length > 0) {
         setCompartidas(fotos)
+        // A video pin arrives as *both*: Pinterest hands over a cover image
+        // as a file and the pin's link alongside it. The bytes are already
+        // here, so only the link's nature is still missing — asked for in
+        // the background, since the sheet has nothing to wait for and two
+        // taps have to happen before the answer is needed.
+        if (enlace) {
+          api
+            .infoDeEnlace(enlace)
+            .then(({ esVideo }) => {
+              if (cancelado || !esVideo) return
+              setEnlaceEsVideo(true)
+              setEnlaceOrigen(enlace)
+            })
+            .catch(() => {
+              // Nothing to tell anyone: the photo saves as an ordinary one,
+              // which is exactly what happened before any of this existed.
+            })
+        }
         return
       }
       if (!enlace) return
