@@ -2,10 +2,8 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import multer from 'multer'
 import { randomUUID } from 'node:crypto'
-import { createReadStream } from 'node:fs'
-import { unlink, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { db, generateCode, normalizeCode, sembrarIdeas, UPLOADS_DIR } from './db.ts'
+import { almacen } from './almacen.ts'
+import { db, generateCode, normalizeCode, sembrarIdeas } from './db.ts'
 import { emitirCookie, requireAuth, requireCookie, type AuthedRequest } from './auth.ts'
 
 const PORT = Number(process.env.PORT ?? 8790)
@@ -310,9 +308,9 @@ app.delete('/api/couple/me', requireAuth, async (req: AuthedRequest, res) => {
   // ON DELETE CASCADE takes members, entries, photos, staging, ideas,
   // categorías and inspiraciones.
   q.deleteCouple.run(member.couple_id)
-  // Files go last: a failure here leaves orphans on disk rather than rows
+  // Files go last: a failure here leaves orphans in the store rather than rows
   // pointing at photos that no longer exist.
-  await borrarArchivos(archivos.flatMap(nombresDe))
+  await almacen.borrar(archivos.flatMap(nombresDe))
   res.json({ ok: true, parejaBorrada: true })
 })
 
@@ -385,11 +383,11 @@ async function guardarArchivos(
   const guardados: ParGuardado[] = []
   for (let i = 0; i < files.length; i++) {
     const archivo = `${randomUUID()}.webp`
-    await writeFile(join(UPLOADS_DIR, archivo), files[i].buffer)
+    await almacen.guardar(archivo, files[i].buffer)
     let min: string | null = null
     if (minis[i]) {
       min = `${randomUUID()}.webp`
-      await writeFile(join(UPLOADS_DIR, min), minis[i].buffer)
+      await almacen.guardar(min, minis[i].buffer)
     }
     guardados.push({ archivo, min })
   }
@@ -399,10 +397,6 @@ async function guardarArchivos(
 /** Both names of a stored photo, skipping the thumbnail when there isn't one. */
 function nombresDe(p: { archivo: string; archivo_min?: string | null }): string[] {
   return p.archivo_min ? [p.archivo, p.archivo_min] : [p.archivo]
-}
-
-function borrarArchivos(nombres: string[]) {
-  return Promise.all(nombres.map((n) => unlink(join(UPLOADS_DIR, n)).catch(() => {})))
 }
 
 /** Multer field layout shared by create and edit. */
@@ -435,7 +429,7 @@ async function barrerStaging(coupleId: string) {
   }[]
   if (vencidas.length === 0) return
   vencidas.forEach((f) => q.deleteStaged.run(f.id))
-  await borrarArchivos(vencidas.flatMap(nombresDe))
+  await almacen.borrar(vencidas.flatMap(nombresDe))
 }
 
 /** Takes one downscaled photo and holds onto it until a recuerdo claims it.
@@ -471,7 +465,7 @@ app.post('/api/photos', requireAuth, campoUnaFoto, async (req: AuthedRequest, re
   try {
     q.insertStaged.run(id, coupleId, par.archivo, par.min, new Date().toISOString())
   } catch (e) {
-    await borrarArchivos(nombresDe({ archivo: par.archivo, archivo_min: par.min }))
+    await almacen.borrar(nombresDe({ archivo: par.archivo, archivo_min: par.min }))
     throw e
   }
   res.status(201).json({ id })
@@ -586,7 +580,7 @@ app.post('/api/entries', requireAuth, camposSubida, async (req: AuthedRequest, r
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
-    await borrarArchivos(archivos.flatMap((p) => (p.min ? [p.archivo, p.min] : [p.archivo])))
+    await almacen.borrar(archivos.flatMap((p) => (p.min ? [p.archivo, p.min] : [p.archivo])))
     throw e
   }
   res.status(201).json(entradaConFotos(q.entryById.get(id, coupleId) as FilaEntry))
@@ -640,12 +634,12 @@ app.patch('/api/entries/:id', requireAuth, camposSubida, async (req: AuthedReque
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
-    await borrarArchivos(archivos.flatMap((p) => (p.min ? [p.archivo, p.min] : [p.archivo])))
+    await almacen.borrar(archivos.flatMap((p) => (p.min ? [p.archivo, p.min] : [p.archivo])))
     throw e
   }
-  // Only unlink after the transaction committed, so a rollback can't leave
+  // Only delete after the transaction committed, so a rollback can't leave
   // rows pointing at files that are already gone.
-  await borrarArchivos(eliminados.flatMap(nombresDe))
+  await almacen.borrar(eliminados.flatMap(nombresDe))
   res.json(entradaConFotos(q.entryById.get(entrada.id, coupleId) as FilaEntry))
 })
 
@@ -666,7 +660,7 @@ app.delete('/api/entries/:id', requireAuth, async (req: AuthedRequest, res) => {
   q.deleteEntry.run(entrada.id)
   // Files go only after the rows are gone, so a failure here leaves
   // orphaned files rather than rows pointing at missing photos.
-  await borrarArchivos(fotos.flatMap(nombresDe))
+  await almacen.borrar(fotos.flatMap(nombresDe))
   res.json({ ok: true })
 })
 
@@ -935,9 +929,9 @@ app.delete('/api/inspiraciones/:id', requireAuth, async (req: AuthedRequest, res
     return
   }
   q.deleteInspiracion.run(req.params.id, coupleId)
-  // Files after the row, so a failure here leaves an orphan on disk rather
+  // Files after the row, so a failure here leaves an orphan in the store rather
   // than a row pointing at a photo that is gone.
-  await borrarArchivos(nombresDe(foto))
+  await almacen.borrar(nombresDe(foto))
   res.json({ ok: true })
 })
 
@@ -947,7 +941,7 @@ app.delete('/api/inspiraciones/:id', requireAuth, async (req: AuthedRequest, res
  * `?tamano=min` serves the 800px copy the timeline grid needs. Photos
  * uploaded before thumbnails existed have none, so they fall back to the
  * full file — a slow photo beats a broken one. */
-app.get('/api/photos/:id', requireCookie, (req: AuthedRequest, res) => {
+app.get('/api/photos/:id', requireCookie, async (req: AuthedRequest, res) => {
   const coupleId = coupleIdDe(req.userId!)
   if (!coupleId) {
     res.status(404).json({ error: 'No encontramos esa foto' })
@@ -965,11 +959,28 @@ app.get('/api/photos/:id', requireCookie, (req: AuthedRequest, res) => {
     return
   }
   const archivo = req.query.tamano === 'min' && foto.archivo_min ? foto.archivo_min : foto.archivo
+  // Fetched before any header goes out: with the bytes possibly coming from
+  // R2, "the row exists but the object doesn't" is a real case, and it has
+  // to end as a clean 404 rather than a truncated image.
+  const cuerpo = await almacen.leer(archivo)
+  if (!cuerpo) {
+    res.sendStatus(404)
+    return
+  }
   res.setHeader('Content-Type', 'image/webp')
   // Filenames are random and never reused, so the bytes behind an id never
-  // change — but keep it private so no shared cache holds onto them.
+  // change — but keep it private so no shared cache holds onto them. With
+  // R2 this also stops being a nicety: every uncached view is a Class B
+  // operation the couple's own browser could have avoided.
   res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')
-  createReadStream(join(UPLOADS_DIR, archivo)).on('error', () => res.sendStatus(404)).pipe(res)
+  // The stream can still break mid-flight — a dropped connection to R2, a
+  // read error on disk. Headers are already gone by then, so all that's left
+  // is to stop rather than leave the socket hanging.
+  cuerpo.on('error', (e) => {
+    console.error(`falló el envío de ${archivo}:`, e)
+    res.destroy()
+  })
+  cuerpo.pipe(res)
 })
 
 /** Multer rejects an upload before the route ever runs. Those are the
