@@ -98,6 +98,8 @@ export const pt: Diccionario = {
   inicio_insp_vacio_texto: 'Ainda não há nenhuma',
   inicio_recuerdo_del_dia: 'Lembrança do dia',
   inicio_idea_kicker: 'Ideia para o próximo encontro',
+  inicio_articulo_kicker: 'Para ler juntos',
+  inicio_articulo_abrir: 'Abrir em',
 
   insp_subtitulo: 'Fotos que vocês querem copiar, guardadas a dois',
   insp_tab_todas: 'Todas',

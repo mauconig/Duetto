@@ -98,6 +98,8 @@ export const en: Diccionario = {
   inicio_insp_vacio_texto: 'Nothing here yet',
   inicio_recuerdo_del_dia: "Today's memory",
   inicio_idea_kicker: 'Idea for the next date',
+  inicio_articulo_kicker: 'To read together',
+  inicio_articulo_abrir: 'Open on',
 
   insp_subtitulo: 'Photos you want to copy, saved by both of you',
   insp_tab_todas: 'All',
