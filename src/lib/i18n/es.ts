@@ -77,7 +77,7 @@ export const es = {
   nav_inicio: 'Inicio',
   nav_recuerdos: 'Recuerdos',
   nav_ruleta: 'Ruleta',
-  nav_inspiracion: 'Inspiración',
+  nav_inspiracion: 'Moodboard',
   nav_perfil: 'Perfil',
 
   // Recuerdos (Albums)

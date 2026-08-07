@@ -65,7 +65,7 @@ export const pt: Diccionario = {
   nav_inicio: 'Início',
   nav_recuerdos: 'Lembranças',
   nav_ruleta: 'Roleta',
-  nav_inspiracion: 'Inspiração',
+  nav_inspiracion: 'Moodboard',
   nav_perfil: 'Perfil',
 
   recuerdos_vacio_titulo: 'Ainda não há lembranças',
