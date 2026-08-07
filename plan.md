@@ -1,7 +1,11 @@
 # Pendiente: badge "Ver en Pinterest" en pines de video
 
-Estado al 2026-08-07, 22:05. **No funciona todavía.** Tres guardados, las tres
+Anotado el 7/8/2026, 22:05. **No funciona todavía.** Tres guardados, las tres
 veces `es_video = 0` y `url_origen = NULL`.
+
+El plan de la mudanza a R2 está cerrado y vive en el historial de git:
+`git show 0b64cc7^:plan.md` si hace falta. Lo que quedó abierto de ahí está
+resumido al final de este archivo.
 
 ## Qué se quiere
 
@@ -30,7 +34,8 @@ Al compartir un pin de video a Pictogether y guardarlo en el Moodboard:
 - **CORS / proxy.** El API está bajo `/api/*` en el mismo host (Caddy), así que
   es same-origin y el header `X-Es-Video` no se pierde.
 - **Service worker.** Solo intercepta `POST /compartir`. No toca `/api/`.
-- **Datos viejos.** Los tres guardados son posteriores al deploy correspondiente.
+- **Datos viejos.** Los tres guardados son posteriores al deploy correspondiente
+  (7 min, 3 min y 3 min después).
 
 ## El dato que más informa
 
@@ -69,8 +74,7 @@ Se guardó otro y siguió en `es_video = 0`.
    ¿pedirle al usuario que comparta el link aparte?).
 
 2. **El teléfono seguía corriendo el bundle viejo.** Las PWA quedan residentes
-   en Android. Los guardados fueron 7 y 3 minutos después de cada deploy, lo
-   que no garantiza que hubiera recargado. Más barato de descartar que la 1.
+   en Android. Más barato de descartar que la 1.
 
 ## Próximo paso concreto
 
@@ -92,3 +96,86 @@ más que hacer.
 - `src/App.tsx` — resuelve el enlace y decide `origenVideo`
 - `server/src/index.ts` — `esPinDeVideo`, `/api/enlace/info`, `/api/enlace/imagen`
 - `src/components/TimelineLightbox.tsx` — pinta el badge
+
+---
+
+# Pendiente: volver a tener artículos
+
+Anotado el 7/8/2026, sin decidir. La pregunta que lo abrió fue si es legal
+mostrar artículos de otros lados, pero el problema real resultó ser otro.
+
+## Lo legal, que es la parte fácil
+
+Aplica la [Ley N° 1328/98](https://www.bacn.gov.py/leyes-paraguayas/908/ley-n-1328-derecho-de-autor-y-derechos-conexos)
+de Derecho de Autor y Derechos Conexos, que aplica DINAPI. Nada de esto es
+asesoramiento legal, pero la línea es nítida:
+
+- **No** copiar artículos ajenos y mostrarlos completos adentro de la app. Es
+  redistribución sin licencia — el mismo razonamiento que ya está escrito en
+  `1ba8615` para las fotos de Pinterest, y vale igual para texto. Paraguay
+  firmó Berna, así que un artículo de un medio español o argentino está
+  protegido acá igual que uno local.
+- **Dos cosas que parecen permiso y no lo son:** un RSS que entrega el texto
+  completo no es una licencia, y las APIs de noticias casi siempre permiten
+  titular + copete + link y prohíben el cuerpo. Leer los términos, no asumir.
+- **Sí** se puede: titular, resumen escrito por nosotros y link al original;
+  contenido con licencia Creative Commons con atribución (`BY-SA` obliga a
+  licenciar igual, `NC` prohíbe uso comercial); dominio público; y cualquier
+  cosa escrita por nosotros.
+
+Los cuatro artículos que había eran originales. Nunca hubo un problema de
+licencias y no tiene por qué haberlo.
+
+## El problema real
+
+Los artículos no se sacaron por lo legal. La razón está en `1ba8615`:
+
+> four articles hardcoded in data.ts with no way to add more — read in a
+> week, then furniture forever.
+
+Eso no lo arregla ninguna fuente. Si vuelven como lista fija, en una semana
+son muebles otra vez. **De dónde salen los nuevos y quién los pone es la
+decisión que va antes de escribir una línea de código.**
+
+Tres caminos, en el orden en que conviene evaluarlos:
+
+1. **Un pozo grande con rotación diaria.** `pickDaily` ya está andando en tres
+   lugares (recuerdo, idea e inspiración del día). Con ~30 artículos cortos es
+   un mes sin repetir y la sección cambia sola. Escritos a mano, o generados
+   con un prompt que fije el tono de los cuatro viejos —están en
+   `git show 1ba8615^:src/data.ts`— y revisados antes de publicar. El costo
+   real es la revisión: si no se va a revisar, no vale la pena hacerlo.
+2. **Cargables desde la app**, como las ideas de la ruleta: tabla, endpoints y
+   los suben ellos. Resuelve el problema de raíz y es el más caro.
+3. **Agregador con link afuera.** Legal si es titular + resumen propio + link,
+   pero manda a la gente fuera de la app y lo que circula en español sobre
+   parejas es mayormente SEO.
+
+## Y una de diseño
+
+Inicio ya tiene el contador, el hito, el botón de la ruleta, dos tarjetas y el
+recuerdo del día. Una sección más ahí compite con lo que ya está. Si entra,
+que sea una tarjeta más en la fila de dos y no un bloque nuevo.
+
+---
+
+# Lo que quedó abierto de la mudanza a R2
+
+La mudanza se hizo el 7/8/2026 y cerró bien: 254 objetos, 10/10 verificados
+por hash, sirviendo desde R2 desde las 17:16. El plan completo —diseño,
+trampas, costos, cómo volver atrás— está en `git show 0b64cc7^:plan.md`.
+
+Tres cosas quedaron sin hacer, a propósito o por falta de tiempo:
+
+1. **El backup de SQLite sigue en el mismo disco que la base.** Era la otra
+   mitad del problema de durabilidad y sigue abierta. Subir el snapshot
+   comprimido a R2 lo cierra, y no contradice el "no mover la base a R2":
+   correr SQLite desde object storage es imposible, guardar ahí una copia es
+   trivial.
+2. **Falta la limpieza periódica de huérfanos** — comparar bucket contra base
+   y borrar lo que no tiene fila. El borrado es best-effort y ahora se loguea,
+   pero en R2 un huérfano se paga todos los meses. `migrar-a-r2.ts` ya sabe
+   hacer esa comparación.
+3. **El respaldo continuo desde R2 se descartó** el 7/8/2026 y no se va a
+   montar. `uploads/` en el VPS quedó como copia completa hasta esa fecha y
+   **no hay que borrarla**; las fotos subidas desde entonces viven sólo en R2.
