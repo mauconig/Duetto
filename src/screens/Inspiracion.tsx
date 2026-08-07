@@ -131,7 +131,7 @@ export function Inspiracion({
             </div>
             <div className="timeline-vacio__titulo">Todavía no hay nada acá</div>
             <p className="timeline-vacio__texto">
-              Guardá fotos que les gusten con el botón +, o compartilas a Duette desde donde las hayas visto.
+              Guardá fotos que les gusten con el botón +, o compartilas a Pictogether desde donde las hayas visto.
             </p>
           </div>
         )}

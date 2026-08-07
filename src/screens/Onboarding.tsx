@@ -28,6 +28,9 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
   const [codigoIngresado, setCodigoIngresado] = useState('')
   const [fecha, setFecha] = useState(parejaInicial?.fechaAniversario ?? '')
   const [hito, setHito] = useState<'cumplemes' | 'aniversario'>(parejaInicial?.proximoHito ?? 'aniversario')
+  // Anyone already in a couple accepted this on their way in, so returning
+  // to finish the profile must not ask again.
+  const [acepto, setAcepto] = useState(parejaInicial !== null)
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copiado, setCopiado] = useState(false)
@@ -43,7 +46,7 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
 
   const valido =
     paso === 'nombre'
-      ? nombre.trim() !== ''
+      ? nombre.trim() !== '' && acepto
       : paso === 'ingresar'
         ? codigoIngresado.trim().length >= 4
         : paso === 'fecha'
@@ -152,13 +155,27 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
               maxLength={40}
               onChange={(e) => setNombre(e.target.value)}
             />
+            <label className="consentimiento">
+              <input
+                type="checkbox"
+                checked={acepto}
+                onChange={(e) => setAcepto(e.target.checked)}
+              />
+              <span>
+                Leí y acepto la{' '}
+                <a href="/privacidad.html" target="_blank" rel="noopener noreferrer">
+                  Política de Privacidad
+                </a>
+                , incluido que mis fotos se guardan en un servidor en Estados Unidos.
+              </span>
+            </label>
           </div>
         )}
 
         {paso === 'vincular' && (
           <div className="onboarding__paso">
             <h2>Conectá con tu pareja</h2>
-            <p className="page-subtitle">Duette se comparte de a dos: uno crea un código y el otro lo usa para entrar.</p>
+            <p className="page-subtitle">Pictogether se comparte de a dos: uno crea un código y el otro lo usa para entrar.</p>
             <div className="onboarding__opciones">
               <button type="button" className="onboarding__opcion" disabled={ocupado} onClick={elegirCrear}>
                 <span className="onboarding__opcion-titulo">Crear un código</span>
@@ -221,7 +238,7 @@ export function Onboarding({ parejaInicial, onListo }: OnboardingProps) {
         {paso === 'hito' && (
           <div className="onboarding__paso">
             <h2>¿Qué querés ver primero?</h2>
-            <p className="page-subtitle">El hito que Duette les va a mostrar en la pantalla de inicio.</p>
+            <p className="page-subtitle">El hito que Pictogether les va a mostrar en la pantalla de inicio.</p>
             <div className="onboarding__opciones">
               <button
                 type="button"
