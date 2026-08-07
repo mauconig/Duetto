@@ -37,17 +37,6 @@ export interface Categoria {
   nombre: string
 }
 
-/** One piece from the curated pool. Headline, a short extract and where it
- * lives — the body stays on the publisher's site, which is both the only
- * legal shape for this and the reason `url` is never optional. */
-export interface Articulo {
-  id: string
-  titulo: string
-  resumen?: string
-  url: string
-  fuente: string
-}
-
 /** A saved photo reference. `categoriaId` is null for anything not filed
  * yet, or whose category was deleted out from under it. */
 export interface Inspiracion {
@@ -256,13 +245,6 @@ export function useApi() {
        * treat like any picked photo. Pinterest shares a pin as a URL and
        * never as a file, and i.pinimg.com sends no CORS headers, so the
        * server is the only one that can go get the bytes. */
-      /** The curated pool, whole. Small enough to take in one go, and the
-       * client picks the day's piece out of it the same way it picks the
-       * day's memory and idea. */
-      obtenerArticulos() {
-        return call<{ articulos: Articulo[] }>('/articulos')
-      },
-
       /** What the link is, without fetching the picture behind it — for when
        * the share already handed us the image as a file and only the pin's
        * nature is missing. */

@@ -104,6 +104,48 @@ más que hacer.
 Anotado el 7/8/2026, sin decidir. La pregunta que lo abrió fue si es legal
 mostrar artículos de otros lados, pero el problema real resultó ser otro.
 
+## Se intentó con RSS y se revirtió (8/8/2026)
+
+Se construyó y desplegó un curador de feeds — `server/src/noticias.ts`, tabla
+`articulos`, tarjeta en Inicio — y se revirtió el mismo día. **El motivo no fue
+técnico: funcionaba.** Fue que la tarjeta manda a leer al sitio del medio, y
+lo que se quería era leer adentro de la app. Está en
+`git show a2d4235` si algo de eso sirve.
+
+**Lo que ese intento dejó probado, para no repetirlo:**
+
+- **Leer el artículo dentro de la app es exactamente lo que no se puede.**
+  Meter el cuerpo en nuestra UI —copiándolo o con "modo lectura"— es
+  redistribución sin licencia, que es la línea del principio de esta sección.
+  El RSS entregue o no el texto completo no cambia nada.
+- **El iframe tampoco resuelve.** Se midieron las cabeceras: La Mente es
+  Maravillosa y Siquia se dejan embeber, Psicología y Mente manda
+  `X-Frame-Options: DENY`. O sea que ya fallaría en una de tres, y las otras
+  dos serían su propia web con banners de cookies dentro de un marco chico:
+  un navegador peor, no una tarjeta.
+- **Los diarios generales no sirven como fuente.** El País y BBC Mundo
+  enganchaban las palabras clave en una nota sobre la casa de *una pareja
+  francesa* y en otra sobre una marca de ropa.
+- **Los diarios paraguayos corren sobre Arc**: el feed vive en
+  `/arc/outboundfeeds/rss/?outputType=xml`, no en `/rss` ni `/feed`. ABC Color
+  anda pero no trae descripción, sólo titulares. Última Hora no expone RSS.
+- **Google News RSS acepta país (`gl=PY`) pero no sirve**: la `description` es
+  un `<a>` con el mismo titular, el link es un redirect opaco de Google, y la
+  consulta "qué hacer fin de semana Asunción" devolvió *Sortir à Paris*.
+- **Feeds vivos y en tema**, si alguna vez se retoma con links hacia afuera:
+  `lamenteesmaravillosa.com/category/relaciones/feed/` (10 notas, buenas, se
+  actualiza a los saltos), `siquia.com/feed/` y `psicologiaymente.com/feed`
+  (frescos, generales, hay que filtrarlos). **Bekia Pareja no**: es granja de
+  contenido, de 13 notas servían 3.
+- **La geolocalización no era el problema que parecía.** Un item de RSS no
+  tiene ubicación; lo local sale de elegir fuentes locales y de filtrar por
+  nombres de ciudad. Pedir GPS obliga a un servicio externo de geocodificación
+  inversa para terminar con un string que se puede preguntar una vez.
+
+**Conclusión:** artículos que se lean dentro de la app tienen que ser
+nuestros. Eso es la opción 1 de acá abajo, y ahora es la única que cumple el
+requisito.
+
 ## Lo legal, que es la parte fácil
 
 Aplica la [Ley N° 1328/98](https://www.bacn.gov.py/leyes-paraguayas/908/ley-n-1328-derecho-de-autor-y-derechos-conexos)

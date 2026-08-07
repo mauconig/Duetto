@@ -113,8 +113,6 @@ export const es = {
   inicio_insp_vacio_texto: 'Todavía no hay ninguna',
   inicio_recuerdo_del_dia: 'Recuerdo del día',
   inicio_idea_kicker: 'Idea para la próxima cita',
-  inicio_articulo_kicker: 'Para leer juntos',
-  inicio_articulo_abrir: 'Abrir en',
 
   // Inspiración
   insp_subtitulo: 'Fotos que quieren copiar, guardadas de a dos',

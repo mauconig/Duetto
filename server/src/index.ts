@@ -5,7 +5,6 @@ import { randomUUID } from 'node:crypto'
 import { almacen } from './almacen.ts'
 import { db, generateCode, normalizeCode, sembrarIdeas } from './db.ts'
 import { emitirCookie, requireAuth, requireCookie, type AuthedRequest } from './auth.ts'
-import { articulosDelPozo, programarRecoleccion } from './noticias.ts'
 
 const PORT = Number(process.env.PORT ?? 8790)
 const MAX_MIEMBROS = 2
@@ -1148,14 +1147,6 @@ app.get('/api/enlace/imagen', requireAuth, async (req: AuthedRequest, res) => {
   res.send(imagen.bytes)
 })
 
-/** The curated pool, whole. It is a few hundred rows of headline, extract and
- * link, and the client picks one a day out of it — paging this would cost a
- * request to save nothing. Behind auth like everything else: this app has no
- * anonymous surface at all. */
-app.get('/api/articulos', requireAuth, (_req: AuthedRequest, res) => {
-  res.json({ articulos: articulosDelPozo() })
-})
-
 /** Just what the link *is*, without downloading the picture behind it.
  *
  * The share sheet doesn't always send a link on its own: sharing a video pin
@@ -1251,6 +1242,4 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`duette-server escuchando en 127.0.0.1:${PORT}`)
-  // After listen, so a slow feed can never delay the server coming up.
-  programarRecoleccion()
 })

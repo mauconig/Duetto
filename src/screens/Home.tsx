@@ -1,6 +1,5 @@
 import { Avatar } from '../components/Avatar'
 import { ImageSlot } from '../components/ImageSlot'
-import type { Articulo } from '../lib/api'
 import type { Album } from '../types'
 import type { Edad, Hito, HitoDeHoy, PhotoSlot } from '../lib/duette'
 import { formatFechaEntrada, pad, photoSlots } from '../lib/duette'
@@ -29,9 +28,6 @@ interface HomeProps {
   inspiracionFoto: PhotoSlot | undefined
   recuerdo: Album | null
   ideaSugerida: string | null
-  /** The day's piece from the curated pool. Null while it loads, and when
-   * every feed has been quiet long enough that the pool emptied. */
-  articulo: Articulo | null
   onIrRuleta: () => void
   onIrAlbumes: () => void
   onIrInspiracion: () => void
@@ -55,7 +51,6 @@ export function Home({
   inspiracionFoto,
   recuerdo,
   ideaSugerida,
-  articulo,
   onIrRuleta,
   onIrAlbumes,
   onIrInspiracion,
@@ -256,37 +251,6 @@ export function Home({
             <path d="m9 18 6-6-6-6" />
           </svg>
         </div>
-      )}
-
-      {/* An anchor and not a card with a click handler: this is the one thing
-          on the screen that leaves the app, and it should behave like it —
-          long-press, open in a new tab, and a visible destination. The body
-          stays on the publisher's site, which is the only shape that doesn't
-          republish someone else's writing. */}
-      {articulo && (
-        <a className="articulo-card" href={articulo.url} target="_blank" rel="noopener noreferrer">
-          <div className="articulo-card__icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--acento)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5V5a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v14" />
-              <path d="M6 17h14" />
-              <path d="M6 21h12a2 2 0 0 0 2-2v-2H6a2 2 0 0 0 0 4Z" />
-              <path d="M9 7h7" />
-              <path d="M9 11h5" />
-            </svg>
-          </div>
-          <div className="articulo-card__body">
-            <div className="articulo-card__kicker">
-              {t('inicio_articulo_kicker')} · {articulo.fuente}
-            </div>
-            <div className="articulo-card__titulo">{articulo.titulo}</div>
-            {articulo.resumen && <div className="articulo-card__resumen">{articulo.resumen}</div>}
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--icono-tenue)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="articulo-card__salida">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-            <path d="M15 3h6v6" />
-            <path d="M10 14 21 3" />
-          </svg>
-        </a>
       )}
     </div>
   )

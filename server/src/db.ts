@@ -115,29 +115,12 @@ db.exec(`
     created_at   TEXT NOT NULL
   );
 
-  -- Articles pulled from a handful of relationship feeds. Not scoped to a
-  -- couple: it is public writing on someone else's site, the same for
-  -- everyone, and only ever stored as headline, short extract and link —
-  -- never the body, which wouldn't be ours to keep.
-  CREATE TABLE IF NOT EXISTS articulos (
-    id           TEXT PRIMARY KEY,
-    titulo       TEXT NOT NULL,
-    resumen      TEXT,
-    -- The article's own address, and its identity: the same piece stays in a
-    -- feed for weeks and must not pile up once per pass.
-    url          TEXT NOT NULL UNIQUE,
-    fuente       TEXT NOT NULL,
-    publicado_at TEXT NOT NULL,
-    created_at   TEXT NOT NULL
-  );
-
   CREATE INDEX IF NOT EXISTS idx_entries_couple ON entries(couple_id);
   CREATE INDEX IF NOT EXISTS idx_photos_entry ON photos(entry_id);
   CREATE INDEX IF NOT EXISTS idx_staged_couple ON staged_photos(couple_id);
   CREATE INDEX IF NOT EXISTS idx_ideas_couple ON ideas(couple_id);
   CREATE INDEX IF NOT EXISTS idx_categorias_couple ON categorias(couple_id);
   CREATE INDEX IF NOT EXISTS idx_inspiraciones_couple ON inspiraciones(couple_id);
-  CREATE INDEX IF NOT EXISTS idx_articulos_publicado ON articulos(publicado_at);
 `)
 
 /** Adds a column to an existing table if it isn't there yet, so a database

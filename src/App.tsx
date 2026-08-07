@@ -17,7 +17,7 @@ import { TimelineLightbox } from './components/TimelineLightbox'
 import { limpiarFotosCompartidas, recogerFotosCompartidas } from './lib/compartir'
 import { fileToWebpBlob, photoUrl, PRESET_REFERENCIA } from './lib/photoStorage'
 import type { Album, Tab } from './types'
-import { useApi, type Articulo, type Categoria, type Idea, type Inspiracion as Referencia, type Pareja } from './lib/api'
+import { useApi, type Categoria, type Idea, type Inspiracion as Referencia, type Pareja } from './lib/api'
 import {
   calcularEdad,
   calcularHito,
@@ -268,10 +268,6 @@ function AppContent({
   const [referencias, setReferencias] = useState<Referencia[]>([])
   const [subiendo, setSubiendo] = useState(0)
   const [errorTablero, setErrorTablero] = useState<string | null>(null)
-  /** The curated pool. Empty is a normal state — every feed quiet for four
-   * months — and Inicio simply drops the card, so there is no error to show
-   * and nothing to say about it. */
-  const [articulos, setArticulos] = useState<Articulo[]>([])
 
   useEffect(() => () => window.clearTimeout(spinTimeout.current), [])
 
@@ -354,20 +350,6 @@ function AppContent({
     setEnlaceOrigen(null)
     await limpiarFotosCompartidas()
   }
-
-  // Nothing on this screen waits for it and nothing breaks without it, so a
-  // failure is swallowed: an article that didn't load is one fewer card, not
-  // a banner about a feed reader.
-  useEffect(() => {
-    let cancelado = false
-    api
-      .obtenerArticulos()
-      .then(({ articulos: leidos }) => !cancelado && setArticulos(leidos))
-      .catch(() => {})
-    return () => {
-      cancelado = true
-    }
-  }, [api])
 
   useEffect(() => {
     let cancelado = false
@@ -465,7 +447,6 @@ function AppContent({
   // Same daily pick as the recuerdo and the idea, so the three things Inicio
   // surfaces rotate together and the screen is a different screen tomorrow.
   const inspiracionDelDia = pickDaily(referencias, hoy)
-  const articuloDelDia = pickDaily(articulos, hoy)
   const inspiracionFoto = inspiracionDelDia
     ? {
         id: inspiracionDelDia.id,
@@ -568,7 +549,6 @@ function AppContent({
           inspiracionFoto={inspiracionFoto}
           recuerdo={recuerdo}
           ideaSugerida={ideaSugerida}
-          articulo={articuloDelDia}
           onIrRuleta={irRuleta}
           onIrAlbumes={irAlbumes}
           onIrInspiracion={irInspiracion}
