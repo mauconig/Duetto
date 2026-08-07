@@ -54,7 +54,8 @@ export function TimelineLightbox({
     else if (delta < -SWIPE_THRESHOLD) siguiente()
   }
 
-  const src = slots[i].src
+  const slot = slots[i]
+  const src = slot.src
 
   return (
     <div className="lightbox-backdrop" onClick={onClose}>
@@ -79,7 +80,29 @@ export function TimelineLightbox({
             </svg>
           </button>
         )}
-        {src && <img src={src} alt="" className="lightbox-img" />}
+        {src && (
+          <div className="lightbox-media">
+            <img src={src} alt="" className="lightbox-img" />
+            {slot.esVideo && (
+              <span className="lightbox-play" aria-hidden="true">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff">
+                  <path d="M8 5v14l11-7Z" />
+                </svg>
+              </span>
+            )}
+            {slot.esVideo && slot.urlOrigen && (
+              <a
+                className="lightbox-pinterest"
+                href={slot.urlOrigen}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {t('insp_ver_en_pinterest')}
+              </a>
+            )}
+          </div>
+        )}
         {slots.length > 1 && i < slots.length - 1 && (
           <button type="button" className="lightbox-arrow lightbox-arrow--next" aria-label={t('lightbox_foto_siguiente')} onClick={siguiente}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">

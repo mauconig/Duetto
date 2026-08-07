@@ -870,6 +870,46 @@ h2 {
   object-fit: contain;
   cursor: default;
 }
+.lightbox-media {
+  position: relative;
+  display: flex;
+  max-width: 100%;
+}
+.lightbox-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.lightbox-play svg {
+  margin-left: 3px;
+}
+.lightbox-pinterest {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 99px;
+  background: #e60023;
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
 .lightbox-arrow {
   position: absolute;
   top: 50%;
@@ -1302,6 +1342,7 @@ h2 {
   gap: 6px;
 }
 .insp-celda {
+  position: relative;
   border: none;
   padding: 0;
   cursor: pointer;
@@ -1315,6 +1356,21 @@ h2 {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+.insp-celda__play {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.insp-celda__play svg {
+  margin-left: 1.5px;
 }
 
 .lightbox-acciones {

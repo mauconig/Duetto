@@ -43,6 +43,11 @@ export interface Inspiracion {
   id: string
   categoriaId: string | null
   nota?: string
+  /** True when this was saved from a Pinterest video pin — the file itself
+   * is still just the cover frame, since that's all Pinterest ever gives up. */
+  esVideo: boolean
+  /** Where to send someone who wants the actual clip. Only set alongside esVideo. */
+  urlOrigen?: string
 }
 
 export interface Tablero {
@@ -212,11 +217,19 @@ export function useApi() {
         return call<{ ok: boolean }>(`/categorias/${id}`, { method: 'DELETE' })
       },
 
-      /** Claims a photo already uploaded through subirFoto onto the board. */
-      guardarInspiracion(stagedId: string, categoriaId: string | null, nota?: string) {
+      /** Claims a photo already uploaded through subirFoto onto the board.
+       * `origenVideo` only ever comes from a resolved Pinterest video pin —
+       * the file is its cover frame either way, this just remembers that
+       * and where the clip itself actually lives. */
+      guardarInspiracion(
+        stagedId: string,
+        categoriaId: string | null,
+        nota?: string,
+        origenVideo?: { esVideo: boolean; urlOrigen: string },
+      ) {
         return call<Inspiracion>('/inspiraciones', {
           method: 'POST',
-          body: JSON.stringify({ stagedId, categoriaId, nota }),
+          body: JSON.stringify({ stagedId, categoriaId, nota, ...origenVideo }),
         })
       },
 
@@ -232,7 +245,7 @@ export function useApi() {
        * treat like any picked photo. Pinterest shares a pin as a URL and
        * never as a file, and i.pinimg.com sends no CORS headers, so the
        * server is the only one that can go get the bytes. */
-      async imagenDeEnlace(enlace: string): Promise<{ archivo: File; titulo: string | null }> {
+      async imagenDeEnlace(enlace: string): Promise<{ archivo: File; titulo: string | null; esVideo: boolean }> {
         const token = await getToken()
         const res = await fetch(`/api/enlace/imagen?url=${encodeURIComponent(enlace)}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -246,6 +259,9 @@ export function useApi() {
         return {
           archivo: new File([blob], 'compartida.jpg', { type: blob.type || 'image/jpeg' }),
           titulo: crudo ? decodeURIComponent(crudo) : null,
+          // Pinterest never sends the clip itself, only its cover frame — this
+          // just tells the sheet that's what happened, so it can say so.
+          esVideo: res.headers.get('X-Es-Video') === '1',
         }
       },
     }),

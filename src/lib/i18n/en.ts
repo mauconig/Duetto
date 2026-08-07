@@ -117,6 +117,8 @@ export const en: Diccionario = {
   insp_sacar_de_carpeta: 'Remove from folder',
   insp_archivar: 'File',
   insp_error_crear_carpeta: "Couldn't create the folder",
+  insp_ver_en_pinterest: 'View on Pinterest',
+  insp_es_video: 'Video',
 
   celebracion_texto: (nombres) => `Today's the day, ${nombres}.`,
   celebracion_boton: 'Celebrate',

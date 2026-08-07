@@ -52,7 +52,14 @@ export function Inspiracion({
     [fotos, activa],
   )
   const slots: PhotoSlot[] = useMemo(
-    () => visibles.map((f) => ({ id: f.id, src: photoUrl(f.id), miniatura: photoUrl(f.id, 'miniatura') })),
+    () =>
+      visibles.map((f) => ({
+        id: f.id,
+        src: photoUrl(f.id),
+        miniatura: photoUrl(f.id, 'miniatura'),
+        esVideo: f.esVideo,
+        urlOrigen: f.urlOrigen,
+      })),
     [visibles],
   )
 
@@ -148,6 +155,13 @@ export function Inspiracion({
           {visibles.map((foto, i) => (
             <button type="button" className="insp-celda" key={foto.id} onClick={() => setAbierta(i)}>
               <img src={photoUrl(foto.id, 'miniatura')} alt={foto.nota ?? ''} loading="lazy" decoding="async" />
+              {foto.esVideo && (
+                <span className="insp-celda__play" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff">
+                    <path d="M8 5v14l11-7Z" />
+                  </svg>
+                </span>
+              )}
             </button>
           ))}
         </div>

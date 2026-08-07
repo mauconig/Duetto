@@ -227,6 +227,13 @@ function AppContent({
   // app would sit there looking like the share did nothing.
   const [resolviendoEnlace, setResolviendoEnlace] = useState(false)
   const [errorEnlace, setErrorEnlace] = useState<string | null>(null)
+  // Set only when the resolved link turned out to be a video pin — Pinterest
+  // hands over the cover frame either way, so without this the sheet would
+  // show a still photo with no hint that the clip itself got left behind.
+  // `enlaceOrigen` rides along so a video saved to the board can still link
+  // back to the pin that actually plays it.
+  const [enlaceEsVideo, setEnlaceEsVideo] = useState(false)
+  const [enlaceOrigen, setEnlaceOrigen] = useState<string | null>(null)
 
   // Which milestone this device has already celebrated. Read once: a
   // celebration that came back on every render would be a strobe light, and
@@ -297,8 +304,12 @@ function AppContent({
       if (!enlace) return
       setResolviendoEnlace(true)
       try {
-        const { archivo } = await api.imagenDeEnlace(enlace)
-        if (!cancelado) setCompartidas([archivo])
+        const { archivo, esVideo } = await api.imagenDeEnlace(enlace)
+        if (!cancelado) {
+          setCompartidas([archivo])
+          setEnlaceEsVideo(esVideo)
+          setEnlaceOrigen(enlace)
+        }
       } catch (e) {
         if (!cancelado) setErrorEnlace(e instanceof Error ? traducirError(e.message, t) : t('app_error_enlace'))
       } finally {
@@ -317,6 +328,8 @@ function AppContent({
     setCompartidas([])
     setDestino(null)
     setErrorEnlace(null)
+    setEnlaceEsVideo(false)
+    setEnlaceOrigen(null)
     await limpiarFotosCompartidas()
   }
 
@@ -340,9 +353,11 @@ function AppContent({
   }, [api])
 
   /** Downscale, stage, then claim onto the board — the same two steps the
-   * recuerdo sheet uses, at reference sizes instead of camera ones. */
+   * recuerdo sheet uses, at reference sizes instead of camera ones.
+   * `origenVideo` applies to every file in the batch, which in practice
+   * means one: a Pinterest video pin only ever arrives as a single photo. */
   const guardarReferencias = useCallback(
-    async (archivos: File[], categoriaId: string | null) => {
+    async (archivos: File[], categoriaId: string | null, origenVideo?: { esVideo: boolean; urlOrigen: string }) => {
       if (archivos.length === 0) return
       setErrorTablero(null)
       setSubiendo((n) => n + archivos.length)
@@ -350,7 +365,7 @@ function AppContent({
         try {
           const foto = await fileToWebpBlob(archivo, PRESET_REFERENCIA)
           const stagedId = await api.subirFoto(foto)
-          const guardada = await api.guardarInspiracion(stagedId, categoriaId)
+          const guardada = await api.guardarInspiracion(stagedId, categoriaId, undefined, origenVideo)
           setReferencias((prev) => [guardada, ...prev])
         } catch (e) {
           setErrorTablero(e instanceof Error ? traducirError(e.message, t) : t('app_error_guardar_foto'))
@@ -671,6 +686,8 @@ function AppContent({
           onExistente={(entry) => setDestino({ entry })}
           onInspiracion={async (categoriaId) => {
             const archivos = compartidas
+            // Read before cerrarCompartido clears them.
+            const origenVideo = enlaceEsVideo && enlaceOrigen ? { esVideo: true, urlOrigen: enlaceOrigen } : undefined
             // Clear first: the upload runs on its own and the sheet has no
             // reason to sit there while it does.
             await cerrarCompartido()
@@ -678,7 +695,7 @@ function AppContent({
             // The sheet asks which carpeta before we get here, and it can
             // show the photo while it asks — which is what the question was
             // missing when this used to file everything under "Sin categoría".
-            await guardarReferencias(archivos, categoriaId)
+            await guardarReferencias(archivos, categoriaId, origenVideo)
           }}
           onDescartar={cerrarCompartido}
         />

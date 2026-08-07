@@ -146,6 +146,11 @@ addColumnIfMissing('members', 'privacidad_at', 'TEXT')
 // every request: the client already knows its own and can just say so, which
 // is one API call we never make. Null until they've been seen once.
 addColumnIfMissing('members', 'imagen_url', 'TEXT')
+// A pin shared as a video still only ever gives us its cover frame — see
+// esPinDeVideo in index.ts — so these just remember that this particular
+// still came from a video, and where to send someone who wants the clip.
+addColumnIfMissing('inspiraciones', 'es_video', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('inspiraciones', 'url_origen', 'TEXT')
 
 /** What the wheel used to be hardcoded with on the client. */
 const IDEAS_INICIALES = [

@@ -192,6 +192,12 @@ export interface PhotoSlot {
   src?: string
   /** 800px copy for the timeline grid. */
   miniatura?: string
+  /** Set only on a moodboard slot saved from a Pinterest video pin — the
+   * file is still just its cover frame, this is what tells the grid and the
+   * lightbox to say so. */
+  esVideo?: boolean
+  /** Where the actual clip lives, alongside esVideo. */
+  urlOrigen?: string | null
 }
 
 export function photoSlots(album: Album): PhotoSlot[] {

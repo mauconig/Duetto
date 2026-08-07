@@ -97,11 +97,11 @@ const q = {
   deleteCategoria: db.prepare('DELETE FROM categorias WHERE id = ? AND couple_id = ?'),
 
   inspiracionesOfCouple: db.prepare(
-    'SELECT id, categoria_id, nota FROM inspiraciones WHERE couple_id = ? ORDER BY created_at DESC',
+    'SELECT id, categoria_id, nota, es_video, url_origen FROM inspiraciones WHERE couple_id = ? ORDER BY created_at DESC',
   ),
   countInspiraciones: db.prepare('SELECT COUNT(*) AS n FROM inspiraciones WHERE couple_id = ?'),
   insertInspiracion: db.prepare(
-    'INSERT INTO inspiraciones (id, couple_id, categoria_id, archivo, archivo_min, nota, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO inspiraciones (id, couple_id, categoria_id, archivo, archivo_min, nota, es_video, url_origen, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
   ),
   inspiracionForCouple: db.prepare('SELECT archivo, archivo_min FROM inspiraciones WHERE id = ? AND couple_id = ?'),
   moveInspiracion: db.prepare('UPDATE inspiraciones SET categoria_id = ? WHERE id = ? AND couple_id = ?'),
@@ -791,10 +791,18 @@ app.get('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
     id: string
     categoria_id: string | null
     nota: string | null
+    es_video: number
+    url_origen: string | null
   }[]
   res.json({
     categorias: q.categoriasOfCouple.all(coupleId),
-    fotos: fotos.map((f) => ({ id: f.id, categoriaId: f.categoria_id, nota: f.nota ?? undefined })),
+    fotos: fotos.map((f) => ({
+      id: f.id,
+      categoriaId: f.categoria_id,
+      nota: f.nota ?? undefined,
+      esVideo: !!f.es_video,
+      urlOrigen: f.url_origen ?? undefined,
+    })),
   })
 })
 
@@ -930,6 +938,14 @@ app.post('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
 
   const nota = String(req.body?.nota ?? '').trim().slice(0, MAX_LARGO_NOTA) || null
 
+  // Only the client that just resolved a Pinterest link has any business
+  // setting these, but there's no separate proof of that beyond the URL
+  // shape itself — https-only keeps a stray value from ever becoming a
+  // javascript: link when it's rendered as href later.
+  const esVideo = req.body?.esVideo === true
+  const urlOrigenCruda = typeof req.body?.urlOrigen === 'string' ? req.body.urlOrigen.trim() : ''
+  const urlOrigen = /^https:\/\//.test(urlOrigenCruda) ? urlOrigenCruda.slice(0, 500) : null
+
   const { n } = q.countInspiraciones.get(coupleId) as { n: number }
   if (Number(n) >= MAX_INSPIRACIONES) {
     res.status(409).json({ error: `No podés guardar más de ${MAX_INSPIRACIONES} referencias` })
@@ -939,14 +955,24 @@ app.post('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
   const id = randomUUID()
   db.exec('BEGIN')
   try {
-    q.insertInspiracion.run(id, coupleId, categoriaId, staged.archivo, staged.archivo_min, nota, new Date().toISOString())
+    q.insertInspiracion.run(
+      id,
+      coupleId,
+      categoriaId,
+      staged.archivo,
+      staged.archivo_min,
+      nota,
+      esVideo ? 1 : 0,
+      urlOrigen,
+      new Date().toISOString(),
+    )
     q.deleteStaged.run(stagedId)
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
     throw e
   }
-  res.status(201).json({ id, categoriaId, nota: nota ?? undefined })
+  res.status(201).json({ id, categoriaId, nota: nota ?? undefined, esVideo, urlOrigen: urlOrigen ?? undefined })
 })
 
 app.patch('/api/inspiraciones/:id', requireAuth, (req: AuthedRequest, res) => {
@@ -1042,6 +1068,15 @@ function textoDeOpenGraph(html: string, propiedad: string): string | null {
   return null
 }
 
+/** A video pin still carries an og:image — Pinterest points it at the cover
+ * frame, never at og:video — so imagenDeOpenGraph resolves one either way and
+ * a video lands here silently as a still. This is the one marker that tells
+ * the two apart: Pinterest's own video schema block, present only on a pin
+ * that has a clip behind it. */
+function esPinDeVideo(html: string): boolean {
+  return /data-test-id=["']video-snippet["']/i.test(html)
+}
+
 /** Bytes plus the content type, or null if this URL doesn't lead anywhere
  * usable. Tries the larger sizes first and settles for what the page said. */
 async function bajarImagen(url: string): Promise<{ bytes: Buffer; tipo: string } | null> {
@@ -1107,6 +1142,7 @@ app.get('/api/enlace/imagen', requireAuth, async (req: AuthedRequest, res) => {
   // titles are not.
   const titulo = textoDeOpenGraph(html, 'title')
   if (titulo) res.setHeader('X-Titulo', encodeURIComponent(titulo))
+  res.setHeader('X-Es-Video', esPinDeVideo(html) ? '1' : '0')
   res.setHeader('Content-Type', imagen.tipo)
   res.send(imagen.bytes)
 })
