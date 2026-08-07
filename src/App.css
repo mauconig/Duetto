@@ -1914,6 +1914,28 @@ h2 {
   height: 76px;
   border-radius: 14px;
   overflow: hidden;
+  /* The browser must not claim this gesture as a scroll or a long-press
+     text selection: touch-action is read when the gesture starts, so it
+     can't be turned off later once a finger is already down. The cost is
+     that a swipe starting on a tile no longer scrolls the sheet — the grid
+     is a couple of rows, and there's plenty of sheet around it. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.sheet__photo--alzada {
+  transform: scale(1.12);
+  box-shadow: 0 10px 22px rgb(var(--sombra-rgb) / 0.35);
+  z-index: 2;
+  /* So elementsFromPoint sees the tile underneath the finger and not the one
+     being carried, which is what tells us where to drop it. */
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet__photo {
+    transition: none;
+  }
 }
 .sheet__photo img {
   width: 100%;

@@ -349,3 +349,63 @@ es volver al disco: es cachear las miniaturas localmente, que son chicas.
   legítimos y el derecho de supresión, y después no se puede acortar.
 - **No** hacer el respaldo con `rclone sync`. `copy`, para que un borrado en
   R2 no se propague a la copia local.
+
+---
+
+# Pendiente: volver a tener artículos
+
+Anotado el 7/8/2026, sin decidir. La pregunta que lo abrió fue si es legal
+mostrar artículos de otros lados, pero el problema real resultó ser otro.
+
+## Lo legal, que es la parte fácil
+
+Aplica la [Ley N° 1328/98](https://www.bacn.gov.py/leyes-paraguayas/908/ley-n-1328-derecho-de-autor-y-derechos-conexos)
+de Derecho de Autor y Derechos Conexos, que aplica DINAPI. Nada de esto es
+asesoramiento legal, pero la línea es nítida:
+
+- **No** copiar artículos ajenos y mostrarlos completos adentro de la app. Es
+  redistribución sin licencia — el mismo razonamiento que ya está escrito en
+  `1ba8615` para las fotos de Pinterest, y vale igual para texto. Paraguay
+  firmó Berna, así que un artículo de un medio español o argentino está
+  protegido acá igual que uno local.
+- **Dos cosas que parecen permiso y no lo son:** un RSS que entrega el texto
+  completo no es una licencia, y las APIs de noticias casi siempre permiten
+  titular + copete + link y prohíben el cuerpo. Leer los términos, no asumir.
+- **Sí** se puede: titular, resumen escrito por nosotros y link al original;
+  contenido con licencia Creative Commons con atribución (`BY-SA` obliga a
+  licenciar igual, `NC` prohíbe uso comercial); dominio público; y cualquier
+  cosa escrita por nosotros.
+
+Los cuatro artículos que había eran originales. Nunca hubo un problema de
+licencias y no tiene por qué haberlo.
+
+## El problema real
+
+Los artículos no se sacaron por lo legal. La razón está en `1ba8615`:
+
+> four articles hardcoded in data.ts with no way to add more — read in a
+> week, then furniture forever.
+
+Eso no lo arregla ninguna fuente. Si vuelven como lista fija, en una semana
+son muebles otra vez. **De dónde salen los nuevos y quién los pone es la
+decisión que va antes de escribir una línea de código.**
+
+Tres caminos, en el orden en que conviene evaluarlos:
+
+1. **Un pozo grande con rotación diaria.** `pickDaily` ya está andando en tres
+   lugares (recuerdo, idea e inspiración del día). Con ~30 artículos cortos es
+   un mes sin repetir y la sección cambia sola. Escritos a mano, o generados
+   con un prompt que fije el tono de los cuatro viejos —están en
+   `git show 1ba8615^:src/data.ts`— y revisados antes de publicar. El costo
+   real es la revisión: si no se va a revisar, no vale la pena hacerlo.
+2. **Cargables desde la app**, como las ideas de la ruleta: tabla, endpoints y
+   los suben ellos. Resuelve el problema de raíz y es el más caro.
+3. **Agregador con link afuera.** Legal si es titular + resumen propio + link,
+   pero manda a la gente fuera de la app y lo que circula en español sobre
+   parejas es mayormente SEO.
+
+## Y una de diseño
+
+Inicio ya tiene el contador, el hito, el botón de la ruleta, dos tarjetas y el
+recuerdo del día. Una sección más ahí compite con lo que ya está. Si entra,
+que sea una tarjeta más en la fila de dos y no un bloque nuevo.

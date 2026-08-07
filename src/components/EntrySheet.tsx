@@ -8,6 +8,22 @@ import { useApi } from '../lib/api'
 /** Kept in step with the server's own cap in server/src/index.ts. */
 const MAX_FOTOS = 30
 
+/** How long a finger stays put before a photo lifts. Long enough that
+ * scrolling past the grid isn't mistaken for a drag, short enough that it
+ * doesn't feel like the app is thinking about it. */
+const MS_PARA_LEVANTAR = 180
+
+/** A drag in progress. A ref and not state: this changes on every pointer
+ * move, and re-rendering the sheet at that rate to store a number nobody
+ * paints would be a waste. `indice` follows the photo as the tiles shuffle
+ * under it, so it's where the photo is *now*, not where it started. */
+interface Gesto {
+  id: number
+  indice: number
+  levantado: boolean
+  timer: number
+}
+
 /** Uploads run a few at a time. Downscaling is gated at two by the worker
  * pool, but it finishes far faster than the phone's uplink drains, so
  * without this the whole batch would hit the network at once and make every
@@ -70,6 +86,10 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
   const [sinMetadata, setSinMetadata] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
+  /** Index of the photo currently held, or null. Only for painting it as
+   * lifted — the drag itself is tracked in a ref. */
+  const [arrastrando, setArrastrando] = useState<number | null>(null)
+  const arrastre = useRef<Gesto | null>(null)
   const api = useApi()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const avisoTimeout = useRef<number | undefined>(undefined)
@@ -209,6 +229,68 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
     })
   }
 
+  /** Pulls a photo out and puts it back somewhere else, rather than swapping
+   * the two — dragging past three photos should slide those three over, not
+   * scramble them. */
+  function reubicarFoto(desde: number, hasta: number) {
+    setFotos((prev) => {
+      if (desde === hasta || hasta < 0 || hasta >= prev.length) return prev
+      const next = [...prev]
+      const [movida] = next.splice(desde, 1)
+      next.splice(hasta, 0, movida)
+      return next
+    })
+  }
+
+  /** Which photo is under the finger. Reading the DOM beats tracking
+   * rectangles ourselves: the grid wraps, and the answer has to stay right
+   * while the tiles move around mid-drag. */
+  function indiceBajoElPuntero(x: number, y: number): number | null {
+    for (const el of document.elementsFromPoint(x, y)) {
+      const indice = (el as HTMLElement).dataset?.indice
+      if (indice !== undefined) return Number(indice)
+    }
+    return null
+  }
+
+  function alPresionar(e: React.PointerEvent<HTMLDivElement>, i: number) {
+    // The × and the arrows live inside the tile and are not handles.
+    if ((e.target as HTMLElement).closest('button')) return
+    if (fotos.length < 2) return
+
+    const contenedor = e.currentTarget.parentElement
+    contenedor?.setPointerCapture(e.pointerId)
+    const gesto: Gesto = { id: e.pointerId, indice: i, levantado: false, timer: 0 }
+    // A mouse has no scrolling to disambiguate from, so it lifts at once. A
+    // finger holds first, which is also what makes the lift feel deliberate
+    // instead of accidental.
+    const espera = e.pointerType === 'touch' ? MS_PARA_LEVANTAR : 0
+    gesto.timer = window.setTimeout(() => {
+      gesto.levantado = true
+      setArrastrando(gesto.indice)
+      navigator.vibrate?.(12)
+    }, espera)
+    arrastre.current = gesto
+  }
+
+  function alArrastrar(e: React.PointerEvent<HTMLDivElement>) {
+    const gesto = arrastre.current
+    if (!gesto || e.pointerId !== gesto.id || !gesto.levantado) return
+    const destino = indiceBajoElPuntero(e.clientX, e.clientY)
+    if (destino === null || destino === gesto.indice) return
+    reubicarFoto(gesto.indice, destino)
+    gesto.indice = destino
+    setArrastrando(destino)
+  }
+
+  function alSoltar() {
+    const gesto = arrastre.current
+    if (!gesto) return
+    window.clearTimeout(gesto.timer)
+    arrastre.current = null
+    setArrastrando(null)
+  }
+
   async function borrar() {
     if (!entry || guardando) return
     setGuardando(true)
@@ -324,10 +406,20 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
 
           <div className="sheet__field">
             <span>Fotos</span>
-            <div className="sheet__photos">
+            <div
+              className="sheet__photos"
+              onPointerMove={alArrastrar}
+              onPointerUp={alSoltar}
+              onPointerCancel={alSoltar}
+            >
               {previews.map((url, i) => (
-                <div className="sheet__photo" key={fotos[i].kind === 'existing' ? fotos[i].id : url}>
-                  <img src={url} alt="" />
+                <div
+                  className={`sheet__photo${arrastrando === i ? ' sheet__photo--alzada' : ''}`}
+                  key={fotos[i].kind === 'existing' ? fotos[i].id : url}
+                  data-indice={i}
+                  onPointerDown={(e) => alPresionar(e, i)}
+                >
+                  <img src={url} alt="" draggable={false} />
                   <button type="button" className="sheet__photo-remove" aria-label="Quitar foto" onClick={() => quitarFoto(i)}>
                     ×
                   </button>
