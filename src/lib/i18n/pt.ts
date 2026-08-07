@@ -17,6 +17,7 @@ export const pt: Diccionario = {
   comun_renombrar: 'Renomear',
   comun_nombre: 'Nome',
   comun_fecha: 'Data',
+  comun_fecha_placeholder: 'AAAA-MM-DD',
   comun_fotos: 'Fotos',
   comun_foto_placeholder: 'Foto',
   imageslot_ver_foto: 'Ver foto',

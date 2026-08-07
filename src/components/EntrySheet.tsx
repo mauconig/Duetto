@@ -66,6 +66,15 @@ function hoyIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/** Reformats whatever digits are left after an edit back into YYYY-MM-DD,
+ * dashes inserted as they're typed. A native `type="date"` input displays in
+ * whatever format the OS locale picks — day-first, month-first, no fixed
+ * order — which is exactly the ambiguity a shared date needs to not have. */
+function formatearFechaIso(entrada: string): string {
+  const digitos = entrada.replace(/\D/g, '').slice(0, 8)
+  return [digitos.slice(0, 4), digitos.slice(4, 6), digitos.slice(6, 8)].filter(Boolean).join('-')
+}
+
 function fotosIniciales(entry: Album | undefined, extra: File[] | undefined): FotoItem[] {
   // The sheet only ever shows these at thumbnail size.
   const existentes: FotoItem[] = entry
@@ -310,6 +319,10 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!fecha || guardando) return
+    if (rango && fechaFin && fechaFin < fecha) {
+      setError(t('err_fecha_invalida'))
+      return
+    }
     setGuardando(true)
     setError(null)
     try {
@@ -357,12 +370,16 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
           <label className="sheet__field">
             <span>{t('comun_fecha')}</span>
             <input
-              type="date"
+              type="text"
+              inputMode="numeric"
+              pattern="\d{4}-\d{2}-\d{2}"
+              placeholder={t('comun_fecha_placeholder')}
+              maxLength={10}
               value={fecha}
               onChange={(e) => {
                 setFechaManual(true)
                 setFechaDetectada(false)
-                setFecha(e.target.value)
+                setFecha(formatearFechaIso(e.target.value))
               }}
               required
             />
@@ -386,12 +403,15 @@ export function EntrySheet({ entry, fotosExtra, onClose, onGuardar, onBorrar }: 
             <label className="sheet__field">
               <span>{t('recuerdo_hasta')}</span>
               <input
-                type="date"
+                type="text"
+                inputMode="numeric"
+                pattern="\d{4}-\d{2}-\d{2}"
+                placeholder={t('comun_fecha_placeholder')}
+                maxLength={10}
                 value={fechaFin}
-                min={fecha}
                 onChange={(e) => {
                   setFechaManual(true)
-                  setFechaFin(e.target.value)
+                  setFechaFin(formatearFechaIso(e.target.value))
                 }}
               />
             </label>

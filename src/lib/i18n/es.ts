@@ -22,6 +22,7 @@ export const es = {
   comun_renombrar: 'Renombrar',
   comun_nombre: 'Nombre',
   comun_fecha: 'Fecha',
+  comun_fecha_placeholder: 'AAAA-MM-DD',
   comun_fotos: 'Fotos',
   comun_foto_placeholder: 'Foto',
   imageslot_ver_foto: 'Ver foto',

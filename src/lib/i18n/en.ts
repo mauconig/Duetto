@@ -17,6 +17,7 @@ export const en: Diccionario = {
   comun_renombrar: 'Rename',
   comun_nombre: 'Name',
   comun_fecha: 'Date',
+  comun_fecha_placeholder: 'YYYY-MM-DD',
   comun_fotos: 'Photos',
   comun_foto_placeholder: 'Photo',
   imageslot_ver_foto: 'View photo',
