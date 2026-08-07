@@ -4,19 +4,13 @@ import { Avatar } from '../components/Avatar'
 import { RecortarFoto } from '../components/RecortarFoto'
 import { useTema, type Tema } from '../lib/tema'
 import { useIdiomaContexto } from '../lib/i18n/contexto'
-import type { ClaveTexto, Idioma } from '../lib/i18n/index'
+import { OPCIONES_IDIOMA } from '../lib/idioma'
+import type { ClaveTexto } from '../lib/i18n/index'
 
 const OPCIONES_TEMA: { valor: Tema; clave: ClaveTexto }[] = [
   { valor: 'auto', clave: 'comun_tema_auto' },
   { valor: 'claro', clave: 'comun_tema_claro' },
   { valor: 'oscuro', clave: 'comun_tema_oscuro' },
-]
-
-const OPCIONES_IDIOMA: { valor: Idioma; clave: ClaveTexto }[] = [
-  { valor: 'auto', clave: 'perfil_idioma_auto' },
-  { valor: 'es', clave: 'perfil_idioma_es' },
-  { valor: 'en', clave: 'perfil_idioma_en' },
-  { valor: 'pt', clave: 'perfil_idioma_pt' },
 ]
 
 interface ProfileProps {
@@ -61,7 +55,7 @@ export function Profile({
   const imagenInputRef = useRef<HTMLInputElement>(null)
   const { user } = useUser()
   const { tema, setTema } = useTema()
-  const { idioma, setIdioma, t } = useIdiomaContexto()
+  const { setIdioma, resuelto, t } = useIdiomaContexto()
 
   /** Clerk stores the photo and hands back a URL; App picks the change up
    * through useUser and tells the server, so the partner sees it too.
@@ -256,7 +250,7 @@ export function Profile({
               <button
                 key={o.valor}
                 type="button"
-                className={`tema-selector__opcion${idioma === o.valor ? ' tema-selector__opcion--activa' : ''}`}
+                className={`tema-selector__opcion${resuelto === o.valor ? ' tema-selector__opcion--activa' : ''}`}
                 onClick={() => setIdioma(o.valor)}
               >
                 {t(o.clave)}

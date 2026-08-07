@@ -1,8 +1,19 @@
 import { useCallback, useMemo, useState } from 'react'
-import { crearT, resolverIdioma, type FuncionT, type Idioma, type IdiomaResuelto } from './i18n'
+import { crearT, resolverIdioma, type ClaveTexto, type FuncionT, type Idioma, type IdiomaResuelto } from './i18n'
 import { DICCIONARIOS } from './i18n/diccionarios'
 
 const CLAVE = 'duette-idioma'
+
+/** What the picker offers, wherever it appears (Perfil, Bienvenida). No
+ * `auto` entry: it's still the default for someone who hasn't chosen yet
+ * (see `leerPreferencia` below), but it isn't a button — a wrong guess gets
+ * fixed by tapping the right language, not by round-tripping through a mode
+ * called "Auto". */
+export const OPCIONES_IDIOMA: { valor: IdiomaResuelto; clave: ClaveTexto }[] = [
+  { valor: 'es', clave: 'perfil_idioma_es' },
+  { valor: 'en', clave: 'perfil_idioma_en' },
+  { valor: 'pt', clave: 'perfil_idioma_pt' },
+]
 
 function leerPreferencia(): Idioma {
   const guardado = localStorage.getItem(CLAVE)

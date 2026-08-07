@@ -1,10 +1,23 @@
 import { SignInButton, SignUpButton } from '@clerk/react'
-import { useT } from '../lib/i18n/contexto'
+import { useIdiomaContexto } from '../lib/i18n/contexto'
+import { OPCIONES_IDIOMA } from '../lib/idioma'
 
 export function Welcome() {
-  const t = useT()
+  const { setIdioma, resuelto, t } = useIdiomaContexto()
   return (
     <div className="screen welcome">
+      <div className="tema-selector welcome__idioma">
+        {OPCIONES_IDIOMA.map((o) => (
+          <button
+            key={o.valor}
+            type="button"
+            className={`tema-selector__opcion${resuelto === o.valor ? ' tema-selector__opcion--activa' : ''}`}
+            onClick={() => setIdioma(o.valor)}
+          >
+            {t(o.clave)}
+          </button>
+        ))}
+      </div>
       <div className="welcome__hero">
         {/* Same drawing as the app icon, but outlined instead of sitting on a
             crimson tile — on the welcome screen the background already carries

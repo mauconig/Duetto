@@ -143,7 +143,6 @@ export const en: Diccionario = {
   perfil_invitar_pareja: 'Invite your partner',
   perfil_apariencia: 'Appearance',
   perfil_idioma: 'Language',
-  perfil_idioma_auto: 'Auto',
   perfil_idioma_es: 'Español',
   perfil_idioma_en: 'English',
   perfil_idioma_pt: 'Português',

@@ -162,7 +162,6 @@ export const es = {
   perfil_invitar_pareja: 'Invitar a tu pareja',
   perfil_apariencia: 'Apariencia',
   perfil_idioma: 'Idioma',
-  perfil_idioma_auto: 'Auto',
   perfil_idioma_es: 'Español',
   perfil_idioma_en: 'English',
   perfil_idioma_pt: 'Português',
