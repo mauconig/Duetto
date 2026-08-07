@@ -1,21 +1,45 @@
-# Pendiente: badge "Ver en Pinterest" en pines de video
+# Cerrado: badge "Ver en Pinterest"
 
-Anotado el 7/8/2026, 22:05. **No funciona todavía.** Tres guardados, las tres
-veces `es_video = 0` y `url_origen = NULL`.
+Anotado el 7/8/2026, resuelto el 8/8/2026. El plan de la mudanza a R2 está
+cerrado y vive en el historial de git: `git show 0b64cc7^:plan.md` si hace
+falta. Lo que quedó abierto de ahí está resumido al final de este archivo.
 
-El plan de la mudanza a R2 está cerrado y vive en el historial de git:
-`git show 0b64cc7^:plan.md` si hace falta. Lo que quedó abierto de ahí está
-resumido al final de este archivo.
+## Qué quedó andando
 
-## Qué se quiere
+Cualquier foto guardada en el Moodboard que haya venido de un pin de
+Pinterest —foto o video, ya no solo video— muestra en la vista expandida un
+botón rojo **"Ver en Pinterest"** con el logo, en la misma fila que
+Archivar/Borrar, que lleva al pin original. En videos es además el único
+lugar donde el video se reproduce, porque la app sólo guarda el fotograma de
+portada.
 
-Al compartir un pin de video a Pictogether y guardarlo en el Moodboard:
+## El bug real no era el que parecía
 
-- La miniatura ya muestra el play — lo dibuja Pinterest en la portada, la app
-  no agrega ninguno (esto ya está resuelto, se sacaron los dos que agregaba).
-- Al abrir la foto, un badge **"Ver en Pinterest"** que lleve al pin original,
-  que es el único lugar donde el video se reproduce.
-- Solo en videos. En fotos anda todo bien y no se toca.
+La sospecha original (7/8/2026) fue que la detección de video fallaba: tres
+pines de video guardados, las tres veces `es_video = 0` y `url_origen = NULL`.
+Se armó toda una investigación —`esPinDeVideo()`, ruta `/api/enlace/info`,
+migración de columnas— asumiendo que el problema era **no reconocer** el pin.
+
+El bug real apareció al revisar el pedido de ampliar esto a fotos (8/8/2026):
+`onInspiracion` en `App.tsx` sólo armaba el objeto que se manda a guardar
+cuando `enlaceEsVideo` era `true`:
+
+```js
+const origenVideo = enlaceEsVideo && enlaceOrigen ? { ... } : undefined
+```
+
+O sea que **el link ya se resolvía y guardaba en memoria correctamente para
+cualquier pin** — el dato estaba ahí — pero se lo descartaba en el momento de
+guardar si no era video. Para una foto pin esto significaba que nunca llegaba
+a la base. Se sacó la condición: ahora `origenPinterest` se arma con
+cualquier `enlaceOrigen` presente, sea video o no.
+
+**Lo que sigue sin explicación** es por qué los tres pines de video de
+prueba del 7/8 dieron `es_video = 0` incluso con la detección funcionando —
+la hipótesis viva era que Pinterest los compartía como archivo sin ningún
+link (ver hipótesis abajo). No se confirmó ni se descartó porque no se volvió
+a probar con un pin de video real después del arreglo del 8/8. Si vuelve a
+fallar específicamente con un video (no con una foto), es ahí donde mirar.
 
 ## Verificado que SÍ funciona
 
@@ -93,9 +117,9 @@ más que hacer.
 - `public/sw.js` — recibe el share, guarda archivos y link en cache
 - `public/manifest.webmanifest` — declara `share_target` (acepta title/text/url/files)
 - `src/lib/compartir.ts` — lee lo que dejó el worker
-- `src/App.tsx` — resuelve el enlace y decide `origenVideo`
+- `src/App.tsx` — resuelve el enlace y arma `origenPinterest` al guardar
 - `server/src/index.ts` — `esPinDeVideo`, `/api/enlace/info`, `/api/enlace/imagen`
-- `src/components/TimelineLightbox.tsx` — pinta el badge
+- `src/components/TimelineLightbox.tsx` — pinta el botón, en `lightbox-acciones`
 
 ---
 
