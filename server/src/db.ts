@@ -141,6 +141,11 @@ addColumnIfMissing('photos', 'archivo_min', 'TEXT')
 // the record a lie.
 addColumnIfMissing('members', 'privacidad_version', 'TEXT')
 addColumnIfMissing('members', 'privacidad_at', 'TEXT')
+// Each person's avatar, as Clerk hosts it — filled in by Google on sign-in
+// or by whatever they upload later. Stored rather than fetched from Clerk on
+// every request: the client already knows its own and can just say so, which
+// is one API call we never make. Null until they've been seen once.
+addColumnIfMissing('members', 'imagen_url', 'TEXT')
 
 /** What the wheel used to be hardcoded with on the client. */
 const IDEAS_INICIALES = [

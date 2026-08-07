@@ -364,6 +364,36 @@ h2 {
   letter-spacing: -0.01em;
 }
 
+/* One face. The same element whether it's a photo or a letter, so the two
+   line up at the same size in the same place — an <img> and a <div> that
+   disagree by a pixel are very visible side by side. */
+.avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  background: linear-gradient(135deg, var(--acento-claro), var(--acento));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  flex: none;
+}
+/* Overlapping, like the initials badge they replace: two people, one mark. */
+.avatar-par {
+  display: flex;
+  flex: none;
+}
+.avatar-par .avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 15px;
+  border: 2px solid var(--fondo);
+  box-shadow: 0 6px 16px rgba(var(--sombra-rgb), 0.3);
+}
+.avatar-par .avatar:last-child {
+  margin-left: -14px;
+}
 .avatar-badge {
   width: 46px;
   height: 46px;
@@ -1587,6 +1617,7 @@ h2 {
   width: 64px;
   height: 64px;
   border-radius: 50%;
+  object-fit: cover;
   color: #fff;
   display: flex;
   align-items: center;
@@ -1595,6 +1626,47 @@ h2 {
   font-weight: 700;
   font-size: 24px;
   border: 3px solid var(--superficie);
+}
+/* Wraps our own face so the camera badge has something to hang off. Carries
+   no look of its own — the avatar inside keeps all of it. */
+.profile-card__avatar-editable {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+  cursor: pointer;
+}
+.profile-card__avatar-editable:disabled {
+  opacity: 0.6;
+}
+.profile-card__avatar-camara {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--cta-fondo);
+  color: var(--cta-texto);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--superficie);
+  font-size: 11px;
+  line-height: 1;
+}
+.profile-card__quitar-foto {
+  display: block;
+  margin: 10px auto 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--texto-3);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
 }
 .profile-card__avatar--a {
   background: linear-gradient(135deg, var(--acento-claro), var(--acento));

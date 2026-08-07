@@ -38,7 +38,10 @@ const q = {
   memberByUser: db.prepare('SELECT * FROM members WHERE user_id = ?'),
   coupleById: db.prepare('SELECT * FROM couples WHERE id = ?'),
   coupleByCode: db.prepare('SELECT * FROM couples WHERE code = ?'),
-  membersOfCouple: db.prepare('SELECT user_id, nombre FROM members WHERE couple_id = ? ORDER BY joined_at'),
+  membersOfCouple: db.prepare(
+    'SELECT user_id, nombre, imagen_url FROM members WHERE couple_id = ? ORDER BY joined_at',
+  ),
+  updateImagen: db.prepare('UPDATE members SET imagen_url = ? WHERE user_id = ?'),
   insertCouple: db.prepare('INSERT INTO couples (id, code, created_at) VALUES (?, ?, ?)'),
   insertMember: db.prepare(
     'INSERT INTO members (user_id, couple_id, nombre, joined_at, privacidad_version, privacidad_at) VALUES (?, ?, ?, ?, ?, ?)',
@@ -123,7 +126,11 @@ function estadoPareja(coupleId: string, userId: string) {
     fecha_aniversario: string | null
     proximo_hito: string | null
   }
-  const miembros = q.membersOfCouple.all(coupleId) as { user_id: string; nombre: string }[]
+  const miembros = q.membersOfCouple.all(coupleId) as {
+    user_id: string
+    nombre: string
+    imagen_url: string | null
+  }[]
   const yo = miembros.find((m) => m.user_id === userId)
   const pareja = miembros.find((m) => m.user_id !== userId)
   return {
@@ -131,6 +138,10 @@ function estadoPareja(coupleId: string, userId: string) {
     codigo: couple.code,
     nombrePropio: yo?.nombre ?? null,
     nombrePareja: pareja?.nombre ?? null,
+    // Only the partner's. The caller's own avatar comes from Clerk in the
+    // browser, where it's already loaded and always current — echoing back
+    // what they just told us would only be staler.
+    imagenPareja: pareja?.imagen_url ?? null,
     fechaAniversario: couple.fecha_aniversario,
     proximoHito: couple.proximo_hito,
     vinculada: miembros.length >= MAX_MIEMBROS,
@@ -282,6 +293,48 @@ app.patch('/api/couple', requireAuth, (req: AuthedRequest, res) => {
  * later with the same code, since the couple is back down to one member.
  * If nobody is left the couple has no reason to exist, so it goes with its
  * entries, photos and ideas. */
+/** Hosts a Clerk avatar can legitimately come from. Clerk normally rewrites
+ * everything through img.clerk.com, but a Google account can still surface
+ * its original googleusercontent URL depending on how the account was
+ * connected. */
+const HOSTS_AVATAR = new Set(['img.clerk.com', 'images.clerk.dev', 'lh3.googleusercontent.com'])
+
+/** Remembers where this person's avatar lives, so their partner can see it.
+ *
+ * The browser reports its own URL rather than the server asking Clerk for
+ * it: the client already has it loaded, always current, and this way there
+ * is no Clerk API call on the path of every app open.
+ *
+ * The cost of trusting the client is that a caller could name any URL, and
+ * whatever they name is rendered as an <img src> inside their partner's app.
+ * The host list is what keeps that from being an arbitrary beacon pointed at
+ * someone else's browser. */
+app.put('/api/me/imagen', requireAuth, (req: AuthedRequest, res) => {
+  const crudo = String(req.body?.imagenUrl ?? '').trim()
+
+  // Empty means they removed their photo, and initials come back.
+  if (!crudo) {
+    q.updateImagen.run(null, req.userId!)
+    res.json({ ok: true, imagenUrl: null })
+    return
+  }
+
+  let url: URL
+  try {
+    url = new URL(crudo)
+  } catch {
+    res.status(400).json({ error: 'Esa imagen no es válida' })
+    return
+  }
+  if (url.protocol !== 'https:' || !HOSTS_AVATAR.has(url.hostname)) {
+    res.status(400).json({ error: 'Esa imagen no es válida' })
+    return
+  }
+
+  q.updateImagen.run(url.href, req.userId!)
+  res.json({ ok: true, imagenUrl: url.href })
+})
+
 app.delete('/api/couple/me', requireAuth, async (req: AuthedRequest, res) => {
   const member = q.memberByUser.get(req.userId!) as { couple_id: string } | undefined
   if (!member) {

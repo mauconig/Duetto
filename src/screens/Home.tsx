@@ -1,3 +1,4 @@
+import { Avatar } from '../components/Avatar'
 import { ImageSlot } from '../components/ImageSlot'
 import type { Album } from '../types'
 import type { Edad, Hito, HitoDeHoy, PhotoSlot } from '../lib/duette'
@@ -8,6 +9,9 @@ interface HomeProps {
   fechaHoy: string
   inicial1: string
   inicial2: string
+  /** Null when the person has no photo, which is when the initial shows. */
+  imagenPropia: string | null
+  imagenPareja: string | null
   fechaInicioTexto: string
   edad: Edad
   hito: Hito
@@ -34,6 +38,8 @@ export function Home({
   fechaHoy,
   inicial1,
   inicial2,
+  imagenPropia,
+  imagenPareja,
   fechaInicioTexto,
   edad,
   hito,
@@ -58,10 +64,20 @@ export function Home({
           <div className="topbar__date">{fechaHoy}</div>
           <div className="topbar__greeting">Hola, {nombres}</div>
         </div>
-        <div className="avatar-badge">
-          {inicial1}
-          {inicial2}
-        </div>
+        {/* Two overlapping faces when there are photos, the initials badge
+            when there aren't. A half-photo half-letter pair looked like a
+            loading state that never finished, so it's one or the other. */}
+        {imagenPropia || imagenPareja ? (
+          <div className="avatar-par">
+            <Avatar url={imagenPropia} inicial={inicial1} />
+            <Avatar url={imagenPareja} inicial={inicial2} />
+          </div>
+        ) : (
+          <div className="avatar-badge">
+            {inicial1}
+            {inicial2}
+          </div>
+        )}
       </div>
 
       <div className="hero-card">

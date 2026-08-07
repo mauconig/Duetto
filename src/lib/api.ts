@@ -13,6 +13,10 @@ export interface Pareja {
   codigo: string
   nombrePropio: string | null
   nombrePareja: string | null
+  /** The partner's avatar, as Clerk hosts it. Null until they've opened the
+   * app once, or if they have no photo. Only theirs: our own comes straight
+   * from Clerk in the browser, where it's always current. */
+  imagenPareja: string | null
   fechaAniversario: string | null
   proximoHito: 'cumplemes' | 'aniversario' | null
   /** True once both partners are in — one person can still use the app
@@ -133,6 +137,15 @@ export function useApi() {
       /** Sets the cookie that photo <img> requests authenticate with. */
       iniciarSesionFotos() {
         return call<{ ok: boolean }>('/session', { method: 'POST' })
+      },
+
+      /** Tells the server where our avatar lives, so the partner can see it.
+       * An empty string means we no longer have one. */
+      guardarImagenPropia(imagenUrl: string) {
+        return call<{ ok: boolean; imagenUrl: string | null }>('/me/imagen', {
+          method: 'PUT',
+          body: JSON.stringify({ imagenUrl }),
+        })
       },
 
       obtenerEntradas() {

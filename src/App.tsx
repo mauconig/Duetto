@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Show } from '@clerk/react'
+import { Show, useUser } from '@clerk/react'
 import './App.css'
 import { BottomNav } from './components/BottomNav'
 import { Welcome } from './screens/Welcome'
@@ -186,6 +186,12 @@ function AppContent({
   onDesvincular,
 }: AppContentProps) {
   const api = useApi()
+  // Our own avatar comes straight from Clerk, which fills it in from Google
+  // on sign-in and updates it when we upload a new one. hasImage is what
+  // separates a real photo from the initials-on-a-colour that Clerk
+  // generates, which we would rather draw ourselves.
+  const { user } = useUser()
+  const imagenPropia = user?.hasImage ? user.imageUrl : null
   const [ajustesAbiertos, setAjustesAbiertos] = useState(false)
   const [desvinculando, setDesvinculando] = useState(false)
   const [tab, setTab] = useState<Tab>('inicio')
@@ -248,6 +254,21 @@ function AppContent({
   const [errorTablero, setErrorTablero] = useState<string | null>(null)
 
   useEffect(() => () => window.clearTimeout(spinTimeout.current), [])
+
+  // Clerk knows our avatar; the partner's device doesn't. Push it once per
+  // change so their app has something to show. Skipped when it hasn't
+  // moved, so opening the app repeatedly isn't a write each time.
+  const imagenEnviada = useRef<string | null>(null)
+  useEffect(() => {
+    const valor = imagenPropia ?? ''
+    if (imagenEnviada.current === valor) return
+    imagenEnviada.current = valor
+    api.guardarImagenPropia(valor).catch(() => {
+      // Nothing to tell anyone: the partner keeps seeing the previous photo,
+      // or their initials. Cleared so the next open tries again.
+      imagenEnviada.current = null
+    })
+  }, [imagenPropia, api])
 
   // Read the cache rather than the URL: if the share had to go through
   // sign-in first, the query string is long gone but the files are not.
@@ -469,6 +490,8 @@ function AppContent({
           fechaHoy={formatFechaHoy(hoy)}
           inicial1={inicial1}
           inicial2={inicial2}
+          imagenPropia={imagenPropia}
+          imagenPareja={pareja.imagenPareja}
           fechaInicioTexto={formatFecha(ini)}
           edad={edad}
           hito={hito}
@@ -552,6 +575,8 @@ function AppContent({
           nombrePropio={propio}
           inicial1={inicial1}
           inicial2={inicial2}
+          imagenPropia={imagenPropia}
+          imagenPareja={pareja.imagenPareja}
           fechaInicioTexto={formatFecha(ini)}
           diasJuntos={diasJuntos(hoy, ini)}
           numAlbumes={albumes.length}
