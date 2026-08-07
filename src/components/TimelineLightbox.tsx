@@ -130,6 +130,7 @@ export function TimelineLightbox({
   // from either side. Keyed by their real position, so moving one along
   // reuses the two that were already decoded instead of reloading them.
   const visibles = [i - 1, i, i + 1]
+  const slotActual = slots[i]
 
   return (
     <div className="lightbox-backdrop" onClick={onClose}>
@@ -172,20 +173,6 @@ export function TimelineLightbox({
                 {slot?.src && (
                   <div className="lightbox-media">
                     <img src={slot.src} alt="" className="lightbox-img" draggable={false} />
-                    {/* The cover image already carries Pinterest's play symbol,
-                        so the only thing worth adding is the way back to the
-                        pin — which is the one place the clip actually plays. */}
-                    {slot.esVideo && slot.urlOrigen && (
-                      <a
-                        className="lightbox-pinterest"
-                        href={slot.urlOrigen}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {t('insp_ver_en_pinterest')}
-                      </a>
-                    )}
                   </div>
                 )}
               </div>
@@ -210,6 +197,23 @@ export function TimelineLightbox({
       </div>
 
       <div className="lightbox-acciones">
+        {/* Only on a video pin's cover frame — the one place the clip
+            actually plays. A link and not a button: it leaves the app, and
+            should behave like it (long-press, open in a tab). */}
+        {slotActual?.esVideo && slotActual.urlOrigen && (
+          <a
+            className="lightbox-pinterest"
+            href={slotActual.urlOrigen}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 4.24 2.63 7.86 6.35 9.32-.09-.79-.16-2.01.03-2.87.18-.78 1.16-4.95 1.16-4.95s-.3-.59-.3-1.46c0-1.37.79-2.39 1.78-2.39.84 0 1.24.63 1.24 1.38 0 .84-.54 2.1-.81 3.27-.23.98.49 1.78 1.46 1.78 1.75 0 3.1-1.85 3.1-4.52 0-2.36-1.7-4.02-4.12-4.02-2.81 0-4.46 2.11-4.46 4.28 0 .85.33 1.76.73 2.25.08.1.09.18.07.28-.08.31-.25 1-.28 1.14-.05.18-.15.22-.34.13-1.26-.59-2.05-2.43-2.05-3.91 0-3.19 2.32-6.12 6.68-6.12 3.51 0 6.24 2.5 6.24 5.84 0 3.48-2.2 6.29-5.25 6.29-1.03 0-1.99-.53-2.32-1.16 0 0-.51 1.93-.63 2.41-.23.88-.85 1.98-1.26 2.65.95.29 1.95.45 3 .45 5.52 0 10-4.48 10-10S17.52 2 12 2Z" />
+            </svg>
+            {t('insp_ver_en_pinterest')}
+          </a>
+        )}
         <button
           type="button"
           className="lightbox-edit"

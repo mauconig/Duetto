@@ -889,7 +889,6 @@ h2 {
   user-select: none;
 }
 .lightbox-media {
-  position: relative;
   display: flex;
   max-width: 100%;
   max-height: 100%;
@@ -899,23 +898,20 @@ h2 {
     transition: none !important;
   }
 }
+/* Sits in .lightbox-acciones, sized like .lightbox-edit next to it — same
+ * row, same shape, only the colour says "this one leaves the app". */
 .lightbox-pinterest {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
-  border-radius: 99px;
+  padding: 12px 16px;
+  border-radius: 24px;
   background: #e60023;
   color: #fff;
-  font-family: 'Nunito', sans-serif;
-  font-weight: 800;
-  font-size: 12px;
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
   text-decoration: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 .lightbox-arrow {
   position: absolute;
@@ -1366,8 +1362,10 @@ h2 {
 
 .lightbox-acciones {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  justify-content: center;
 }
 .lightbox-edit--borrar {
   background: rgba(255, 255, 255, 0.16);
