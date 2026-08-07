@@ -15,7 +15,7 @@ import { SharedPhotosSheet } from './components/SharedPhotosSheet'
 import { EntrySheet } from './components/EntrySheet'
 import { TimelineLightbox } from './components/TimelineLightbox'
 import { limpiarFotosCompartidas, recogerFotosCompartidas } from './lib/compartir'
-import { fileToWebpBlob, PRESET_REFERENCIA } from './lib/photoStorage'
+import { fileToWebpBlob, photoUrl, PRESET_REFERENCIA } from './lib/photoStorage'
 import type { Album, Tab } from './types'
 import { useApi, type Categoria, type Idea, type Inspiracion as Referencia, type Pareja } from './lib/api'
 import {
@@ -376,6 +376,16 @@ function AppContent({
   // album cards in that case.
   const ultimoAlbum = sortByFecha(albumes).at(-1)
   const albumFoto = ultimoAlbum ? photoSlots(ultimoAlbum)[0] : undefined
+  // Same daily pick as the recuerdo and the idea, so the three things Inicio
+  // surfaces rotate together and the screen is a different screen tomorrow.
+  const inspiracionDelDia = pickDaily(referencias, hoy)
+  const inspiracionFoto = inspiracionDelDia
+    ? {
+        id: inspiracionDelDia.id,
+        src: photoUrl(inspiracionDelDia.id),
+        miniatura: photoUrl(inspiracionDelDia.id, 'miniatura'),
+      }
+    : undefined
 
   function irInicio() {
     setTab('inicio')
@@ -466,6 +476,7 @@ function AppContent({
           ultimoAlbum={ultimoAlbum}
           albumFoto={albumFoto}
           numInspiraciones={referencias.length}
+          inspiracionFoto={inspiracionFoto}
           recuerdo={recuerdo}
           ideaSugerida={ideaSugerida}
           onIrRuleta={irRuleta}

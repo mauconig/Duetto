@@ -18,6 +18,9 @@ interface HomeProps {
   ultimoAlbum: Album | undefined
   albumFoto: PhotoSlot | undefined
   numInspiraciones: number
+  /** A reference from the board, picked once a day. Undefined while the
+   * board is still loading and when it has nothing in it. */
+  inspiracionFoto: PhotoSlot | undefined
   recuerdo: Album | null
   ideaSugerida: string | null
   onIrRuleta: () => void
@@ -38,6 +41,7 @@ export function Home({
   ultimoAlbum,
   albumFoto,
   numInspiraciones,
+  inspiracionFoto,
   recuerdo,
   ideaSugerida,
   onIrRuleta,
@@ -153,18 +157,33 @@ export function Home({
             </div>
           </div>
         </div>
-        <div className="mini-card mini-card--article" onClick={onIrInspiracion} role="button">
-          <span className="tag-pill">Inspiración</span>
-          <div className="mini-card__title mini-card__title--flex">
-            {numInspiraciones === 0 ? 'Guardá fotos que quieran copiar' : 'Fotos que quieren copiar'}
-          </div>
-          <div className="mini-card__meta">
-            {numInspiraciones === 0
-              ? 'Todavía no hay ninguna'
-              : numInspiraciones === 1
-                ? '1 guardada'
-                : `${numInspiraciones} guardadas`}
-          </div>
+        {/* One of the saved references, chosen per day, as the card itself.
+            The board is made of pictures, so a card about it that shows none
+            was the odd one out on this screen. Falls back to words only when
+            there is genuinely nothing to show — every reference has a photo,
+            so no photo means an empty board. */}
+        <div
+          className={`mini-card ${inspiracionFoto ? 'mini-card--foto' : 'mini-card--article'}`}
+          onClick={onIrInspiracion}
+          role="button"
+        >
+          {inspiracionFoto ? (
+            <div className="mini-card__image">
+              <ImageSlot src={inspiracionFoto.miniatura} shape="rect" placeholder="" />
+              <div className="mini-card__overlay">
+                <div className="mini-card__overlay-kicker">Inspiración</div>
+                <div className="mini-card__overlay-meta">
+                  {numInspiraciones === 1 ? '1 guardada' : `${numInspiraciones} guardadas`}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <span className="tag-pill">Inspiración</span>
+              <div className="mini-card__title mini-card__title--flex">Guardá fotos que quieran copiar</div>
+              <div className="mini-card__meta">Todavía no hay ninguna</div>
+            </>
+          )}
         </div>
       </div>
 

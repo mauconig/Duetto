@@ -552,6 +552,12 @@ h2 {
 .mini-card--album {
   cursor: pointer;
 }
+/* A card that is a photo rather than a box with text in it. Deliberately the
+   same shape as the recuerdo card beside it: they share a row, and two
+   different heights there read as a mistake. */
+.mini-card--foto {
+  cursor: pointer;
+}
 .mini-card__image {
   height: 150px;
   position: relative;
