@@ -245,3 +245,202 @@ Tres cosas quedaron sin hacer, a propósito o por falta de tiempo:
 3. **El respaldo continuo desde R2 se descartó** el 7/8/2026 y no se va a
    montar. `uploads/` en el VPS quedó como copia completa hasta esa fecha y
    **no hay que borrarla**; las fotos subidas desde entonces viven sólo en R2.
+
+---
+
+# Pendiente: cifrado de extremo a extremo
+
+Anotado el 8/8/2026, sin decidir. La pregunta que lo abrió: garantizar que las
+fotos sean privadas al punto de que **ni el admin pueda verlas**.
+
+## Lo primero: no es un problema de proveedor
+
+Se preguntó por alternativas a R2 y al VPS. No las hay para esto. Ni S3, ni
+Backblaze, ni un NAS propio, ni P2P: en todos, quien opera el sistema ve los
+bytes. Mudarse de nuevo no toca el problema.
+
+Lo único que lo cumple es **cifrar en el dispositivo antes de subir, con una
+llave que nunca llega al servidor**. Es ortogonal a dónde estén guardadas: con
+esto, R2 pasa a contener ruido y la mudanza que ya se hizo sigue valiendo
+igual, por durabilidad.
+
+## La limitación que hay que decir antes que nada
+
+Esto es una **web app**: el servidor entrega el JavaScript en cada carga. Quien
+controla el servidor puede publicar código que capture la frase de acceso. La
+afirmación honesta no es "100% privado" sino:
+
+> El servidor nunca tiene la llave, y las fotos guardadas son ilegibles para el
+> admin. Pero seguís confiando en que el código que se entrega siga siendo
+> honesto.
+
+Es la limitación conocida del cripto en el navegador y no tiene solución dentro
+del navegador. **Una app nativa la mejora de verdad**: código firmado, revisado
+y que no se reemplaza en cada carga. Si la promesa se le hace al usuario por
+escrito, tiene que decir esto y no más que esto.
+
+## El conflicto con el punto 3 de arriba
+
+`uploads/` en el VPS es una copia **en claro** de todo lo subido hasta el
+7/8/2026, y quedó marcada como "no borrar" porque es el único respaldo de esas
+fotos. **Las dos cosas no pueden ser ciertas a la vez.** Si se hace E2EE hay
+que elegir: o esa copia se cifra también y deja de ser un respaldo utilizable
+sin la llave, o se borra y esas fotos quedan sólo en R2, o se acepta que lo
+anterior al 7/8 nunca fue privado. No hay una cuarta opción, y conviene
+decidirlo antes de empezar y no al final.
+
+## Llaves
+
+- Al crear la pareja, el dispositivo genera una **llave de pareja** aleatoria
+  de 256 bits (`crypto.getRandomValues`). Nunca sale en claro.
+- Quien la crea elige una **frase de acceso**, distinta de la contraseña de
+  Clerk (Clerk nunca nos la da, así que no se puede derivar de ahí).
+- De esa frase se deriva una llave que **envuelve** la de pareja. El servidor
+  guarda `salt`, parámetros del KDF y la llave envuelta. No puede abrirla.
+- KDF: **Argon2id** (19 MiB, t=2, p=1,
+  [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html))
+  vía WASM; o **PBKDF2-HMAC-SHA256 con 600.000 iteraciones**, que ya está en
+  WebCrypto y es el mínimo que OWASP acepta.
+- La pareja que entra con el código necesita la misma frase, dicha en persona.
+  Es una pareja: ese es el caso fácil del intercambio de llaves.
+- Dispositivo nuevo: se escribe la frase, se abre la llave, queda en memoria (y
+  en IndexedDB sólo si marcan "recordar este dispositivo").
+
+## Recuperación — la decisión incómoda
+
+**Si se puede recuperar, el admin también puede.** No hay punto intermedio.
+
+La salida estándar es un **código de recuperación** de alta entropía mostrado
+**una sola vez**, que envuelve la misma llave. Si se pierden la frase y el
+código, **las fotos se pierden para siempre**, sin excepción.
+
+Eso va a pasarle a alguien. Tiene que estar dicho sin eufemismos en la pantalla
+de creación, y conviene forzar a confirmar que lo guardaron.
+
+## Datos
+
+- **AES-256-GCM** por archivo, IV aleatorio de 96 bits.
+- Llave por archivo con **HKDF(llaveDePareja, idDelArchivo)**: determinística,
+  no guarda nada extra, y evita reusar un nonce entre archivos.
+- Se cifran la foto completa **y** la miniatura.
+- Se cifran los textos: `entries.nota`, `categorias.nombre`, `ideas.texto`,
+  `members.nombre`.
+- **Las fechas quedan en claro.** `entries.fecha` ordena la línea de tiempo y
+  alimenta el "recuerdo del día". Es una fuga consciente, no un olvido.
+- `url_origen` de los pines también queda en claro salvo que se cifre: revela
+  qué se guardó de Pinterest.
+
+## Lo que sigue filtrándose igual
+
+E2EE no esconde metadatos: cuántas fotos hay, cuándo se subieron, cuánto pesan,
+quién está emparejado con quién y cuándo están activos.
+
+## Por qué el cambio es más chico de lo que parece
+
+Verificado contra el código al 8/8/2026:
+
+| Punto | Archivo | Qué cambia |
+|---|---|---|
+| Compresión | `src/lib/photoStorage.ts` → `fileToWebpBlob()` | nada; ya devuelve dos `Blob` |
+| **Cifrar al subir** | después de `fileToWebpBlob`, antes de `api.ts` | se agrega ahí |
+| **Descifrar al mostrar** | `public/sw.js` | intercepta `/api/photos/*` |
+| Servidor | `server/src/almacen.ts` | **nada**: ya guarda bytes opacos |
+
+La fila que hace barato todo esto es la tercera. `photoUrl()`
+(`src/lib/photoStorage.ts:131`) es el **único** lugar donde se arman URLs de
+fotos —lo usan `duette.ts:205`, `Inspiracion.tsx:58` y `App.tsx:458`, todos a
+través de la función— y el service worker ya tiene un `fetch` listener por el
+share target. Si el SW intercepta `/api/photos/*`, baja el cifrado, descifra y
+devuelve una respuesta de imagen normal, **los componentes no cambian una
+línea**: `<img src={photoUrl(id)}>` sigue igual en `ImageSlot`,
+`PhotoGallery`, `TimelineLightbox` e `Inspiracion.tsx`.
+
+La llave se le pasa al SW por `postMessage` y vive sólo en memoria. Como el
+navegador puede matarlo, cuando no la tenga debe pedírsela a sus clientes
+(`clients.matchAll()`) antes de responder; si no hay ninguno, 503 y la página
+reintenta.
+
+Y `almacen.ts` ya existe desde la mudanza a R2, así que el servidor no se toca:
+guardar ruido es exactamente lo mismo que guardar WebP.
+
+Esquema: `couples` gana `llave_envuelta`, `kdf_salt`, `kdf_params`.
+
+## Pasos
+
+1. `src/lib/cripto.ts`: derivar, envolver/abrir, cifrar/descifrar. Con tests de
+   ida y vuelta **antes** de tocar la app.
+2. Pantallas: crear frase + código de recuperación, y desbloquear en un
+   dispositivo nuevo.
+3. Cifrado en la subida.
+4. Descifrado en el service worker, con el protocolo de pedir la llave.
+5. Textos (notas, categorías, ideas, nombres).
+6. Migrar lo que ya existe: bajar, cifrar y volver a subir **desde el
+   dispositivo del dueño**. No se puede hacer en el servidor — ése es el punto,
+   y es lo que lo diferencia de `migrar-a-r2.ts`, que sí corrió en el VPS.
+7. Reescribir la política de privacidad, y decidir el punto de `uploads/`.
+
+## Verificación
+
+- **Ida y vuelta:** cifrar y descifrar 1000 blobs al azar sin pérdida.
+- **La prueba que importa:** con la app andando, bajar un objeto del bucket y
+  confirmar que es ruido — `file` no lo reconoce, no hay cabecera WebP. Y que
+  `SELECT nota FROM entries` devuelva texto cifrado.
+- **Dispositivo nuevo:** entrar desde otro navegador, escribir la frase, ver
+  las fotos.
+- **Frase equivocada:** falla al abrir, no muestra nada y **no borra nada**.
+- **Código de recuperación:** con la frase olvidada, restaura.
+- **El SW muerto:** matarlo desde DevTools con la app abierta y confirmar que
+  las imágenes se recuperan solas.
+- **Rendimiento:** que subir 30 fotos no se vuelva perceptiblemente más lento
+  en un celular real. AES-GCM tiene aceleración por hardware, pero hay que
+  medirlo, no suponerlo.
+
+---
+
+# Descartado: P2P estilo torrent
+
+Se evaluó el 8/8/2026 como alternativa a R2 y al VPS. No va, y queda escrito
+con la evidencia para no rediscutirlo.
+
+## En la PWA — imposible, no difícil
+
+- **`RTCPeerConnection` no existe en el scope de un service worker**
+  ([Chromium 40251342](https://issues.chromium.org/issues/40251342)), y el
+  navegador puede terminar el SW cuando no tiene eventos que atender. La app no
+  puede sembrar con la pantalla apagada porque la API no está ahí.
+- **Un peer de navegador no alcanza el enjambre normal de BitTorrent.** La
+  [FAQ de WebTorrent](https://webtorrent.io/faq): *"In the browser, WebTorrent
+  can only download torrents that are seeded by a WebRTC-capable torrent
+  client."* Mismo protocolo, distinto transporte, y hacen falta trackers
+  modificados para la señalización.
+
+## En una app nativa — mejora, y sigue sin servir
+
+- **iOS no permite P2P en segundo plano.** Del hilo de Apple
+  [Support for P2P Connectivity and Network Requests in the Background](https://developer.apple.com/forums/thread/760431):
+  *"There is no way to achieve continuous P2P networking goals with most
+  networking APIs... There are exceptions, like URLSession background sessions,
+  but nothing relevant to continuous P2P networking requirements."* Y esas
+  sesiones transfieren **contra un servidor por HTTP**, que es justamente lo que
+  el P2P quería evitar. Aparte, las apps de compartición P2P suelen ser
+  rechazadas de la App Store.
+- **Android lo permite a medias.** Un foreground service `dataSync` está
+  [limitado a 6 horas cada 24](https://developer.android.com/develop/background-work/services/fgs/timeout);
+  pasado el tope, `onTimeout()`, y si no parás, `RemoteServiceException`.
+  Android 15 entra en Doze un 50% más rápido y los OEM matan procesos por su
+  cuenta. Todo a cambio de una notificación permanente.
+- **La aritmética de dos dispositivos.** Si cada celular está disponible el 50%
+  del tiempo, hay **1 probabilidad en 4 de que las fotos no estén** al abrir la
+  app. Para un álbum de recuerdos eso no es un porcentaje, es "desapareció".
+- **Y sigue haciendo falta un seeder siempre encendido, que es un servidor.**
+  No ahorra nada, y dos teléfonos que se pierden o se rompen son **menos**
+  copias que R2.
+
+P2P sirve para distribuir **un archivo popular a mucha gente**. Esta app
+necesita lo contrario: **muchos archivos privados, para dos personas, siempre
+disponibles.**
+
+**Lo que sí valdría en una app nativa**, encima del servidor y no en su lugar:
+transferencia directa entre los dos teléfonos cuando están en la misma WiFi
+(MultipeerConnectivity, Wi-Fi Direct), y guardar los originales a resolución
+completa en el dispositivo subiendo sólo la versión comprimida.
