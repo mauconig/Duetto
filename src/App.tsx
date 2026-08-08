@@ -635,6 +635,8 @@ function AppContent({
           numIdeas={ideas.length}
           codigo={pareja.codigo}
           vinculada={pareja.vinculada}
+          espacioUsado={pareja.espacioUsado}
+          espacioLimite={pareja.espacioLimite}
           onAbrirAjustes={() => setAjustesAbiertos(true)}
           onDesvincular={() => setDesvinculando(true)}
         />

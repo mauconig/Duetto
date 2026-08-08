@@ -1,6 +1,8 @@
 import express from 'express'
 import cookieParser from 'cookie-parser'
+import helmet from 'helmet'
 import multer from 'multer'
+import rateLimit from 'express-rate-limit'
 import { randomUUID } from 'node:crypto'
 import { almacen } from './almacen.ts'
 import { db, generateCode, normalizeCode, sembrarIdeas } from './db.ts'
@@ -9,6 +11,10 @@ import { emitirCookie, requireAuth, requireCookie, type AuthedRequest } from './
 const PORT = Number(process.env.PORT ?? 8790)
 const MAX_MIEMBROS = 2
 const MAX_FOTOS = 30
+/** Free tier, per couple, across recuerdos + staging + inspiración combined.
+ * Premium couples (see `couples.premium`) skip this entirely — see plan.md
+ * for the monetization strategy this is meant to hook into. */
+const MAX_STORAGE_BYTES = Number(process.env.DUETTE_MAX_STORAGE_BYTES ?? 500 * 1024 * 1024)
 /** Same wording whether the cap is hit by multer, before the route runs, or
  * by the staging count once it does. */
 const DEMASIADAS = `No podés subir más de ${MAX_FOTOS} fotos por recuerdo`
@@ -31,8 +37,41 @@ const subida = multer({
 })
 
 const app = express()
+// The server only ever sees Caddy's own address otherwise — everything
+// below that reads req.ip (the rate limiters) would be keying on one IP for
+// every visitor and limiting nobody.
+app.set('trust proxy', 1)
+app.use(helmet())
 app.use(express.json({ limit: '1mb' }))
 app.use(cookieParser())
+
+/** Baseline against scripted flooding — generous enough that normal use
+ * never brushes it, tight enough that a script hammering the API gets
+ * throttled instead of served. */
+const limiteGlobal = rateLimit({ windowMs: 60 * 1000, limit: 100, standardHeaders: true, legacyHeaders: false })
+app.use('/api', limiteGlobal)
+
+/** Invite codes are 6 chars from a 32-symbol alphabet — ~1.07 billion
+ * combinations, but nothing before this stopped a script from just trying
+ * all of them. A couple only ever accepts one more member, so a correct
+ * guess is worth exactly one join; this is what makes guessing itself
+ * expensive. */
+const limiteJoin = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos, esperá un rato antes de volver a probar' },
+})
+
+/** Each hit makes the server fetch a page and an image on the caller's
+ * behalf — already host-allowlisted and size-capped against SSRF, but still
+ * outbound requests worth bounding the rate of. */
+const limiteEnlace = rateLimit({ windowMs: 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false })
+
+/** Complements the byte-size cap below: that bounds total storage, this
+ * bounds how fast a script can try to fill it. */
+const limiteSubida = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false })
 
 const q = {
   memberByUser: db.prepare('SELECT * FROM members WHERE user_id = ?'),
@@ -63,7 +102,7 @@ const q = {
     'SELECT p.id, p.entry_id, p.posicion FROM photos p JOIN entries e ON e.id = p.entry_id WHERE e.couple_id = ? ORDER BY p.posicion',
   ),
   insertPhoto: db.prepare(
-    'INSERT INTO photos (id, entry_id, posicion, archivo, archivo_min, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO photos (id, entry_id, posicion, archivo, archivo_min, tam_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
   ),
   updatePhotoPos: db.prepare('UPDATE photos SET posicion = ? WHERE id = ?'),
   deletePhoto: db.prepare('DELETE FROM photos WHERE id = ?'),
@@ -78,11 +117,13 @@ const q = {
   ),
 
   insertStaged: db.prepare(
-    'INSERT INTO staged_photos (id, couple_id, archivo, archivo_min, created_at) VALUES (?, ?, ?, ?, ?)',
+    'INSERT INTO staged_photos (id, couple_id, archivo, archivo_min, tam_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?)',
   ),
   /** Scoped to the couple, so an id from the other couple resolves to
    * nothing rather than handing over their photo. */
-  stagedForCouple: db.prepare('SELECT archivo, archivo_min FROM staged_photos WHERE id = ? AND couple_id = ?'),
+  stagedForCouple: db.prepare(
+    'SELECT archivo, archivo_min, tam_bytes FROM staged_photos WHERE id = ? AND couple_id = ?',
+  ),
   deleteStaged: db.prepare('DELETE FROM staged_photos WHERE id = ?'),
   countStaged: db.prepare('SELECT COUNT(*) AS n FROM staged_photos WHERE couple_id = ?'),
   stagedFilesOfCouple: db.prepare('SELECT archivo, archivo_min FROM staged_photos WHERE couple_id = ?'),
@@ -101,7 +142,7 @@ const q = {
   ),
   countInspiraciones: db.prepare('SELECT COUNT(*) AS n FROM inspiraciones WHERE couple_id = ?'),
   insertInspiracion: db.prepare(
-    'INSERT INTO inspiraciones (id, couple_id, categoria_id, archivo, archivo_min, nota, es_video, url_origen, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO inspiraciones (id, couple_id, categoria_id, archivo, archivo_min, tam_bytes, nota, es_video, url_origen, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   ),
   inspiracionForCouple: db.prepare('SELECT archivo, archivo_min FROM inspiraciones WHERE id = ? AND couple_id = ?'),
   moveInspiracion: db.prepare('UPDATE inspiraciones SET categoria_id = ? WHERE id = ? AND couple_id = ?'),
@@ -113,6 +154,41 @@ const q = {
   maxPosIdea: db.prepare('SELECT MAX(posicion) AS maxpos FROM ideas WHERE couple_id = ?'),
   insertIdea: db.prepare('INSERT INTO ideas (id, couple_id, texto, posicion, created_at) VALUES (?, ?, ?, ?, ?)'),
   deleteIdea: db.prepare('DELETE FROM ideas WHERE id = ? AND couple_id = ?'),
+
+  /** Bytes across recuerdos, staging and inspiración combined — the three
+   * places a couple's files live. Legacy rows with no tam_bytes recorded
+   * contribute 0, not an error: SUM ignores NULLs. */
+  storageUsedByCouple: db.prepare(`
+    SELECT COALESCE(SUM(tam_bytes), 0) AS bytes FROM (
+      SELECT p.tam_bytes FROM photos p JOIN entries e ON e.id = p.entry_id WHERE e.couple_id = ?
+      UNION ALL
+      SELECT tam_bytes FROM staged_photos WHERE couple_id = ?
+      UNION ALL
+      SELECT tam_bytes FROM inspiraciones WHERE couple_id = ?
+    )
+  `),
+  couplePremium: db.prepare('SELECT premium FROM couples WHERE id = ?'),
+}
+
+/** Bytes this couple's recuerdos, staging and inspiración currently take up. */
+function usoStorage(coupleId: string): number {
+  const { bytes } = q.storageUsedByCouple.get(coupleId, coupleId, coupleId) as { bytes: number }
+  return Number(bytes)
+}
+
+/** Room left in the free tier, or Infinity once premium. Never touches
+ * usoStorage for a couple that doesn't need the number — premium checked
+ * first because it's one row lookup instead of a three-table scan. */
+function espacioDisponible(coupleId: string): number {
+  const fila = q.couplePremium.get(coupleId) as { premium: number } | undefined
+  if (Number(fila?.premium)) return Infinity
+  return MAX_STORAGE_BYTES - usoStorage(coupleId)
+}
+
+/** Combined size of whatever multer buffered for these field(s), the same
+ * number that ends up in tam_bytes once the files are saved. */
+function tamanoDe(...grupos: (Express.Multer.File[] | undefined)[]): number {
+  return grupos.reduce((total, files) => total + (files ?? []).reduce((s, f) => s + f.buffer.length, 0), 0)
 }
 
 const HITOS = ['cumplemes', 'aniversario']
@@ -125,6 +201,7 @@ function estadoPareja(coupleId: string, userId: string) {
     code: string
     fecha_aniversario: string | null
     proximo_hito: string | null
+    premium: number
   }
   const miembros = q.membersOfCouple.all(coupleId) as {
     user_id: string
@@ -145,6 +222,8 @@ function estadoPareja(coupleId: string, userId: string) {
     fechaAniversario: couple.fecha_aniversario,
     proximoHito: couple.proximo_hito,
     vinculada: miembros.length >= MAX_MIEMBROS,
+    espacioUsado: usoStorage(coupleId),
+    espacioLimite: Number(couple.premium) ? null : MAX_STORAGE_BYTES,
   }
 }
 
@@ -205,7 +284,7 @@ app.post('/api/couple', requireAuth, (req: AuthedRequest, res) => {
 })
 
 /** Join an existing couple with the code the other partner shared. */
-app.post('/api/couple/join', requireAuth, (req: AuthedRequest, res) => {
+app.post('/api/couple/join', requireAuth, limiteJoin, (req: AuthedRequest, res) => {
   const nombre = String(req.body?.nombre ?? '').trim()
   const codigo = normalizeCode(String(req.body?.codigo ?? ''))
   if (!nombre) {
@@ -423,6 +502,7 @@ function leerCampos(body: Record<string, unknown>) {
 interface ParGuardado {
   archivo: string
   min: string | null
+  bytes: number
 }
 
 /** The browser sends each photo twice — full size and an 800px copy — as
@@ -438,11 +518,13 @@ async function guardarArchivos(
     const archivo = `${randomUUID()}.webp`
     await almacen.guardar(archivo, files[i].buffer)
     let min: string | null = null
+    let bytes = files[i].buffer.length
     if (minis[i]) {
       min = `${randomUUID()}.webp`
       await almacen.guardar(min, minis[i].buffer)
+      bytes += minis[i].buffer.length
     }
-    guardados.push({ archivo, min })
+    guardados.push({ archivo, min, bytes })
   }
   return guardados
 }
@@ -489,7 +571,9 @@ async function barrerStaging(coupleId: string) {
  * The sheet calls this as each photo finishes downscaling, so by the time
  * the user presses save the bytes are already here and the entry request
  * carries no files at all. */
-app.post('/api/photos', requireAuth, campoUnaFoto, async (req: AuthedRequest, res) => {
+const ESPACIO_LLENO = 'Llegaste al límite de espacio de tu pareja'
+
+app.post('/api/photos', requireAuth, limiteSubida, campoUnaFoto, async (req: AuthedRequest, res) => {
   const coupleId = coupleIdDe(req.userId!)
   if (!coupleId) {
     res.status(404).json({ error: 'Todavía no estás en una pareja' })
@@ -513,10 +597,15 @@ app.post('/api/photos', requireAuth, campoUnaFoto, async (req: AuthedRequest, re
     return
   }
 
+  if (tamanoDe([foto], files.miniatura) > espacioDisponible(coupleId)) {
+    res.status(413).json({ error: ESPACIO_LLENO })
+    return
+  }
+
   const [par] = await guardarArchivos([foto], files.miniatura ?? [])
   const id = randomUUID()
   try {
-    q.insertStaged.run(id, coupleId, par.archivo, par.min, new Date().toISOString())
+    q.insertStaged.run(id, coupleId, par.archivo, par.min, par.bytes, new Date().toISOString())
   } catch (e) {
     await almacen.borrar(nombresDe({ archivo: par.archivo, archivo_min: par.min }))
     throw e
@@ -541,9 +630,11 @@ function leerStaged(orden: string[], coupleId: string): Map<string, ParGuardado>
   for (const item of orden) {
     const m = RE_STAGED.exec(item)
     if (!m) continue
-    const fila = q.stagedForCouple.get(m[1], coupleId) as { archivo: string; archivo_min: string | null } | undefined
+    const fila = q.stagedForCouple.get(m[1], coupleId) as
+      | { archivo: string; archivo_min: string | null; tam_bytes: number | null }
+      | undefined
     if (!fila) return null
-    encontradas.set(m[1], { archivo: fila.archivo, min: fila.archivo_min })
+    encontradas.set(m[1], { archivo: fila.archivo, min: fila.archivo_min, bytes: Number(fila.tam_bytes ?? 0) })
   }
   return encontradas
 }
@@ -563,14 +654,14 @@ function colocarFotos(
     const est = RE_STAGED.exec(item)
     if (est) {
       const par = staged.get(est[1])!
-      q.insertPhoto.run(randomUUID(), entryId, posicion, par.archivo, par.min, ahora)
+      q.insertPhoto.run(randomUUID(), entryId, posicion, par.archivo, par.min, par.bytes, ahora)
       q.deleteStaged.run(est[1])
       return
     }
     const nuevo = RE_NUEVO.exec(item)
     if (nuevo) {
       const par = archivos[Number(nuevo[1])]
-      if (par) q.insertPhoto.run(randomUUID(), entryId, posicion, par.archivo, par.min, ahora)
+      if (par) q.insertPhoto.run(randomUUID(), entryId, posicion, par.archivo, par.min, par.bytes, ahora)
       return
     }
     existente?.(item, posicion)
@@ -590,7 +681,7 @@ function archivosDe(req: AuthedRequest) {
   return { fotos, miniaturas }
 }
 
-app.post('/api/entries', requireAuth, camposSubida, async (req: AuthedRequest, res) => {
+app.post('/api/entries', requireAuth, limiteSubida, camposSubida, async (req: AuthedRequest, res) => {
   const coupleId = coupleIdDe(req.userId!)
   if (!coupleId) {
     res.status(404).json({ error: 'Todavía no estás en una pareja' })
@@ -612,6 +703,12 @@ app.post('/api/entries', requireAuth, camposSubida, async (req: AuthedRequest, r
     res.status(400).json({ error: 'Las fotos llegaron incompletas' })
     return
   }
+  // Only the freshly-uploaded files count here — anything claimed by
+  // `staged:` id was already counted in usoStorage while it sat in staging.
+  if (tamanoDe(subidas.fotos, subidas.miniaturas) > espacioDisponible(coupleId)) {
+    res.status(413).json({ error: ESPACIO_LLENO })
+    return
+  }
   const orden = ordenDe(req.body)
   const staged = leerStaged(orden, coupleId)
   if (!staged) {
@@ -626,7 +723,7 @@ app.post('/api/entries', requireAuth, camposSubida, async (req: AuthedRequest, r
     q.insertEntry.run(id, coupleId, campos.fecha, campos.fechaFin, campos.nota, fondo, req.userId!, ahora)
     // A client that sent files without an order gets them in upload order.
     if (orden.length === 0) {
-      archivos.forEach((par, i) => q.insertPhoto.run(randomUUID(), id, i, par.archivo, par.min, ahora))
+      archivos.forEach((par, i) => q.insertPhoto.run(randomUUID(), id, i, par.archivo, par.min, par.bytes, ahora))
     } else {
       colocarFotos(id, orden, archivos, staged, ahora)
     }
@@ -643,7 +740,7 @@ app.post('/api/entries', requireAuth, camposSubida, async (req: AuthedRequest, r
  * sequence the user arranged: each item is either an existing photo id or
  * `nuevo:<n>` pointing at the n-th uploaded file, so a newly added photo
  * can sit anywhere — not just at the end. Photos left out are deleted. */
-app.patch('/api/entries/:id', requireAuth, camposSubida, async (req: AuthedRequest, res) => {
+app.patch('/api/entries/:id', requireAuth, limiteSubida, camposSubida, async (req: AuthedRequest, res) => {
   const coupleId = coupleIdDe(req.userId!)
   if (!coupleId) {
     res.status(404).json({ error: 'Todavía no estás en una pareja' })
@@ -668,6 +765,10 @@ app.patch('/api/entries/:id', requireAuth, camposSubida, async (req: AuthedReque
   const subidas = archivosDe(req)
   if (!subidas) {
     res.status(400).json({ error: 'Las fotos llegaron incompletas' })
+    return
+  }
+  if (tamanoDe(subidas.fotos, subidas.miniaturas) > espacioDisponible(coupleId)) {
+    res.status(413).json({ error: ESPACIO_LLENO })
     return
   }
   const staged = leerStaged(orden, coupleId)
@@ -921,7 +1022,7 @@ app.post('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
     return
   }
   const staged = q.stagedForCouple.get(stagedId, coupleId) as
-    | { archivo: string; archivo_min: string | null }
+    | { archivo: string; archivo_min: string | null; tam_bytes: number | null }
     | undefined
   if (!staged) {
     // Swept after its day, or from another couple. Either way, failing beats
@@ -961,6 +1062,7 @@ app.post('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
       categoriaId,
       staged.archivo,
       staged.archivo_min,
+      staged.tam_bytes,
       nota,
       esVideo ? 1 : 0,
       urlOrigen,
@@ -1109,7 +1211,7 @@ async function bajarImagen(url: string): Promise<{ bytes: Buffer; tipo: string }
  * a File and push them through the same pipeline as a photo picked from the
  * gallery — downscale, thumbnail, staging. Nothing downstream needs to know
  * a pin was involved. */
-app.get('/api/enlace/imagen', requireAuth, async (req: AuthedRequest, res) => {
+app.get('/api/enlace/imagen', requireAuth, limiteEnlace, async (req: AuthedRequest, res) => {
   const pedido = hostPermitido(String(req.query.url ?? ''))
   if (!pedido) {
     res.status(400).json({ error: 'Ese enlace no se puede abrir desde acá' })
@@ -1153,7 +1255,7 @@ app.get('/api/enlace/imagen', requireAuth, async (req: AuthedRequest, res) => {
  * hands over a cover image as a file *and* the link, and in that case the
  * bytes are already on the phone — only the pin's nature is missing. Asking
  * /enlace/imagen for that would re-download a picture we already have. */
-app.get('/api/enlace/info', requireAuth, async (req: AuthedRequest, res) => {
+app.get('/api/enlace/info', requireAuth, limiteEnlace, async (req: AuthedRequest, res) => {
   const pedido = hostPermitido(String(req.query.url ?? ''))
   if (!pedido) {
     res.status(400).json({ error: 'Ese enlace no se puede abrir desde acá' })

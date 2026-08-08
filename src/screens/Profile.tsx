@@ -27,8 +27,18 @@ interface ProfileProps {
   numIdeas: number
   codigo: string
   vinculada: boolean
+  espacioUsado: number
+  /** Null once the couple is premium — no bar to show, nothing to be near. */
+  espacioLimite: number | null
   onAbrirAjustes: () => void
   onDesvincular: () => void
+}
+
+/** `1.2 GB`-style label. Storage sizes here never exceed low single-digit GB,
+ * so two units cover every couple this app has. */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
 export function Profile({
@@ -44,6 +54,8 @@ export function Profile({
   numIdeas,
   codigo,
   vinculada,
+  espacioUsado,
+  espacioLimite,
   onAbrirAjustes,
   onDesvincular,
 }: ProfileProps) {
@@ -213,6 +225,33 @@ export function Profile({
               {copiado ? t('comun_copiado') : codigo}
             </button>
           )}
+        </div>
+        <div className="settings-row settings-row--espacio">
+          <div className="settings-row__icon">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--acento-fuerte)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <ellipse cx="12" cy="5" rx="8" ry="3" />
+              <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
+              <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
+            </svg>
+          </div>
+          <div className="settings-row__espacio-contenido">
+            <div className="settings-row__espacio-top">
+              <span className="settings-row__label">{t('perfil_espacio')}</span>
+              <span className="settings-row__value">
+                {espacioLimite === null
+                  ? formatBytes(espacioUsado)
+                  : t('perfil_espacio_valor', formatBytes(espacioUsado), formatBytes(espacioLimite))}
+              </span>
+            </div>
+            {espacioLimite !== null && (
+              <div className="espacio-barra" role="progressbar" aria-valuenow={Math.min(100, Math.round((espacioUsado / espacioLimite) * 100))} aria-valuemin={0} aria-valuemax={100}>
+                <div
+                  className="espacio-barra__relleno"
+                  style={{ width: `${Math.min(100, (espacioUsado / espacioLimite) * 100)}%` }}
+                />
+              </div>
+            )}
+          </div>
         </div>
         <div className="settings-row settings-row--tema">
           <div className="settings-row__icon">

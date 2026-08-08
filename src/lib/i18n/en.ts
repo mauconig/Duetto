@@ -141,6 +141,8 @@ export const en: Diccionario = {
   perfil_tu_nombre: 'Your name',
   perfil_fecha_aniversario: 'Anniversary date',
   perfil_pareja_vinculada: 'Partner linked',
+  perfil_espacio: 'Storage used',
+  perfil_espacio_valor: (usado: string, limite: string) => `${usado} of ${limite}`,
   perfil_invitar_pareja: 'Invite your partner',
   perfil_apariencia: 'Appearance',
   perfil_idioma: 'Language',

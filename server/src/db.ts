@@ -151,6 +151,15 @@ addColumnIfMissing('members', 'imagen_url', 'TEXT')
 // still came from a video, and where to send someone who wants the clip.
 addColumnIfMissing('inspiraciones', 'es_video', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('inspiraciones', 'url_origen', 'TEXT')
+// Combined size of archivo + archivo_min, in bytes, captured once at upload
+// time so per-couple usage can be summed without touching the store. Null on
+// anything uploaded before this existed — it just doesn't count.
+addColumnIfMissing('photos', 'tam_bytes', 'INTEGER')
+addColumnIfMissing('staged_photos', 'tam_bytes', 'INTEGER')
+addColumnIfMissing('inspiraciones', 'tam_bytes', 'INTEGER')
+// Unused until the payment flow exists — see plan.md. Free storage cap
+// applies unless this is set.
+addColumnIfMissing('couples', 'premium', 'INTEGER NOT NULL DEFAULT 0')
 
 /** What the wheel used to be hardcoded with on the client. */
 const IDEAS_INICIALES = [

@@ -22,6 +22,10 @@ export interface Pareja {
   /** True once both partners are in — one person can still use the app
    * while waiting for the other to enter the code. */
   vinculada: boolean
+  /** Bytes the couple's recuerdos, staging and inspiración currently take up. */
+  espacioUsado: number
+  /** Free-tier cap in bytes, or null once the couple is premium. */
+  espacioLimite: number | null
 }
 
 /** One slice of the roulette. Shared by the couple, so it needs an id the
