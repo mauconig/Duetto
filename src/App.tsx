@@ -635,6 +635,7 @@ function AppContent({
           numIdeas={ideas.length}
           codigo={pareja.codigo}
           vinculada={pareja.vinculada}
+          premium={pareja.premium}
           espacioUsado={pareja.espacioUsado}
           espacioLimite={pareja.espacioLimite}
           onAbrirAjustes={() => setAjustesAbiertos(true)}

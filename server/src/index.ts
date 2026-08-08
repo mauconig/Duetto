@@ -12,9 +12,11 @@ const PORT = Number(process.env.PORT ?? 8790)
 const MAX_MIEMBROS = 2
 const MAX_FOTOS = 30
 /** Free tier, per couple, across recuerdos + staging + inspiración combined.
- * Premium couples (see `couples.premium`) skip this entirely — see plan.md
- * for the monetization strategy this is meant to hook into. */
+ * Premium couples (see `couples.premium`) get MAX_STORAGE_BYTES_PREMIUM
+ * instead — see plan.md for the monetization strategy this is meant to
+ * hook into. */
 const MAX_STORAGE_BYTES = Number(process.env.DUETTE_MAX_STORAGE_BYTES ?? 500 * 1024 * 1024)
+const MAX_STORAGE_BYTES_PREMIUM = Number(process.env.DUETTE_MAX_STORAGE_BYTES_PREMIUM ?? 5 * 1024 * 1024 * 1024)
 /** Same wording whether the cap is hit by multer, before the route runs, or
  * by the staging count once it does. */
 const DEMASIADAS = `No podés subir más de ${MAX_FOTOS} fotos por recuerdo`
@@ -184,13 +186,15 @@ function usoStorage(coupleId: string): number {
   return Number(bytes)
 }
 
-/** Room left in the free tier, or Infinity once premium. Never touches
- * usoStorage for a couple that doesn't need the number — premium checked
- * first because it's one row lookup instead of a three-table scan. */
-function espacioDisponible(coupleId: string): number {
+/** The cap this couple is under: the premium tier's 5GB, or the free 500MB. */
+function limiteStorage(coupleId: string): number {
   const fila = q.couplePremium.get(coupleId) as { premium: number } | undefined
-  if (Number(fila?.premium)) return Infinity
-  return MAX_STORAGE_BYTES - usoStorage(coupleId)
+  return Number(fila?.premium) ? MAX_STORAGE_BYTES_PREMIUM : MAX_STORAGE_BYTES
+}
+
+/** Room left under whichever cap applies. */
+function espacioDisponible(coupleId: string): number {
+  return limiteStorage(coupleId) - usoStorage(coupleId)
 }
 
 /** Combined size of whatever multer buffered for these field(s), the same
@@ -268,8 +272,9 @@ function estadoPareja(coupleId: string, userId: string) {
     fechaAniversario: couple.fecha_aniversario,
     proximoHito: couple.proximo_hito,
     vinculada: miembros.length >= MAX_MIEMBROS,
+    premium: !!Number(couple.premium),
     espacioUsado: usoStorage(coupleId),
-    espacioLimite: Number(couple.premium) ? null : MAX_STORAGE_BYTES,
+    espacioLimite: limiteStorage(coupleId),
   }
 }
 

@@ -162,6 +162,7 @@ export const es = {
   perfil_pareja_vinculada: 'Pareja vinculada',
   perfil_espacio: 'Espacio usado',
   perfil_espacio_valor: (usado: string, limite: string) => `${usado} de ${limite}`,
+  perfil_premium: 'Premium',
   perfil_invitar_pareja: 'Invitar a tu pareja',
   perfil_apariencia: 'Apariencia',
   perfil_idioma: 'Idioma',

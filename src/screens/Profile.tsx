@@ -27,9 +27,9 @@ interface ProfileProps {
   numIdeas: number
   codigo: string
   vinculada: boolean
+  premium: boolean
   espacioUsado: number
-  /** Null once the couple is premium — no bar to show, nothing to be near. */
-  espacioLimite: number | null
+  espacioLimite: number
   onAbrirAjustes: () => void
   onDesvincular: () => void
 }
@@ -54,6 +54,7 @@ export function Profile({
   numIdeas,
   codigo,
   vinculada,
+  premium,
   espacioUsado,
   espacioLimite,
   onAbrirAjustes,
@@ -236,21 +237,26 @@ export function Profile({
           </div>
           <div className="settings-row__espacio-contenido">
             <div className="settings-row__espacio-top">
-              <span className="settings-row__label">{t('perfil_espacio')}</span>
+              <span className="settings-row__label">
+                {t('perfil_espacio')}
+                {premium && <span className="badge-premium">{t('perfil_premium')}</span>}
+              </span>
               <span className="settings-row__value">
-                {espacioLimite === null
-                  ? formatBytes(espacioUsado)
-                  : t('perfil_espacio_valor', formatBytes(espacioUsado), formatBytes(espacioLimite))}
+                {t('perfil_espacio_valor', formatBytes(espacioUsado), formatBytes(espacioLimite))}
               </span>
             </div>
-            {espacioLimite !== null && (
-              <div className="espacio-barra" role="progressbar" aria-valuenow={Math.min(100, Math.round((espacioUsado / espacioLimite) * 100))} aria-valuemin={0} aria-valuemax={100}>
-                <div
-                  className="espacio-barra__relleno"
-                  style={{ width: `${Math.min(100, (espacioUsado / espacioLimite) * 100)}%` }}
-                />
-              </div>
-            )}
+            <div
+              className="espacio-barra"
+              role="progressbar"
+              aria-valuenow={Math.min(100, Math.round((espacioUsado / espacioLimite) * 100))}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className="espacio-barra__relleno"
+                style={{ width: `${Math.min(100, (espacioUsado / espacioLimite) * 100)}%` }}
+              />
+            </div>
           </div>
         </div>
         <div className="settings-row settings-row--tema">
