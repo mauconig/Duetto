@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { open, unlink, writeFile } from 'node:fs/promises'
+import { open, stat, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { AwsClient } from 'aws4fetch'
@@ -18,6 +18,10 @@ export interface Almacen {
    * Anything else — an unreadable disk, R2 refusing — throws. */
   leer(nombre: string): Promise<Readable | null>
   borrar(nombres: string[]): Promise<void>
+  /** Byte size of a stored object, null if it isn't there. Exists for the
+   * tam_bytes backfill — rows saved before size tracking existed have
+   * nothing to go on but the store itself. */
+  tamano(nombre: string): Promise<number | null>
 }
 
 /** Deleting is best-effort on purpose: a recuerdo the user removed is gone
@@ -51,6 +55,15 @@ export const almacenDisco: Almacen = {
 
   async borrar(nombres) {
     await Promise.all(nombres.map((n) => unlink(join(UPLOADS_DIR, n)).catch((e) => avisarBorrado(n, e))))
+  },
+
+  async tamano(nombre) {
+    try {
+      return (await stat(join(UPLOADS_DIR, nombre))).size
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null
+      throw e
+    }
   },
 }
 
@@ -144,11 +157,16 @@ export function crearAlmacenR2(): AlmacenR2 {
       }
     },
 
-    async existe(nombre) {
+    async tamano(nombre) {
       const r = await aws.fetch(url(nombre), { method: 'HEAD' })
-      if (r.status === 404) return false
+      if (r.status === 404) return null
       if (!r.ok) await fallar(r, `HEAD ${nombre}`)
-      return true
+      const largo = r.headers.get('content-length')
+      return largo ? Number(largo) : null
+    },
+
+    async existe(nombre) {
+      return (await this.tamano(nombre)) !== null
     },
 
     async listar() {

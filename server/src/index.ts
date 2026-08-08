@@ -168,6 +168,14 @@ const q = {
     )
   `),
   couplePremium: db.prepare('SELECT premium FROM couples WHERE id = ?'),
+
+  // For the tam_bytes backfill: rows saved before size tracking existed.
+  photosSinTamano: db.prepare('SELECT id, archivo, archivo_min FROM photos WHERE tam_bytes IS NULL'),
+  updatePhotoTamano: db.prepare('UPDATE photos SET tam_bytes = ? WHERE id = ?'),
+  stagedSinTamano: db.prepare('SELECT id, archivo, archivo_min FROM staged_photos WHERE tam_bytes IS NULL'),
+  updateStagedTamano: db.prepare('UPDATE staged_photos SET tam_bytes = ? WHERE id = ?'),
+  inspiracionesSinTamano: db.prepare('SELECT id, archivo, archivo_min FROM inspiraciones WHERE tam_bytes IS NULL'),
+  updateInspiracionTamano: db.prepare('UPDATE inspiraciones SET tam_bytes = ? WHERE id = ?'),
 }
 
 /** Bytes this couple's recuerdos, staging and inspiración currently take up. */
@@ -189,6 +197,44 @@ function espacioDisponible(coupleId: string): number {
  * number that ends up in tam_bytes once the files are saved. */
 function tamanoDe(...grupos: (Express.Multer.File[] | undefined)[]): number {
   return grupos.reduce((total, files) => total + (files ?? []).reduce((s, f) => s + f.buffer.length, 0), 0)
+}
+
+/** Combined size of a photo's full file plus its thumbnail, read straight
+ * from the store — what a row from before tam_bytes existed has to go on. */
+async function tamanoEnAlmacen(archivo: string, archivoMin: string | null): Promise<number> {
+  const [a, b] = await Promise.all([almacen.tamano(archivo), archivoMin ? almacen.tamano(archivoMin) : null])
+  return (a ?? 0) + (b ?? 0)
+}
+
+/** Fills tam_bytes for whatever this table still has null — rows saved
+ * before size tracking shipped. Runs on every boot but is cheap once done:
+ * the WHERE clause means a second boot finds nothing left to do. A file
+ * that fails to measure (a stray HEAD error) just stays null and gets
+ * retried next boot, rather than taking the whole server down with it. */
+async function backfillTabla(
+  tabla: string,
+  select: { all(): unknown[] },
+  update: { run(bytes: number, id: string): unknown },
+) {
+  const filas = select.all() as { id: string; archivo: string; archivo_min: string | null }[]
+  let hechos = 0
+  for (const fila of filas) {
+    try {
+      update.run(await tamanoEnAlmacen(fila.archivo, fila.archivo_min), fila.id)
+      hechos++
+    } catch (e) {
+      console.error(`no se pudo medir ${tabla} ${fila.id}:`, e)
+    }
+  }
+  return hechos
+}
+
+async function backfillTamanos() {
+  const hechos =
+    (await backfillTabla('photos', q.photosSinTamano, q.updatePhotoTamano)) +
+    (await backfillTabla('staged_photos', q.stagedSinTamano, q.updateStagedTamano)) +
+    (await backfillTabla('inspiraciones', q.inspiracionesSinTamano, q.updateInspiracionTamano))
+  if (hechos > 0) console.log(`tam_bytes: calculado para ${hechos} fotos existentes`)
 }
 
 const HITOS = ['cumplemes', 'aniversario']
@@ -1341,6 +1387,8 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   console.error(err)
   res.status(500).json({ error: 'Error interno' })
 })
+
+await backfillTamanos()
 
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`duette-server escuchando en 127.0.0.1:${PORT}`)
