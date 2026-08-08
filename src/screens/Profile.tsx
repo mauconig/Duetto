@@ -161,7 +161,10 @@ export function Profile({
           </button>
         )}
         {errorImagen && <div className="onboarding__error">{errorImagen}</div>}
-        <div className="profile-card__name">{nombres}</div>
+        <div className="profile-card__name">
+          {nombres}
+          {premium && <span className="badge-premium">{t('perfil_premium')}</span>}
+        </div>
         <div className="profile-card__since">{t('inicio_juntos_desde', fechaInicioTexto)}</div>
       </div>
 
@@ -237,10 +240,7 @@ export function Profile({
           </div>
           <div className="settings-row__espacio-contenido">
             <div className="settings-row__espacio-top">
-              <span className="settings-row__label">
-                {t('perfil_espacio')}
-                {premium && <span className="badge-premium">{t('perfil_premium')}</span>}
-              </span>
+              <span className="settings-row__label">{t('perfil_espacio')}</span>
               <span className="settings-row__value">
                 {t('perfil_espacio_valor', formatBytes(espacioUsado), formatBytes(espacioLimite))}
               </span>
