@@ -22,5 +22,8 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  /* Los tests corren en Node, no en el navegador: acá no existen sus tipos y
+     tampoco entran en el bundle. Se typechequean desde tsconfig.node.json. */
+  "exclude": ["src/**/*.test.ts"]
 }
