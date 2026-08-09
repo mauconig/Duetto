@@ -16,10 +16,14 @@ interface InspiracionProps {
   subiendo: number
   error: string | null
   onAgregarFotos: (archivos: FileList | null, categoriaId: string | null) => void
-  /** Rejects with a message meant for the user: the link sheet shows it in
+  /** Resolves the link and hands the photo to the share sheet — it does not
+   * save. Where it goes is that sheet's question to ask, with the photo on
+   * screen while it asks.
+   *
+   * Rejects with a message meant for the user: the link sheet shows it in
    * place and stays open, because a bad link is something you fix by editing
    * it rather than by starting over. */
-  onAgregarEnlace: (url: string, categoriaId: string | null) => Promise<void>
+  onAgregarEnlace: (url: string) => Promise<void>
   onCrearCategoria: (nombre: string) => Promise<void>
   onRenombrarCategoria: (id: string, nombre: string) => Promise<void>
   onBorrarCategoria: (id: string) => Promise<void>
@@ -82,7 +86,7 @@ export function Inspiracion({
     if (!url || enlace?.cargando) return
     setEnlace({ valor: url, error: null, cargando: true })
     try {
-      await onAgregarEnlace(url, categoriaDestino)
+      await onAgregarEnlace(url)
       setEnlace(null)
     } catch (e) {
       setEnlace({ valor: url, error: e instanceof Error ? e.message : t('comun_algo_salio_mal'), cargando: false })

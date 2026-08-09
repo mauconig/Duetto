@@ -588,21 +588,26 @@ function AppContent({
           onAgregarFotos={(lista, categoriaId) =>
             guardarReferencias(Array.from(lista ?? []).filter((f) => f.type.startsWith('image/')), categoriaId)
           }
-          // Same round trip the share target makes, reached by hand. Only the
-          // lookup rethrows: a link that can't be opened is the sheet's
-          // problem to show, while a failed upload is the board's, and
-          // guardarReferencias already reports those there.
-          onAgregarEnlace={async (url, categoriaId) => {
+          // Same round trip the share target makes, reached by hand — and it
+          // ends in the same place, so a pasted pin gets the same questions
+          // as a shared one: a recuerdo, or the board under a carpeta the
+          // user picks while looking at the photo. Filing it silently under
+          // whichever tab happened to be open is what SharedPhotosSheet
+          // already exists to avoid.
+          //
+          // Only the lookup rethrows: a link that can't be opened is the link
+          // sheet's problem to show, and everything after it belongs to the
+          // sheet this hands off to.
+          onAgregarEnlace={async (url) => {
             let resuelto
             try {
               resuelto = await api.imagenDeEnlace(url)
             } catch (e) {
               throw new Error(e instanceof Error ? traducirError(e.message, t) : t('app_error_enlace'))
             }
-            await guardarReferencias([resuelto.archivo], categoriaId, {
-              esVideo: resuelto.esVideo,
-              urlOrigen: url,
-            })
+            setEnlaceEsVideo(resuelto.esVideo)
+            setEnlaceOrigen(url)
+            setCompartidas([resuelto.archivo])
           }}
           onCrearCategoria={async (nombre) => {
             await crearCarpeta(nombre)
