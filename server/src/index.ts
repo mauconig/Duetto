@@ -80,14 +80,60 @@ const q = {
   coupleById: db.prepare('SELECT * FROM couples WHERE id = ?'),
   coupleByCode: db.prepare('SELECT * FROM couples WHERE code = ?'),
   membersOfCouple: db.prepare(
-    'SELECT user_id, nombre, imagen_url FROM members WHERE couple_id = ? ORDER BY joined_at',
+    'SELECT user_id, nombre, imagen_url, cifrado FROM members WHERE couple_id = ? ORDER BY joined_at',
   ),
   updateImagen: db.prepare('UPDATE members SET imagen_url = ? WHERE user_id = ?'),
   insertCouple: db.prepare('INSERT INTO couples (id, code, created_at) VALUES (?, ?, ?)'),
   insertMember: db.prepare(
-    'INSERT INTO members (user_id, couple_id, nombre, joined_at, privacidad_version, privacidad_at) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO members (user_id, couple_id, nombre, joined_at, privacidad_version, privacidad_at, cifrado) VALUES (?, ?, ?, ?, ?, ?, ?)',
   ),
-  updateNombre: db.prepare('UPDATE members SET nombre = ? WHERE user_id = ?'),
+
+  /* Encryption. The server stores these and hands them back; it never derives
+   * anything from them. `activar` is one-way on purpose — there is no route
+   * that clears the wrapped key, because that would be a route that destroys
+   * every photo, reachable by anyone who ever steals a session. */
+  cifradoDeCouple: db.prepare(
+    'SELECT cifrado_activo, llave_envuelta, kdf_salt, kdf_params, llave_codigo, kdf_salt_codigo FROM couples WHERE id = ?',
+  ),
+  activarCifrado: db.prepare(`
+    UPDATE couples
+       SET cifrado_activo = 1, llave_envuelta = ?, kdf_salt = ?, kdf_params = ?,
+           llave_codigo = ?, kdf_salt_codigo = ?
+     WHERE id = ? AND cifrado_activo = 0
+  `),
+  /** Rewrapping the same couple key under a new passphrase. Never touches
+   * llave_codigo: the recovery code keeps working, which is the whole reason
+   * it exists. */
+  reenvolverFrase: db.prepare(
+    'UPDATE couples SET llave_envuelta = ?, kdf_salt = ?, kdf_params = ? WHERE id = ? AND cifrado_activo = 1',
+  ),
+
+  /* The migration of what already exists: same row, ciphertext in place of the
+   * plaintext it used to point at. Old object names are returned first so the
+   * bytes they name can be deleted only after the row stopped referring to
+   * them — the other order loses photos if the write fails. */
+  cifrarPhoto: db.prepare('UPDATE photos SET archivo = ?, archivo_min = ?, tam_bytes = ?, cifrado = 1 WHERE id = ?'),
+  cifrarInspiracion: db.prepare(
+    'UPDATE inspiraciones SET archivo = ?, archivo_min = ?, tam_bytes = ?, cifrado = 1 WHERE id = ? AND couple_id = ?',
+  ),
+  /** What still has to be migrated, oldest first so progress is visible. */
+  photosSinCifrar: db.prepare(`
+    SELECT p.id FROM photos p JOIN entries e ON e.id = p.entry_id
+     WHERE e.couple_id = ? AND p.cifrado = 0 ORDER BY p.created_at
+  `),
+  inspiracionesSinCifrar: db.prepare(
+    'SELECT id FROM inspiraciones WHERE couple_id = ? AND cifrado = 0 ORDER BY created_at',
+  ),
+  /** Text rows still in the clear, for the same sweep. */
+  entriesSinCifrar: db.prepare(
+    "SELECT id, nota FROM entries WHERE couple_id = ? AND cifrado = 0 AND nota IS NOT NULL AND nota <> ''",
+  ),
+  categoriasSinCifrar: db.prepare('SELECT id, nombre FROM categorias WHERE couple_id = ? AND cifrado = 0'),
+  ideasSinCifrar: db.prepare('SELECT id, texto FROM ideas WHERE couple_id = ? AND cifrado = 0'),
+  cifrarEntryNota: db.prepare('UPDATE entries SET nota = ?, cifrado = 1 WHERE id = ? AND couple_id = ?'),
+  cifrarCategoria: db.prepare('UPDATE categorias SET nombre = ?, cifrado = 1 WHERE id = ? AND couple_id = ?'),
+  cifrarIdea: db.prepare('UPDATE ideas SET texto = ?, cifrado = 1 WHERE id = ? AND couple_id = ?'),
+  updateNombre: db.prepare('UPDATE members SET nombre = ?, cifrado = ? WHERE user_id = ?'),
   updatePerfil: db.prepare('UPDATE couples SET fecha_aniversario = ?, proximo_hito = ? WHERE id = ?'),
   deleteMember: db.prepare('DELETE FROM members WHERE user_id = ?'),
   deleteCouple: db.prepare('DELETE FROM couples WHERE id = ?'),
@@ -95,23 +141,23 @@ const q = {
   entriesOfCouple: db.prepare('SELECT * FROM entries WHERE couple_id = ? ORDER BY fecha, created_at'),
   entryById: db.prepare('SELECT * FROM entries WHERE id = ? AND couple_id = ?'),
   insertEntry: db.prepare(
-    'INSERT INTO entries (id, couple_id, fecha, fecha_fin, nota, fondo, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO entries (id, couple_id, fecha, fecha_fin, nota, fondo, created_by, created_at, cifrado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
   ),
-  updateEntry: db.prepare('UPDATE entries SET fecha = ?, fecha_fin = ?, nota = ? WHERE id = ?'),
+  updateEntry: db.prepare('UPDATE entries SET fecha = ?, fecha_fin = ?, nota = ?, cifrado = ? WHERE id = ?'),
   deleteEntry: db.prepare('DELETE FROM entries WHERE id = ?'),
-  photosOfEntry: db.prepare('SELECT id, archivo, archivo_min, posicion FROM photos WHERE entry_id = ? ORDER BY posicion'),
+  photosOfEntry: db.prepare('SELECT id, archivo, archivo_min, posicion, cifrado FROM photos WHERE entry_id = ? ORDER BY posicion'),
   photosOfCouple: db.prepare(
     'SELECT p.id, p.entry_id, p.posicion FROM photos p JOIN entries e ON e.id = p.entry_id WHERE e.couple_id = ? ORDER BY p.posicion',
   ),
   insertPhoto: db.prepare(
-    'INSERT INTO photos (id, entry_id, posicion, archivo, archivo_min, tam_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO photos (id, entry_id, posicion, archivo, archivo_min, tam_bytes, created_at, cifrado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   ),
   updatePhotoPos: db.prepare('UPDATE photos SET posicion = ? WHERE id = ?'),
   deletePhoto: db.prepare('DELETE FROM photos WHERE id = ?'),
   /** Joined against entries so a photo id from one couple can never be read
    * or deleted by another. */
   photoForCouple: db.prepare(
-    'SELECT p.archivo, p.archivo_min FROM photos p JOIN entries e ON e.id = p.entry_id WHERE p.id = ? AND e.couple_id = ?',
+    'SELECT p.archivo, p.archivo_min, p.cifrado FROM photos p JOIN entries e ON e.id = p.entry_id WHERE p.id = ? AND e.couple_id = ?',
   ),
   /** Every file the couple owns, for cleaning up after the last member leaves. */
   photoFilesOfCouple: db.prepare(
@@ -119,42 +165,42 @@ const q = {
   ),
 
   insertStaged: db.prepare(
-    'INSERT INTO staged_photos (id, couple_id, archivo, archivo_min, tam_bytes, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    'INSERT INTO staged_photos (id, couple_id, archivo, archivo_min, tam_bytes, created_at, cifrado) VALUES (?, ?, ?, ?, ?, ?, ?)',
   ),
   /** Scoped to the couple, so an id from the other couple resolves to
    * nothing rather than handing over their photo. */
   stagedForCouple: db.prepare(
-    'SELECT archivo, archivo_min, tam_bytes FROM staged_photos WHERE id = ? AND couple_id = ?',
+    'SELECT archivo, archivo_min, tam_bytes, cifrado FROM staged_photos WHERE id = ? AND couple_id = ?',
   ),
   deleteStaged: db.prepare('DELETE FROM staged_photos WHERE id = ?'),
   countStaged: db.prepare('SELECT COUNT(*) AS n FROM staged_photos WHERE couple_id = ?'),
   stagedFilesOfCouple: db.prepare('SELECT archivo, archivo_min FROM staged_photos WHERE couple_id = ?'),
   stagedVencidas: db.prepare('SELECT id, archivo, archivo_min FROM staged_photos WHERE couple_id = ? AND created_at < ?'),
 
-  categoriasOfCouple: db.prepare('SELECT id, nombre FROM categorias WHERE couple_id = ? ORDER BY posicion, created_at'),
+  categoriasOfCouple: db.prepare('SELECT id, nombre, cifrado FROM categorias WHERE couple_id = ? ORDER BY posicion, created_at'),
   categoriaForCouple: db.prepare('SELECT id FROM categorias WHERE id = ? AND couple_id = ?'),
   countCategorias: db.prepare('SELECT COUNT(*) AS n FROM categorias WHERE couple_id = ?'),
   maxPosCategoria: db.prepare('SELECT MAX(posicion) AS maxpos FROM categorias WHERE couple_id = ?'),
-  insertCategoria: db.prepare('INSERT INTO categorias (id, couple_id, nombre, posicion, created_at) VALUES (?, ?, ?, ?, ?)'),
-  updateCategoria: db.prepare('UPDATE categorias SET nombre = ?, posicion = ? WHERE id = ? AND couple_id = ?'),
+  insertCategoria: db.prepare('INSERT INTO categorias (id, couple_id, nombre, posicion, created_at, cifrado) VALUES (?, ?, ?, ?, ?, ?)'),
+  updateCategoria: db.prepare('UPDATE categorias SET nombre = ?, posicion = ?, cifrado = ? WHERE id = ? AND couple_id = ?'),
   deleteCategoria: db.prepare('DELETE FROM categorias WHERE id = ? AND couple_id = ?'),
 
   inspiracionesOfCouple: db.prepare(
-    'SELECT id, categoria_id, nota, es_video, url_origen FROM inspiraciones WHERE couple_id = ? ORDER BY created_at DESC',
+    'SELECT id, categoria_id, nota, es_video, url_origen, cifrado FROM inspiraciones WHERE couple_id = ? ORDER BY created_at DESC',
   ),
   countInspiraciones: db.prepare('SELECT COUNT(*) AS n FROM inspiraciones WHERE couple_id = ?'),
   insertInspiracion: db.prepare(
-    'INSERT INTO inspiraciones (id, couple_id, categoria_id, archivo, archivo_min, tam_bytes, nota, es_video, url_origen, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO inspiraciones (id, couple_id, categoria_id, archivo, archivo_min, tam_bytes, nota, es_video, url_origen, created_at, cifrado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   ),
-  inspiracionForCouple: db.prepare('SELECT archivo, archivo_min FROM inspiraciones WHERE id = ? AND couple_id = ?'),
+  inspiracionForCouple: db.prepare('SELECT archivo, archivo_min, cifrado FROM inspiraciones WHERE id = ? AND couple_id = ?'),
   moveInspiracion: db.prepare('UPDATE inspiraciones SET categoria_id = ? WHERE id = ? AND couple_id = ?'),
   deleteInspiracion: db.prepare('DELETE FROM inspiraciones WHERE id = ? AND couple_id = ?'),
   inspiracionFilesOfCouple: db.prepare('SELECT archivo, archivo_min FROM inspiraciones WHERE couple_id = ?'),
 
-  ideasOfCouple: db.prepare('SELECT id, texto FROM ideas WHERE couple_id = ? ORDER BY posicion, created_at'),
+  ideasOfCouple: db.prepare('SELECT id, texto, cifrado FROM ideas WHERE couple_id = ? ORDER BY posicion, created_at'),
   countIdeas: db.prepare('SELECT COUNT(*) AS n FROM ideas WHERE couple_id = ?'),
   maxPosIdea: db.prepare('SELECT MAX(posicion) AS maxpos FROM ideas WHERE couple_id = ?'),
-  insertIdea: db.prepare('INSERT INTO ideas (id, couple_id, texto, posicion, created_at) VALUES (?, ?, ?, ?, ?)'),
+  insertIdea: db.prepare('INSERT INTO ideas (id, couple_id, texto, posicion, created_at, cifrado) VALUES (?, ?, ?, ?, ?, ?)'),
   deleteIdea: db.prepare('DELETE FROM ideas WHERE id = ? AND couple_id = ?'),
 
   /** Bytes across recuerdos, staging and inspiración combined — the three
@@ -275,7 +321,73 @@ function estadoPareja(coupleId: string, userId: string) {
     premium: !!Number(couple.premium),
     espacioUsado: usoStorage(coupleId),
     espacioLimite: limiteStorage(coupleId),
+    cifrado: estadoCifrado(coupleId),
   }
+}
+
+/** What the client needs to *try* an unlock, and nothing that helps anyone
+ * else do it. Handing back the wrapped key is safe by construction — without
+ * the passphrase or the recovery code it is 32 bytes of noise, and whoever
+ * could read this response could already read the database.
+ *
+ * `pendientes` is what the migration screen counts down: rows still holding
+ * plaintext after encryption was turned on. Zero means the couple's history
+ * finished moving over. */
+function estadoCifrado(coupleId: string) {
+  const c = q.cifradoDeCouple.get(coupleId) as
+    | {
+        cifrado_activo: number
+        llave_envuelta: string | null
+        kdf_salt: string | null
+        kdf_params: string | null
+        llave_codigo: string | null
+        kdf_salt_codigo: string | null
+      }
+    | undefined
+  const activo = !!Number(c?.cifrado_activo)
+  if (!activo || !c?.llave_envuelta) return { activo: false as const }
+  return {
+    activo: true as const,
+    llaveEnvuelta: c.llave_envuelta,
+    kdfSalt: c.kdf_salt,
+    kdfParams: c.kdf_params ? (JSON.parse(c.kdf_params) as unknown) : null,
+    llaveCodigo: c.llave_codigo,
+    kdfSaltCodigo: c.kdf_salt_codigo,
+    pendientes: cuantoFaltaCifrar(coupleId),
+  }
+}
+
+function cuantoFaltaCifrar(coupleId: string) {
+  return {
+    fotos: (q.photosSinCifrar.all(coupleId) as unknown[]).length,
+    inspiraciones: (q.inspiracionesSinCifrar.all(coupleId) as unknown[]).length,
+    notas: (q.entriesSinCifrar.all(coupleId) as unknown[]).length,
+    carpetas: (q.categoriasSinCifrar.all(coupleId) as unknown[]).length,
+    ideas: (q.ideasSinCifrar.all(coupleId) as unknown[]).length,
+  }
+}
+
+/** Whether the client says this value arrives already encrypted. The server
+ * takes its word for it because it has no way to check — that is what E2EE
+ * means here — and stores the flag so it can hand the same bytes back and let
+ * the client decide what to do with them. */
+function banderaCifrado(req: AuthedRequest): 0 | 1 {
+  const v = req.body?.cifrado
+  return v === true || v === 'true' || v === 1 || v === '1' ? 1 : 0
+}
+
+/** Length caps stop being enforceable once a field is ciphertext: the server
+ * sees base64 of an envelope, not the 30 characters someone typed. The client
+ * enforces the real limit; this keeps a bound anyway so an encrypted field
+ * can't be used to store arbitrary amounts of data.
+ *
+ * The envelope adds a version byte, a 12-byte IV and GCM's 16-byte tag, then
+ * base64 costs 4 bytes for every 3. UTF-8 can also take up to 4 bytes per
+ * character, which is why the plaintext limit is multiplied before wrapping —
+ * an emoji-only name has to still fit. */
+function limiteTexto(caracteres: number, cifrado: 0 | 1): number {
+  if (!cifrado) return caracteres
+  return Math.ceil((caracteres * 4 + 29) * 4 / 3) + 4
 }
 
 /** Which version of the privacy policy the client says it showed. Recorded
@@ -313,7 +425,7 @@ app.post('/api/couple', requireAuth, (req: AuthedRequest, res) => {
 
   const existente = q.memberByUser.get(req.userId!) as { couple_id: string } | undefined
   if (existente) {
-    q.updateNombre.run(nombre, req.userId!)
+    q.updateNombre.run(nombre, banderaCifrado(req), req.userId!)
     res.json(estadoPareja(existente.couple_id, req.userId!))
     return
   }
@@ -324,7 +436,7 @@ app.post('/api/couple', requireAuth, (req: AuthedRequest, res) => {
   db.exec('BEGIN')
   try {
     q.insertCouple.run(id, code, ahora)
-    q.insertMember.run(req.userId!, id, nombre, ahora, versionPrivacidad(req), ahora)
+    q.insertMember.run(req.userId!, id, nombre, ahora, versionPrivacidad(req), ahora, banderaCifrado(req))
     sembrarIdeas(id)
     db.exec('COMMIT')
   } catch (e) {
@@ -366,7 +478,7 @@ app.post('/api/couple/join', requireAuth, limiteJoin, (req: AuthedRequest, res) 
   }
 
   const ahoraJoin = new Date().toISOString()
-  q.insertMember.run(req.userId!, couple.id, nombre, ahoraJoin, versionPrivacidad(req), ahoraJoin)
+  q.insertMember.run(req.userId!, couple.id, nombre, ahoraJoin, versionPrivacidad(req), ahoraJoin, banderaCifrado(req))
   res.json(estadoPareja(couple.id, req.userId!))
 })
 
@@ -412,7 +524,7 @@ app.patch('/api/couple', requireAuth, (req: AuthedRequest, res) => {
   }
 
   q.updatePerfil.run(fecha, hito, member.couple_id)
-  if (nombre) q.updateNombre.run(nombre, req.userId!)
+  if (nombre) q.updateNombre.run(nombre, banderaCifrado(req), req.userId!)
   res.json(estadoPareja(member.couple_id, req.userId!))
 })
 
@@ -497,6 +609,130 @@ app.delete('/api/couple/me', requireAuth, async (req: AuthedRequest, res) => {
   res.json({ ok: true, parejaBorrada: true })
 })
 
+/* ---------------------------------------------------------------- cifrado */
+
+/** base64 of something the server never opens. Bounded so these columns can't
+ * become general-purpose storage: a wrapped 256-bit key is 60 characters. */
+function leerBase64(valor: unknown, maxBytes: number): string | null {
+  const s = String(valor ?? '')
+  if (!s || s.length > Math.ceil(maxBytes * 4 / 3) + 4) return null
+  return /^[A-Za-z0-9+/]+=*$/.test(s) ? s : null
+}
+
+/** Turning encryption on. Everything here was produced on the device and is
+ * opaque to us: the couple key wrapped by the passphrase, the same key wrapped
+ * by the recovery code, and the two salts.
+ *
+ * Both wraps are required together, which is the mechanism behind the promise
+ * on the screen — encryption cannot be enabled without recovery existing,
+ * because there is no request shape that expresses it.
+ *
+ * The UPDATE carries `cifrado_activo = 0` in its WHERE, so a second call can
+ * never overwrite a live key. That is the difference between a repeated tap
+ * and every photo becoming unreadable. */
+app.post('/api/cifrado/activar', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const llaveEnvuelta = leerBase64(req.body?.llaveEnvuelta, 64)
+  const kdfSalt = leerBase64(req.body?.kdfSalt, 32)
+  const llaveCodigo = leerBase64(req.body?.llaveCodigo, 64)
+  const kdfSaltCodigo = leerBase64(req.body?.kdfSaltCodigo, 32)
+  const params = req.body?.kdfParams
+  if (!llaveEnvuelta || !kdfSalt || !llaveCodigo || !kdfSaltCodigo || !params) {
+    res.status(400).json({ error: 'Faltan datos para activar el cifrado' })
+    return
+  }
+
+  const cambio = q.activarCifrado.run(
+    llaveEnvuelta,
+    kdfSalt,
+    JSON.stringify(params),
+    llaveCodigo,
+    kdfSaltCodigo,
+    coupleId,
+  )
+  if (Number(cambio.changes) === 0) {
+    res.status(409).json({ error: 'El cifrado ya estaba activado' })
+    return
+  }
+  res.json(estadoPareja(coupleId, req.userId!))
+})
+
+/** Changing the passphrase. It rewraps the same couple key, so nothing already
+ * encrypted has to be touched — and the recovery code keeps working, because
+ * this never writes llave_codigo. */
+app.post('/api/cifrado/frase', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const llaveEnvuelta = leerBase64(req.body?.llaveEnvuelta, 64)
+  const kdfSalt = leerBase64(req.body?.kdfSalt, 32)
+  const params = req.body?.kdfParams
+  if (!llaveEnvuelta || !kdfSalt || !params) {
+    res.status(400).json({ error: 'Faltan datos para cambiar la frase' })
+    return
+  }
+  const cambio = q.reenvolverFrase.run(llaveEnvuelta, kdfSalt, JSON.stringify(params), coupleId)
+  if (Number(cambio.changes) === 0) {
+    res.status(409).json({ error: 'El cifrado no está activado' })
+    return
+  }
+  res.json({ ok: true })
+})
+
+/** What the migration still has to get through, and the ciphertext for the
+ * rows it can move without re-uploading anything. Photos aren't here: their
+ * bytes are fetched and replaced one at a time through the route below. */
+app.get('/api/cifrado/pendientes', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  res.json({
+    fotos: (q.photosSinCifrar.all(coupleId) as { id: string }[]).map((r) => r.id),
+    inspiraciones: (q.inspiracionesSinCifrar.all(coupleId) as { id: string }[]).map((r) => r.id),
+    notas: q.entriesSinCifrar.all(coupleId),
+    carpetas: q.categoriasSinCifrar.all(coupleId),
+    ideas: q.ideasSinCifrar.all(coupleId),
+  })
+})
+
+/** Replaces a row's text with its encrypted form. One row per call: the
+ * migration runs on someone's phone and can stop at any moment, so each step
+ * has to be complete on its own rather than part of a batch that half applied. */
+app.post('/api/cifrado/texto', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const id = String(req.body?.id ?? '')
+  const valor = String(req.body?.valor ?? '')
+  const tipo = String(req.body?.tipo ?? '')
+  if (!id || !valor) {
+    res.status(400).json({ error: 'Faltan datos' })
+    return
+  }
+  const donde =
+    tipo === 'nota' ? q.cifrarEntryNota : tipo === 'carpeta' ? q.cifrarCategoria : tipo === 'idea' ? q.cifrarIdea : null
+  if (!donde) {
+    res.status(400).json({ error: 'Faltan datos' })
+    return
+  }
+  const cambio = donde.run(valor, id, coupleId)
+  if (Number(cambio.changes) === 0) {
+    res.status(404).json({ error: 'No encontramos esa foto' })
+    return
+  }
+  res.json({ ok: true })
+})
+
 /** Exchanges a verified Clerk token for the session cookie that photo
  * requests need, since <img> can't send an Authorization header. */
 app.post('/api/session', requireAuth, (req: AuthedRequest, res) => {
@@ -517,6 +753,7 @@ interface FilaEntry {
   fecha_fin: string | null
   nota: string | null
   fondo: string
+  cifrado: number
 }
 
 function entradaConFotos(fila: FilaEntry) {
@@ -526,6 +763,9 @@ function entradaConFotos(fila: FilaEntry) {
     fecha: fila.fecha,
     fechaFin: fila.fecha_fin ?? undefined,
     nota: fila.nota ?? undefined,
+    // Says whether `nota` is ciphertext. Without it the client would render
+    // base64 as if it were what someone wrote.
+    cifrado: !!Number(fila.cifrado),
     fondo: fila.fondo,
     fotoIds: fotos.map((f) => f.id),
   }
@@ -542,18 +782,30 @@ app.get('/api/entries', requireAuth, (req: AuthedRequest, res) => {
 })
 
 function leerCampos(body: Record<string, unknown>) {
+  const cifrado: 0 | 1 = body.cifrado === true || body.cifrado === 'true' || body.cifrado === '1' ? 1 : 0
   const fecha = String(body.fecha ?? '').trim()
   const fechaFin = String(body.fechaFin ?? '').trim()
-  const nota = String(body.nota ?? '').trim()
+  // Only the nota is ever ciphertext. The dates stay readable on purpose —
+  // they order the timeline and feed "recuerdo del día", and encrypting them
+  // would kill both. That leak is in plan.md, deliberate and written down.
+  const nota = cifrado ? String(body.nota ?? '') : String(body.nota ?? '').trim()
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return null
   if (fechaFin && !/^\d{4}-\d{2}-\d{2}$/.test(fechaFin)) return null
-  return { fecha, fechaFin: fechaFin || null, nota: nota || null }
+  // Only bounded when encrypted. A plain nota never had a limit beyond the
+  // request body's, and adding one here would start rejecting notes people
+  // already wrote.
+  if (cifrado && nota.length > limiteTexto(2000, 1)) return null
+  return { fecha, fechaFin: fechaFin || null, nota: nota || null, cifrado }
 }
 
 interface ParGuardado {
   archivo: string
   min: string | null
   bytes: number
+  /** Travels with the pair because one request can mix photos staged before
+   * encryption was on with files uploaded after it. Each row has to record
+   * what its own bytes are, not what the request as a whole was. */
+  cifrado: 0 | 1
 }
 
 /** The browser sends each photo twice — full size and an 800px copy — as
@@ -563,6 +815,7 @@ interface ParGuardado {
 async function guardarArchivos(
   files: Express.Multer.File[],
   minis: Express.Multer.File[],
+  cifrado: 0 | 1 = 0,
 ): Promise<ParGuardado[]> {
   const guardados: ParGuardado[] = []
   for (let i = 0; i < files.length; i++) {
@@ -575,7 +828,7 @@ async function guardarArchivos(
       await almacen.guardar(min, minis[i].buffer)
       bytes += minis[i].buffer.length
     }
-    guardados.push({ archivo, min, bytes })
+    guardados.push({ archivo, min, bytes, cifrado })
   }
   return guardados
 }
@@ -597,6 +850,63 @@ const campoUnaFoto = subida.fields([
   { name: 'foto', maxCount: 1 },
   { name: 'miniatura', maxCount: 1 },
 ])
+
+/** Swaps one existing photo's bytes for their encrypted form, in place.
+ *
+ * This is the shape the migration of an existing history takes, and it can
+ * only run from a device that holds the key — that is the whole point, and
+ * what separates it from migrar-a-r2.ts, which ran on the VPS because moving
+ * opaque bytes needs no key at all.
+ *
+ * Order matters and is not incidental: the new objects are written, then the
+ * row is pointed at them, and only then are the old ones deleted. Any other
+ * order can leave a row naming bytes that no longer exist, which is a photo
+ * lost for good. A crash here leaks two objects instead — recoverable. */
+app.post('/api/cifrado/foto/:id', requireAuth, limiteSubida, campoUnaFoto, async (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const files = (req.files ?? {}) as Record<string, Express.Multer.File[] | undefined>
+  const foto = files.foto?.[0]
+  if (!foto) {
+    res.status(400).json({ error: 'Falta la foto' })
+    return
+  }
+  const esInspiracion = req.body?.tipo === 'inspiracion'
+  const anterior = (
+    esInspiracion ? q.inspiracionForCouple.get(req.params.id, coupleId) : q.photoForCouple.get(req.params.id, coupleId)
+  ) as { archivo: string; archivo_min: string | null; cifrado: number } | undefined
+  if (!anterior) {
+    res.status(404).json({ error: 'No encontramos esa foto' })
+    return
+  }
+  // Already done. Answering ok rather than erroring keeps a retried migration
+  // idempotent, which matters when the thing driving it is a phone on mobile
+  // data that may repeat a request it never saw the answer to.
+  if (Number(anterior.cifrado)) {
+    res.json({ ok: true, yaEstaba: true })
+    return
+  }
+
+  // Everything this route stores is ciphertext by definition — that is what
+  // it exists to produce.
+  const [par] = await guardarArchivos([foto], files.miniatura ?? [], 1)
+  try {
+    const cambio = esInspiracion
+      ? q.cifrarInspiracion.run(par.archivo, par.min, par.bytes, req.params.id, coupleId)
+      : q.cifrarPhoto.run(par.archivo, par.min, par.bytes, req.params.id)
+    if (Number(cambio.changes) === 0) throw new Error('la fila desapareció durante la migración')
+  } catch (e) {
+    // The row still names the old bytes, so what has to go is what we just
+    // wrote — the opposite of the success path.
+    await almacen.borrar(nombresDe({ archivo: par.archivo, archivo_min: par.min }))
+    throw e
+  }
+  await almacen.borrar(nombresDe(anterior))
+  res.json({ ok: true })
+})
 
 /** How long an uploaded photo waits for the recuerdo that will claim it.
  * Long enough that nobody hits it mid-edit, short enough that an abandoned
@@ -638,6 +948,8 @@ app.post('/api/photos', requireAuth, limiteSubida, campoUnaFoto, async (req: Aut
     return
   }
 
+  const cifrado = banderaCifrado(req)
+
   await barrerStaging(coupleId)
 
   // A sheet that's abandoned over and over shouldn't be able to fill the
@@ -653,10 +965,10 @@ app.post('/api/photos', requireAuth, limiteSubida, campoUnaFoto, async (req: Aut
     return
   }
 
-  const [par] = await guardarArchivos([foto], files.miniatura ?? [])
+  const [par] = await guardarArchivos([foto], files.miniatura ?? [], cifrado)
   const id = randomUUID()
   try {
-    q.insertStaged.run(id, coupleId, par.archivo, par.min, par.bytes, new Date().toISOString())
+    q.insertStaged.run(id, coupleId, par.archivo, par.min, par.bytes, new Date().toISOString(), cifrado)
   } catch (e) {
     await almacen.borrar(nombresDe({ archivo: par.archivo, archivo_min: par.min }))
     throw e
@@ -682,10 +994,15 @@ function leerStaged(orden: string[], coupleId: string): Map<string, ParGuardado>
     const m = RE_STAGED.exec(item)
     if (!m) continue
     const fila = q.stagedForCouple.get(m[1], coupleId) as
-      | { archivo: string; archivo_min: string | null; tam_bytes: number | null }
+      | { archivo: string; archivo_min: string | null; tam_bytes: number | null; cifrado: number }
       | undefined
     if (!fila) return null
-    encontradas.set(m[1], { archivo: fila.archivo, min: fila.archivo_min, bytes: Number(fila.tam_bytes ?? 0) })
+    encontradas.set(m[1], {
+      archivo: fila.archivo,
+      min: fila.archivo_min,
+      bytes: Number(fila.tam_bytes ?? 0),
+      cifrado: Number(fila.cifrado) ? 1 : 0,
+    })
   }
   return encontradas
 }
@@ -705,14 +1022,14 @@ function colocarFotos(
     const est = RE_STAGED.exec(item)
     if (est) {
       const par = staged.get(est[1])!
-      q.insertPhoto.run(randomUUID(), entryId, posicion, par.archivo, par.min, par.bytes, ahora)
+      q.insertPhoto.run(randomUUID(), entryId, posicion, par.archivo, par.min, par.bytes, ahora, par.cifrado)
       q.deleteStaged.run(est[1])
       return
     }
     const nuevo = RE_NUEVO.exec(item)
     if (nuevo) {
       const par = archivos[Number(nuevo[1])]
-      if (par) q.insertPhoto.run(randomUUID(), entryId, posicion, par.archivo, par.min, par.bytes, ahora)
+      if (par) q.insertPhoto.run(randomUUID(), entryId, posicion, par.archivo, par.min, par.bytes, ahora, par.cifrado)
       return
     }
     existente?.(item, posicion)
@@ -766,15 +1083,17 @@ app.post('/api/entries', requireAuth, limiteSubida, camposSubida, async (req: Au
     res.status(400).json({ error: 'Algunas fotos expiraron, volvé a agregarlas' })
     return
   }
-  const archivos = await guardarArchivos(subidas.fotos, subidas.miniaturas)
+  const archivos = await guardarArchivos(subidas.fotos, subidas.miniaturas, campos.cifrado)
   const id = randomUUID()
   const ahora = new Date().toISOString()
   db.exec('BEGIN')
   try {
-    q.insertEntry.run(id, coupleId, campos.fecha, campos.fechaFin, campos.nota, fondo, req.userId!, ahora)
+    q.insertEntry.run(id, coupleId, campos.fecha, campos.fechaFin, campos.nota, fondo, req.userId!, ahora, campos.cifrado)
     // A client that sent files without an order gets them in upload order.
     if (orden.length === 0) {
-      archivos.forEach((par, i) => q.insertPhoto.run(randomUUID(), id, i, par.archivo, par.min, par.bytes, ahora))
+      archivos.forEach((par, i) =>
+        q.insertPhoto.run(randomUUID(), id, i, par.archivo, par.min, par.bytes, ahora, par.cifrado),
+      )
     } else {
       colocarFotos(id, orden, archivos, staged, ahora)
     }
@@ -827,11 +1146,11 @@ app.patch('/api/entries/:id', requireAuth, limiteSubida, camposSubida, async (re
     res.status(400).json({ error: 'Algunas fotos expiraron, volvé a agregarlas' })
     return
   }
-  const archivos = await guardarArchivos(subidas.fotos, subidas.miniaturas)
+  const archivos = await guardarArchivos(subidas.fotos, subidas.miniaturas, campos.cifrado)
   const ahora = new Date().toISOString()
   db.exec('BEGIN')
   try {
-    q.updateEntry.run(campos.fecha, campos.fechaFin, campos.nota, entrada.id)
+    q.updateEntry.run(campos.fecha, campos.fechaFin, campos.nota, campos.cifrado, entrada.id)
     eliminados.forEach((p) => q.deletePhoto.run(p.id))
     colocarFotos(entrada.id, orden, archivos, staged, ahora, (item, posicion) => {
       if (conservados.includes(item)) q.updatePhotoPos.run(posicion, item)
@@ -886,12 +1205,13 @@ app.post('/api/ideas', requireAuth, (req: AuthedRequest, res) => {
     res.status(404).json({ error: 'Todavía no estás en una pareja' })
     return
   }
-  const texto = String(req.body?.texto ?? '').trim()
+  const cifrado = banderaCifrado(req)
+  const texto = cifrado ? String(req.body?.texto ?? '') : String(req.body?.texto ?? '').trim()
   if (!texto) {
     res.status(400).json({ error: 'Escribí una idea' })
     return
   }
-  if (texto.length > MAX_LARGO_IDEA) {
+  if (texto.length > limiteTexto(MAX_LARGO_IDEA, cifrado)) {
     res.status(400).json({ error: `La idea no puede pasar de ${MAX_LARGO_IDEA} caracteres` })
     return
   }
@@ -904,7 +1224,7 @@ app.post('/api/ideas', requireAuth, (req: AuthedRequest, res) => {
 
   const { maxpos } = q.maxPosIdea.get(coupleId) as { maxpos: number | null }
   const id = randomUUID()
-  q.insertIdea.run(id, coupleId, texto, Number(maxpos ?? -1) + 1, new Date().toISOString())
+  q.insertIdea.run(id, coupleId, texto, Number(maxpos ?? -1) + 1, new Date().toISOString(), cifrado)
   res.status(201).json({ id, texto })
 })
 
@@ -945,6 +1265,7 @@ app.get('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
     nota: string | null
     es_video: number
     url_origen: string | null
+    cifrado: number
   }[]
   res.json({
     categorias: q.categoriasOfCouple.all(coupleId),
@@ -953,14 +1274,21 @@ app.get('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
       categoriaId: f.categoria_id,
       nota: f.nota ?? undefined,
       esVideo: !!f.es_video,
+      // Deliberately not encrypted, and worth being explicit about: the pin's
+      // URL says what was saved from Pinterest. It is left readable because
+      // "Ver en Pinterest" needs it, and it's listed among the leaks in
+      // plan.md rather than being quietly overlooked.
       urlOrigen: f.url_origen ?? undefined,
+      cifrado: !!Number(f.cifrado),
     })),
   })
 })
 
-function leerNombreCategoria(body: Record<string, unknown> | undefined): string | null {
-  const nombre = String(body?.nombre ?? '').trim()
-  if (!nombre || nombre.length > MAX_LARGO_CATEGORIA) return null
+function leerNombreCategoria(body: Record<string, unknown> | undefined, cifrado: 0 | 1): string | null {
+  // Not trimmed when encrypted: base64 has no incidental whitespace, and
+  // trimming ciphertext would corrupt it if it ever did.
+  const nombre = cifrado ? String(body?.nombre ?? '') : String(body?.nombre ?? '').trim()
+  if (!nombre || nombre.length > limiteTexto(MAX_LARGO_CATEGORIA, cifrado)) return null
   return nombre
 }
 
@@ -970,7 +1298,8 @@ app.post('/api/categorias', requireAuth, (req: AuthedRequest, res) => {
     res.status(404).json({ error: 'Todavía no estás en una pareja' })
     return
   }
-  const nombre = leerNombreCategoria(req.body)
+  const cifrado = banderaCifrado(req)
+  const nombre = leerNombreCategoria(req.body, cifrado)
   if (!nombre) {
     res.status(400).json({ error: `Poné un nombre de hasta ${MAX_LARGO_CATEGORIA} caracteres` })
     return
@@ -982,7 +1311,7 @@ app.post('/api/categorias', requireAuth, (req: AuthedRequest, res) => {
   }
   const { maxpos } = q.maxPosCategoria.get(coupleId) as { maxpos: number | null }
   const id = randomUUID()
-  q.insertCategoria.run(id, coupleId, nombre, Number(maxpos ?? -1) + 1, new Date().toISOString())
+  q.insertCategoria.run(id, coupleId, nombre, Number(maxpos ?? -1) + 1, new Date().toISOString(), cifrado)
   res.status(201).json({ id, nombre })
 })
 
@@ -1002,14 +1331,17 @@ app.patch('/api/categorias', requireAuth, (req: AuthedRequest, res) => {
     return
   }
 
-  const actuales = q.categoriasOfCouple.all(coupleId) as { id: string; nombre: string }[]
+  // cifrado comes along so reordering can write it back untouched: this route
+  // moves rows, it doesn't re-encrypt them, and dropping the flag here would
+  // make the client try to read ciphertext as plain text.
+  const actuales = q.categoriasOfCouple.all(coupleId) as { id: string; nombre: string; cifrado: number }[]
   const porId = new Map(actuales.map((c) => [c.id, c]))
   const ordenadas = orden.filter((id) => porId.has(id))
   const resto = actuales.filter((c) => !ordenadas.includes(c.id)).map((c) => c.id)
 
   db.exec('BEGIN')
   try {
-    ;[...ordenadas, ...resto].forEach((id, i) => q.updateCategoria.run(porId.get(id)!.nombre, i, id, coupleId))
+    ;[...ordenadas, ...resto].forEach((id, i) => q.updateCategoria.run(porId.get(id)!.nombre, i, porId.get(id)!.cifrado, id, coupleId))
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
@@ -1030,13 +1362,14 @@ app.patch('/api/categorias/:id', requireAuth, (req: AuthedRequest, res) => {
     res.status(404).json({ error: 'No encontramos esa categoría' })
     return
   }
-  const nombre = leerNombreCategoria(req.body)
+  const cifrado = banderaCifrado(req)
+  const nombre = leerNombreCategoria(req.body, cifrado)
   if (!nombre) {
     res.status(400).json({ error: `Poné un nombre de hasta ${MAX_LARGO_CATEGORIA} caracteres` })
     return
   }
   // Position unchanged: renaming and reordering are separate operations.
-  q.updateCategoria.run(nombre, posicion, req.params.id, coupleId)
+  q.updateCategoria.run(nombre, posicion, cifrado, req.params.id, coupleId)
   res.json({ id: req.params.id, nombre })
 })
 
@@ -1073,7 +1406,7 @@ app.post('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
     return
   }
   const staged = q.stagedForCouple.get(stagedId, coupleId) as
-    | { archivo: string; archivo_min: string | null; tam_bytes: number | null }
+    | { archivo: string; archivo_min: string | null; tam_bytes: number | null; cifrado: number }
     | undefined
   if (!staged) {
     // Swept after its day, or from another couple. Either way, failing beats
@@ -1088,7 +1421,13 @@ app.post('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
     return
   }
 
-  const nota = String(req.body?.nota ?? '').trim().slice(0, MAX_LARGO_NOTA) || null
+  // The photo's own flag comes from staging — it was already encrypted or not
+  // when it was uploaded, and this route only files it. The nota is written
+  // here, so it follows what the client says about *this* request.
+  const cifrado = banderaCifrado(req)
+  const nota = cifrado
+    ? String(req.body?.nota ?? '').slice(0, limiteTexto(MAX_LARGO_NOTA, 1)) || null
+    : String(req.body?.nota ?? '').trim().slice(0, MAX_LARGO_NOTA) || null
 
   // Only the client that just resolved a Pinterest link has any business
   // setting these, but there's no separate proof of that beyond the URL
@@ -1118,6 +1457,11 @@ app.post('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
       esVideo ? 1 : 0,
       urlOrigen,
       new Date().toISOString(),
+      // The bytes were already encrypted (or not) at upload time; only the
+      // nota is decided by this request. They always agree in practice —
+      // both come from the same client with the same key — and OR keeps the
+      // row honest if they ever didn't.
+      Number(staged.cifrado) || cifrado,
     )
     q.deleteStaged.run(stagedId)
     db.exec('COMMIT')
@@ -1125,7 +1469,14 @@ app.post('/api/inspiraciones', requireAuth, (req: AuthedRequest, res) => {
     db.exec('ROLLBACK')
     throw e
   }
-  res.status(201).json({ id, categoriaId, nota: nota ?? undefined, esVideo, urlOrigen: urlOrigen ?? undefined })
+  res.status(201).json({
+    id,
+    categoriaId,
+    nota: nota ?? undefined,
+    esVideo,
+    urlOrigen: urlOrigen ?? undefined,
+    cifrado: !!(Number(staged.cifrado) || cifrado),
+  })
 })
 
 app.patch('/api/inspiraciones/:id', requireAuth, (req: AuthedRequest, res) => {
@@ -1343,12 +1694,13 @@ app.get('/api/photos/:id', requireCookie, async (req: AuthedRequest, res) => {
   // from anywhere else resolves to nothing either way.
   const foto = (q.photoForCouple.get(req.params.id, coupleId) ??
     q.inspiracionForCouple.get(req.params.id, coupleId)) as
-    | { archivo: string; archivo_min: string | null }
+    | { archivo: string; archivo_min: string | null; cifrado: number }
     | undefined
   if (!foto) {
     res.status(404).json({ error: 'No encontramos esa foto' })
     return
   }
+  const cifrada = !!Number(foto.cifrado)
   const archivo = req.query.tamano === 'min' && foto.archivo_min ? foto.archivo_min : foto.archivo
   // Fetched before any header goes out: with the bytes possibly coming from
   // R2, "the row exists but the object doesn't" is a real case, and it has
@@ -1358,7 +1710,16 @@ app.get('/api/photos/:id', requireCookie, async (req: AuthedRequest, res) => {
     res.sendStatus(404)
     return
   }
-  res.setHeader('Content-Type', 'image/webp')
+  // Told, not guessed: the service worker decides whether to decrypt from
+  // this header, and it is the server that knows. Encrypted bytes are also
+  // declared as what they are — if the SW is missing or still installing, an
+  // honest octet-stream fails visibly instead of an <img> silently rendering
+  // ciphertext as a broken WebP.
+  res.setHeader('X-Cifrado', cifrada ? '1' : '0')
+  res.setHeader('Content-Type', cifrada ? 'application/octet-stream' : 'image/webp')
+  // Lets the SW's decrypted response be told apart from this one in any cache
+  // that sits between them.
+  res.setHeader('Vary', 'X-Cifrado')
   // Filenames are random and never reused, so the bytes behind an id never
   // change — but keep it private so no shared cache holds onto them. With
   // R2 this also stops being a nicety: every uncached view is a Class B

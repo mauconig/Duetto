@@ -31,10 +31,23 @@ const LARGO_SALT = 16
  * interno y sale del camino probado. */
 const LARGO_IV = 12
 
-/** Primer byte de todo lo cifrado. Hoy sólo puede ser 1, y justamente por eso
- * conviene que esté: el día que cambie el formato, lo viejo se sigue pudiendo
- * leer porque se distingue de lo nuevo sin adivinar. */
-const VERSION = 1
+/** Primer byte de todo lo cifrado. Son dos formatos y por eso son dos números:
+ * mezclarlos falla de entrada en vez de descifrar cualquier cosa.
+ *
+ * `SOBRE` es el simple —`[1][iv][cifrado]`— y se usa para envolver la llave de
+ * pareja, donde la llave que abre ya viene del KDF con su propio salt.
+ *
+ * `ARCHIVO` es el que llevan fotos y textos: `[2][id:16][iv][cifrado]`. El id
+ * de derivación lo elige el cliente al azar y viaja **adentro** del sobre, que
+ * es lo que lo vuelve autocontenido.
+ *
+ * Eso último no es un adorno. Derivarlo del id de la fila —que era la idea
+ * original— no podía funcionar: una foto entra a `staged_photos` con un id y
+ * el servidor le asigna **otro** al moverla a `photos`. El service worker
+ * habría derivado con el id final una llave que nadie usó para cifrar. */
+const VERSION_SOBRE = 1
+const VERSION_ARCHIVO = 2
+const LARGO_ID = 16
 
 const cripto = () => globalThis.crypto
 
@@ -109,21 +122,16 @@ export async function derivarEnvoltura(secreto: string, salt: Uint8Array, params
   )
 }
 
-/** Una llave distinta por archivo, derivada del id del archivo.
+/** Una llave distinta por archivo, derivada de un id que va dentro del sobre.
  *
- * Es determinística, así que no hay que guardar nada por foto; y como el id es
- * único, dos archivos nunca comparten llave. Eso es lo que hace seguro reusar
- * IV al azar: la combinación (llave, IV) es la que no se puede repetir, y acá
- * ya no se repite la llave. */
-export async function llaveDeArchivo(llaveDePareja: Uint8Array, idArchivo: string): Promise<CryptoKey> {
+ * Como el id son 128 bits al azar por archivo, dos archivos no comparten llave
+ * ni en la práctica ni en teoría. Eso es lo que hace seguro sortear el IV: lo
+ * que no puede repetirse es el par (llave, IV), y acá ya no se repite la
+ * llave. */
+export async function llaveDeArchivo(llaveDePareja: Uint8Array, id: Uint8Array): Promise<CryptoKey> {
   const base = await cripto().subtle.importKey('raw', llaveDePareja as BufferSource, 'HKDF', false, ['deriveKey'])
   return cripto().subtle.deriveKey(
-    {
-      name: 'HKDF',
-      hash: 'SHA-256',
-      salt: new Uint8Array(0),
-      info: new TextEncoder().encode(`pictogether/archivo/${idArchivo}`),
-    },
+    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: etiquetaDe(id) as BufferSource },
     base,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -131,12 +139,45 @@ export async function llaveDeArchivo(llaveDePareja: Uint8Array, idArchivo: strin
   )
 }
 
-/** Importa la llave de pareja para usarla directo (envolver el resto). */
-async function comoAesGcm(bytes: Uint8Array): Promise<CryptoKey> {
-  return cripto().subtle.importKey('raw', bytes as BufferSource, { name: 'AES-GCM', length: 256 }, false, [
-    'encrypt',
-    'decrypt',
-  ])
+/** El `info` del HKDF. Tiene que ser byte por byte igual al de `sw.js`: forma
+ * parte de la llave, así que una diferencia de un carácter se ve como fotos
+ * que no abren. Hay una prueba que compara las dos implementaciones. */
+function etiquetaDe(id: Uint8Array): Uint8Array {
+  const prefijo = new TextEncoder().encode('pictogether/archivo/')
+  const etiqueta = new Uint8Array(prefijo.length + id.length)
+  etiqueta.set(prefijo)
+  etiqueta.set(id, prefijo.length)
+  return etiqueta
+}
+
+/** Lo que se usa para fotos y para textos: cifra con una llave propia de este
+ * archivo y devuelve un sobre que se abre solo con la llave de pareja. */
+export async function cifrarConPareja(datos: Uint8Array, llaveDePareja: Uint8Array): Promise<Uint8Array> {
+  const id = bytesAlAzar(LARGO_ID)
+  const iv = bytesAlAzar(LARGO_IV)
+  const llave = await llaveDeArchivo(llaveDePareja, id)
+  const cerrado = new Uint8Array(
+    await cripto().subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource }, llave, datos as BufferSource),
+  )
+  const sobre = new Uint8Array(1 + LARGO_ID + LARGO_IV + cerrado.length)
+  sobre[0] = VERSION_ARCHIVO
+  sobre.set(id, 1)
+  sobre.set(iv, 1 + LARGO_ID)
+  sobre.set(cerrado, 1 + LARGO_ID + LARGO_IV)
+  return sobre
+}
+
+export async function descifrarConPareja(sobre: Uint8Array, llaveDePareja: Uint8Array): Promise<Uint8Array> {
+  if (sobre.length <= 1 + LARGO_ID + LARGO_IV) throw new Error('Sobre incompleto')
+  if (sobre[0] !== VERSION_ARCHIVO) throw new Error(`Versión de cifrado desconocida: ${sobre[0]}`)
+  const llave = await llaveDeArchivo(llaveDePareja, sobre.subarray(1, 1 + LARGO_ID))
+  return new Uint8Array(
+    await cripto().subtle.decrypt(
+      { name: 'AES-GCM', iv: sobre.subarray(1 + LARGO_ID, 1 + LARGO_ID + LARGO_IV) as BufferSource },
+      llave,
+      sobre.subarray(1 + LARGO_ID + LARGO_IV) as BufferSource,
+    ),
+  )
 }
 
 /** El sobre: `[versión:1][iv:12][cifrado+tag]`, todo en un solo Uint8Array.
@@ -148,7 +189,7 @@ export async function cifrar(datos: Uint8Array, llave: CryptoKey): Promise<Uint8
     await cripto().subtle.encrypt({ name: 'AES-GCM', iv: iv as BufferSource }, llave, datos as BufferSource),
   )
   const sobre = new Uint8Array(1 + LARGO_IV + cerrado.length)
-  sobre[0] = VERSION
+  sobre[0] = VERSION_SOBRE
   sobre.set(iv, 1)
   sobre.set(cerrado, 1 + LARGO_IV)
   return sobre
@@ -159,7 +200,7 @@ export async function cifrar(datos: Uint8Array, llave: CryptoKey): Promise<Uint8
  * en vez de devolver basura. Quien llama no tiene que validar nada de eso. */
 export async function descifrar(sobre: Uint8Array, llave: CryptoKey): Promise<Uint8Array> {
   if (sobre.length <= 1 + LARGO_IV) throw new Error('Sobre incompleto')
-  if (sobre[0] !== VERSION) throw new Error(`Versión de cifrado desconocida: ${sobre[0]}`)
+  if (sobre[0] !== VERSION_SOBRE) throw new Error(`Versión de cifrado desconocida: ${sobre[0]}`)
   const iv = sobre.subarray(1, 1 + LARGO_IV)
   const cuerpo = sobre.subarray(1 + LARGO_IV)
   return new Uint8Array(
@@ -182,15 +223,18 @@ export async function abrirLlave(envuelta: Uint8Array, envoltura: CryptoKey): Pr
 const textoADes = new TextEncoder()
 const desATexto = new TextDecoder()
 
-/** Notas, nombres de carpetas, ideas y nombres. Se cifran con la llave de
- * pareja directamente y no por HKDF: no tienen un id estable al momento de
- * escribirlos, y cada uno lleva su propio IV al azar igual. */
-export async function cifrarTexto(texto: string, llaveDePareja: Uint8Array): Promise<Uint8Array> {
-  return cifrar(textoADes.encode(texto), await comoAesGcm(llaveDePareja))
+/** Notas, nombres de carpetas, ideas y nombres: el mismo sobre autocontenido
+ * que las fotos, porque tampoco tienen un id estable cuando se escriben — una
+ * carpeta se nombra antes de que exista su fila.
+ *
+ * Devuelve base64 y no bytes: estos van a columnas de texto y a JSON, y
+ * convertirlos acá evita que cada sitio que llama se acuerde de hacerlo. */
+export async function cifrarTexto(texto: string, llaveDePareja: Uint8Array): Promise<string> {
+  return aBase64(await cifrarConPareja(textoADes.encode(texto), llaveDePareja))
 }
 
-export async function descifrarTexto(sobre: Uint8Array, llaveDePareja: Uint8Array): Promise<string> {
-  return desATexto.decode(await descifrar(sobre, await comoAesGcm(llaveDePareja)))
+export async function descifrarTexto(base64: string, llaveDePareja: Uint8Array): Promise<string> {
+  return desATexto.decode(await descifrarConPareja(deBase64(base64), llaveDePareja))
 }
 
 /** Para meter un sobre en una columna de texto y en JSON. base64 y no hex

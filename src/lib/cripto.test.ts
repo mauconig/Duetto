@@ -12,17 +12,17 @@ import {
   aBase64,
   abrirLlave,
   bytesAlAzar,
-  cifrar,
+  cifrarConPareja,
   cifrarTexto,
   deBase64,
   derivarEnvoltura,
   descifrar,
+  descifrarConPareja,
   descifrarTexto,
   envolverLlave,
   generarCodigoRecuperacion,
   generarLlaveDePareja,
   generarSalt,
-  llaveDeArchivo,
   normalizarCodigo,
 } from './cripto.ts'
 
@@ -33,80 +33,77 @@ const KDF_RAPIDO = { nombre: 'PBKDF2-SHA256', iteraciones: 1 } as const
 
 describe('sobres', () => {
   test('ida y vuelta con 1000 blobs al azar de tamaños distintos', async () => {
-    const llave = await llaveDeArchivo(generarLlaveDePareja(), 'foto-1')
+    const pareja = generarLlaveDePareja()
     for (let i = 0; i < 1000; i++) {
       const datos = bytesAlAzar(i % 97)
-      deepStrictEqual(await descifrar(await cifrar(datos, llave), llave), datos)
+      deepStrictEqual(await descifrarConPareja(await cifrarConPareja(datos, pareja), pareja), datos)
     }
   })
 
   test('un blob del tamaño de una foto real sobrevive intacto', async () => {
-    const llave = await llaveDeArchivo(generarLlaveDePareja(), 'foto-grande')
+    const pareja = generarLlaveDePareja()
     const datos = bytesAlAzar(700 * 1024)
-    deepStrictEqual(await descifrar(await cifrar(datos, llave), llave), datos)
+    deepStrictEqual(await descifrarConPareja(await cifrarConPareja(datos, pareja), pareja), datos)
   })
 
   test('el mismo texto cifrado dos veces da sobres distintos', async () => {
     // Si el IV se repitiera, dos fotos iguales se verían iguales cifradas y
     // eso solo ya filtra información.
-    const llave = await llaveDeArchivo(generarLlaveDePareja(), 'foto-1')
+    const pareja = generarLlaveDePareja()
     const datos = new TextEncoder().encode('lo mismo')
-    notStrictEqual(aBase64(await cifrar(datos, llave)), aBase64(await cifrar(datos, llave)))
+    notStrictEqual(aBase64(await cifrarConPareja(datos, pareja)), aBase64(await cifrarConPareja(datos, pareja)))
   })
 
   test('el cifrado no deja el original a la vista', async () => {
-    const llave = await llaveDeArchivo(generarLlaveDePareja(), 'foto-1')
+    const pareja = generarLlaveDePareja()
     const datos = new TextEncoder().encode('nuestro aniversario en Encarnación')
-    const sobre = await cifrar(datos, llave)
+    const sobre = await cifrarConPareja(datos, pareja)
     ok(!aBase64(sobre).includes(aBase64(datos)))
   })
 
-  test('una llave equivocada falla en vez de devolver basura', async () => {
-    const buena = await llaveDeArchivo(generarLlaveDePareja(), 'foto-1')
-    const otra = await llaveDeArchivo(generarLlaveDePareja(), 'foto-1')
-    const sobre = await cifrar(bytesAlAzar(64), buena)
-    await rejects(() => descifrar(sobre, otra))
+  test('la llave de otra pareja falla en vez de devolver basura', async () => {
+    const sobre = await cifrarConPareja(bytesAlAzar(64), generarLlaveDePareja())
+    await rejects(() => descifrarConPareja(sobre, generarLlaveDePareja()))
   })
 
-  test('la llave de un archivo no abre el sobre de otro', async () => {
+  test('cada sobre trae su propio id de derivación, así que no comparten llave', async () => {
     const pareja = generarLlaveDePareja()
-    const sobre = await cifrar(bytesAlAzar(64), await llaveDeArchivo(pareja, 'foto-1'))
-    const otroArchivo = await llaveDeArchivo(pareja, 'foto-2')
-    await rejects(() => descifrar(sobre, otroArchivo))
+    const uno = await cifrarConPareja(bytesAlAzar(64), pareja)
+    const otro = await cifrarConPareja(bytesAlAzar(64), pareja)
+    // Los 16 bytes que siguen a la versión son el id: si se repitieran, dos
+    // archivos compartirían llave y el IV al azar dejaría de ser seguro.
+    notStrictEqual(aBase64(uno.subarray(1, 17)), aBase64(otro.subarray(1, 17)))
   })
 
   test('alterar un solo bit del sobre lo hace fallar', async () => {
-    const llave = await llaveDeArchivo(generarLlaveDePareja(), 'foto-1')
-    const sobre = await cifrar(bytesAlAzar(64), llave)
-    for (const i of [1, 5, 20, sobre.length - 1]) {
+    const pareja = generarLlaveDePareja()
+    const sobre = await cifrarConPareja(bytesAlAzar(64), pareja)
+    // Incluido un byte del id: alterarlo deriva otra llave, y el tag lo caza.
+    for (const i of [1, 5, 20, 30, sobre.length - 1]) {
       const roto = Uint8Array.from(sobre)
       roto[i] ^= 1
-      await rejects(() => descifrar(roto, llave), `el byte ${i} pasó sin detectarse`)
+      await rejects(() => descifrarConPareja(roto, pareja), `el byte ${i} pasó sin detectarse`)
     }
   })
 
   test('un sobre cortado o de versión desconocida se rechaza sin romperse', async () => {
-    const llave = await llaveDeArchivo(generarLlaveDePareja(), 'foto-1')
-    const sobre = await cifrar(bytesAlAzar(64), llave)
-    await rejects(() => descifrar(sobre.subarray(0, 8), llave), /incompleto/)
+    const pareja = generarLlaveDePareja()
+    const sobre = await cifrarConPareja(bytesAlAzar(64), pareja)
+    await rejects(() => descifrarConPareja(sobre.subarray(0, 8), pareja), /incompleto/)
     const futuro = Uint8Array.from(sobre)
     futuro[0] = 99
-    await rejects(() => descifrar(futuro, llave), /desconocida/)
+    await rejects(() => descifrarConPareja(futuro, pareja), /desconocida/)
   })
-})
 
-describe('llave de archivo', () => {
-  test('es determinística: el mismo id da la misma llave', async () => {
+  test('los dos formatos no se confunden entre sí', async () => {
+    // El sobre de envolver llaves y el de archivos llevan versiones distintas
+    // justamente para que mezclarlos falle de entrada.
     const pareja = generarLlaveDePareja()
-    const sobre = await cifrar(bytesAlAzar(32), await llaveDeArchivo(pareja, 'foto-7'))
-    // Derivada de nuevo desde cero, como pasa al abrir la app otro día.
-    ok(await descifrar(sobre, await llaveDeArchivo(pareja, 'foto-7')))
-  })
-
-  test('parejas distintas no comparten llave para el mismo id', async () => {
-    const sobre = await cifrar(bytesAlAzar(32), await llaveDeArchivo(generarLlaveDePareja(), 'foto-7'))
-    const deOtraPareja = await llaveDeArchivo(generarLlaveDePareja(), 'foto-7')
-    await rejects(() => descifrar(sobre, deOtraPareja))
+    const deArchivo = await cifrarConPareja(bytesAlAzar(32), pareja)
+    const envoltura = await derivarEnvoltura('x', generarSalt(), KDF_RAPIDO)
+    await rejects(() => descifrar(deArchivo, envoltura), /desconocida/)
+    const deLlave = await envolverLlave(pareja, envoltura)
+    await rejects(() => descifrarConPareja(deLlave, pareja), /desconocida/)
   })
 })
 
@@ -141,13 +138,13 @@ describe('frase de acceso', () => {
 
   test('cambiar la frase no obliga a recifrar: es la misma llave envuelta de nuevo', async () => {
     const pareja = generarLlaveDePareja()
-    const sobre = await cifrar(bytesAlAzar(64), await llaveDeArchivo(pareja, 'foto-1'))
+    const sobre = await cifrarConPareja(bytesAlAzar(64), pareja)
     const salt = generarSalt()
     const nueva = await envolverLlave(pareja, await derivarEnvoltura('frase nueva', salt, KDF_RAPIDO))
     const recuperada = await abrirLlave(nueva, await derivarEnvoltura('frase nueva', salt, KDF_RAPIDO))
     // La foto de antes sigue abriéndose, que es el punto de no derivar la
     // llave de pareja desde la frase.
-    ok(await descifrar(sobre, await llaveDeArchivo(recuperada, 'foto-1')))
+    ok(await descifrarConPareja(sobre, recuperada))
   })
 
   test('los parámetros guardados son los que se usan al abrir', async () => {

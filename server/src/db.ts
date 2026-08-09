@@ -161,6 +161,40 @@ addColumnIfMissing('inspiraciones', 'tam_bytes', 'INTEGER')
 // applies unless this is set.
 addColumnIfMissing('couples', 'premium', 'INTEGER NOT NULL DEFAULT 0')
 
+/* End-to-end encryption. Opt-in per couple, following the shape Apple's
+ * Advanced Data Protection uses: it does not turn on until recovery is set up,
+ * because the alternative is people losing their photos to a forgotten word.
+ *
+ * What the server holds is deliberately useless on its own: the couple key
+ * wrapped twice — once by the passphrase, once by the recovery code — plus the
+ * salts and the KDF parameters needed to *attempt* an unwrap. It cannot
+ * perform one. Losing both secrets means the photos are gone, including for
+ * me; that is the property being bought.
+ *
+ * kdf_params travels with the key rather than living in a constant so the cost
+ * can be raised later without locking out couples who already have a
+ * passphrase — see ParamsKdf in src/lib/cripto.ts. */
+addColumnIfMissing('couples', 'cifrado_activo', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('couples', 'llave_envuelta', 'TEXT')
+addColumnIfMissing('couples', 'kdf_salt', 'TEXT')
+addColumnIfMissing('couples', 'kdf_params', 'TEXT')
+addColumnIfMissing('couples', 'llave_codigo', 'TEXT')
+addColumnIfMissing('couples', 'kdf_salt_codigo', 'TEXT')
+
+/* Per row, not per couple, because turning encryption on cannot rewrite years
+ * of photos in one atomic step: the migration runs from the owner's phone and
+ * can be interrupted by a closed tab. A half-migrated couple has to keep
+ * working, so every row says for itself whether its bytes are ciphertext. */
+addColumnIfMissing('photos', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('staged_photos', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('inspiraciones', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
+// Same reasoning for the text columns: nota, nombre and texto each become an
+// opaque base64 envelope when their row's flag is set.
+addColumnIfMissing('entries', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('categorias', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('ideas', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('members', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
+
 /** What the wheel used to be hardcoded with on the client. */
 const IDEAS_INICIALES = [
   'Picnic al atardecer',
