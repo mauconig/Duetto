@@ -35,7 +35,7 @@ const MAX_LARGO_IDEA = 60
 // MAX_FOTOS * 2 is what a single request can cost this box.
 const subida = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024, files: MAX_FOTOS * 2 },
+  limits: { fileSize: 15 * 1024 * 1024, files: MAX_FOTOS * 2 },
 })
 
 const app = express()
