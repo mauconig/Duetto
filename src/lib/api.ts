@@ -1,7 +1,54 @@
 import { useCallback, useMemo } from 'react'
 import { useAuth } from '@clerk/react'
 import type { Album } from '../types'
+import { cifrarConPareja, cifrarTexto, descifrarTexto } from './cripto'
+import { type EstadoCifrado, llaveActual } from './llave'
 import type { FotoProcesada } from './photoStorage'
+
+/* Encryption sits in this layer rather than in the screens, so no component
+ * has to remember it exists. Everything below asks `llaveActual()` — when
+ * there's no key the app behaves exactly as it did before, which is what makes
+ * this safe to ship to couples who never turn it on. */
+
+/** Text on its way out. Returns the flag alongside, because the server stores
+ * per row whether that row is ciphertext. */
+async function protegerTexto(texto: string): Promise<{ valor: string; cifrado: boolean }> {
+  const llave = llaveActual()
+  if (!llave || !texto) return { valor: texto, cifrado: false }
+  return { valor: await cifrarTexto(texto, llave), cifrado: true }
+}
+
+/** Text on its way in. A locked session gets undefined rather than base64:
+ * showing someone a wall of ciphertext where their note used to be reads as
+ * data loss, and it isn't. */
+async function abrirTexto(valor: string | undefined, cifrado: unknown): Promise<string | undefined> {
+  if (!valor || !cifrado) return valor
+  const llave = llaveActual()
+  if (!llave) return undefined
+  try {
+    return await descifrarTexto(valor, llave)
+  } catch {
+    // Wrong key for this row — possible mid-migration, or a partner who
+    // unlocked with a stale key. Hiding it beats rendering garbage.
+    return undefined
+  }
+}
+
+/** Photo bytes on their way out. The thumbnail gets its own envelope with its
+ * own derivation id, so the two halves of one photo don't share a key. */
+async function protegerBlob(blob: Blob): Promise<Blob> {
+  const llave = llaveActual()
+  if (!llave) return blob
+  return new Blob([(await cifrarConPareja(new Uint8Array(await blob.arrayBuffer()), llave)) as BlobPart])
+}
+
+/** A recuerdo with its nota encrypted. The dates stay as they are — they order
+ * the timeline and feed "recuerdo del día", and that leak is deliberate and
+ * written down in plan.md rather than overlooked. */
+async function conNota<T extends { nota?: string }>(datos: T) {
+  const { valor, cifrado } = await protegerTexto(datos.nota ?? '')
+  return { ...datos, nota: valor || undefined, cifrado }
+}
 
 /** Version of the privacy policy the consent tick refers to. Bump it here and
  * in `public/privacidad.html` together whenever the policy changes materially,
@@ -27,6 +74,9 @@ export interface Pareja {
   espacioUsado: number
   /** The cap that applies — the premium tier's or the free tier's. */
   espacioLimite: number
+  /** Whether this couple encrypts, and everything needed to *attempt* an
+   * unlock. Useless without a secret the server has never seen. */
+  cifrado: EstadoCifrado
 }
 
 /** One slice of the roulette. Shared by the couple, so it needs an id the
@@ -40,6 +90,9 @@ export interface Idea {
 export interface Categoria {
   id: string
   nombre: string
+  /** Set by the server when `nombre` is ciphertext. Only the API layer looks
+   * at it — by the time a screen sees a Categoria the name is readable. */
+  cifrado?: boolean | number
 }
 
 /** A saved photo reference. `categoriaId` is null for anything not filed
@@ -56,6 +109,7 @@ export interface Inspiracion {
   /** Where the pin this was saved from lives, whenever it came from
    * Pinterest at all — photo pin or video pin. */
   urlOrigen?: string
+  cifrado?: boolean | number
 }
 
 export interface Tablero {
@@ -161,8 +215,9 @@ export function useApi() {
         })
       },
 
-      obtenerEntradas() {
-        return call<Album[]>('/entries')
+      async obtenerEntradas() {
+        const entradas = await call<(Album & { cifrado?: boolean })[]>('/entries')
+        return Promise.all(entradas.map(async (e) => ({ ...e, nota: await abrirTexto(e.nota, e.cifrado) })))
       },
 
       /** Uploads one downscaled photo and returns the id that `orden` refers
@@ -170,30 +225,45 @@ export function useApi() {
        * recuerdo afterwards carries no files at all. */
       async subirFoto(foto: FotoProcesada): Promise<string> {
         const form = new FormData()
-        form.append('foto', foto.completa, 'foto.webp')
-        form.append('miniatura', foto.miniatura, 'min.webp')
+        form.append('foto', await protegerBlob(foto.completa), 'foto.webp')
+        form.append('miniatura', await protegerBlob(foto.miniatura), 'min.webp')
+        // The name stays .webp on purpose: it is what the server writes into
+        // the store, and the store has never cared what the bytes are.
+        if (llaveActual()) form.append('cifrado', '1')
         const { id } = await enviarFormulario<{ id: string }>('/photos', 'POST', form)
         return id
       },
 
-      crearEntrada(datos: DatosEntrada) {
-        return call<Album>('/entries', { method: 'POST', body: JSON.stringify(datos) })
+      async crearEntrada(datos: DatosEntrada) {
+        const entrada = await call<Album>('/entries', { method: 'POST', body: JSON.stringify(await conNota(datos)) })
+        return { ...entrada, nota: datos.nota }
       },
 
-      editarEntrada(id: string, datos: DatosEntrada) {
-        return call<Album>(`/entries/${id}`, { method: 'PATCH', body: JSON.stringify(datos) })
+      async editarEntrada(id: string, datos: DatosEntrada) {
+        const entrada = await call<Album>(`/entries/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(await conNota(datos)),
+        })
+        return { ...entrada, nota: datos.nota }
       },
 
       borrarEntrada(id: string) {
         return call<{ ok: boolean }>(`/entries/${id}`, { method: 'DELETE' })
       },
 
-      obtenerIdeas() {
-        return call<Idea[]>('/ideas')
+      async obtenerIdeas() {
+        const ideas = await call<(Idea & { cifrado?: number })[]>('/ideas')
+        return Promise.all(
+          ideas.map(async (i) => ({ ...i, texto: (await abrirTexto(i.texto, i.cifrado)) ?? '' })),
+        )
       },
 
-      agregarIdea(texto: string) {
-        return call<Idea>('/ideas', { method: 'POST', body: JSON.stringify({ texto }) })
+      async agregarIdea(texto: string) {
+        const { valor, cifrado } = await protegerTexto(texto)
+        const idea = await call<Idea>('/ideas', { method: 'POST', body: JSON.stringify({ texto: valor, cifrado }) })
+        // Echo back what the user typed rather than what was stored: the
+        // server can only return the ciphertext it was given.
+        return { ...idea, texto }
       },
 
       borrarIdea(id: string) {
@@ -202,16 +272,29 @@ export function useApi() {
 
       /** Categories and saved references in one payload — the board needs
        * both to render. */
-      obtenerTablero() {
-        return call<Tablero>('/inspiraciones')
+      async obtenerTablero() {
+        const t = await call<Tablero>('/inspiraciones')
+        return {
+          categorias: await Promise.all(
+            t.categorias.map(async (c) => ({ ...c, nombre: (await abrirTexto(c.nombre, c.cifrado)) ?? '' })),
+          ),
+          fotos: await Promise.all(t.fotos.map(async (f) => ({ ...f, nota: await abrirTexto(f.nota, f.cifrado) }))),
+        }
       },
 
-      crearCategoria(nombre: string) {
-        return call<Categoria>('/categorias', { method: 'POST', body: JSON.stringify({ nombre }) })
+      async crearCategoria(nombre: string) {
+        const { valor, cifrado } = await protegerTexto(nombre)
+        const c = await call<Categoria>('/categorias', { method: 'POST', body: JSON.stringify({ nombre: valor, cifrado }) })
+        return { ...c, nombre }
       },
 
-      renombrarCategoria(id: string, nombre: string) {
-        return call<Categoria>(`/categorias/${id}`, { method: 'PATCH', body: JSON.stringify({ nombre }) })
+      async renombrarCategoria(id: string, nombre: string) {
+        const { valor, cifrado } = await protegerTexto(nombre)
+        const c = await call<Categoria>(`/categorias/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ nombre: valor, cifrado }),
+        })
+        return { ...c, nombre }
       },
 
       /** The final order, whole. The server never has to work out how the
@@ -229,16 +312,18 @@ export function useApi() {
        * `origenPinterest` only ever comes from a resolved Pinterest link —
        * photo pin or video pin alike — and remembers where it came from, so
        * the board can link back to the pin itself. */
-      guardarInspiracion(
+      async guardarInspiracion(
         stagedId: string,
         categoriaId: string | null,
         nota?: string,
         origenPinterest?: { esVideo: boolean; urlOrigen: string },
       ) {
-        return call<Inspiracion>('/inspiraciones', {
+        const { valor, cifrado } = await protegerTexto(nota ?? '')
+        const guardada = await call<Inspiracion>('/inspiraciones', {
           method: 'POST',
-          body: JSON.stringify({ stagedId, categoriaId, nota, ...origenPinterest }),
+          body: JSON.stringify({ stagedId, categoriaId, nota: valor || undefined, cifrado, ...origenPinterest }),
         })
+        return { ...guardada, nota }
       },
 
       moverInspiracion(id: string, categoriaId: string | null) {
@@ -247,6 +332,66 @@ export function useApi() {
 
       borrarInspiracion(id: string) {
         return call<{ ok: boolean }>(`/inspiraciones/${id}`, { method: 'DELETE' })
+      },
+
+      /* ------------------------------------------------------------ cifrado */
+
+      /** Turns encryption on. The body is produced by `prepararActivacion` and
+       * is opaque to the server — the couple key wrapped twice, plus salts. */
+      activarCifrado(cuerpo: Record<string, unknown>) {
+        return call<Pareja>('/cifrado/activar', { method: 'POST', body: JSON.stringify(cuerpo) })
+      },
+
+      /** Rewraps the same key under a new passphrase. Nothing already
+       * encrypted has to be touched, and the recovery code keeps working. */
+      cambiarFrase(cuerpo: Record<string, unknown>) {
+        return call<{ ok: boolean }>('/cifrado/frase', { method: 'POST', body: JSON.stringify(cuerpo) })
+      },
+
+      /** What the migration of an existing history still has to get through.
+       * Text rows arrive with their plaintext so it can be encrypted here;
+       * photos arrive as ids, because their bytes have to be fetched, wrapped
+       * and sent back one at a time. */
+      pendientesDeCifrar() {
+        return call<{
+          fotos: string[]
+          inspiraciones: string[]
+          notas: { id: string; nota: string }[]
+          carpetas: { id: string; nombre: string }[]
+          ideas: { id: string; texto: string }[]
+        }>('/cifrado/pendientes')
+      },
+
+      /** One row per call. The migration runs on a phone and can stop at any
+       * moment, so every step has to stand on its own. */
+      async migrarTexto(tipo: 'nota' | 'carpeta' | 'idea', id: string, texto: string) {
+        const llave = llaveActual()
+        if (!llave) throw new ApiError('Primero desbloqueá con tu frase', 400)
+        return call<{ ok: boolean }>('/cifrado/texto', {
+          method: 'POST',
+          body: JSON.stringify({ tipo, id, valor: await cifrarTexto(texto, llave) }),
+        })
+      },
+
+      /** Fetches a photo that is still in the clear, encrypts it here, and
+       * hands it back. It has to happen on this device: the server has no key,
+       * which is the entire point and what separates this from the move to R2.
+       *
+       * The fetch goes through the service worker like any other photo — the
+       * row isn't flagged yet, so it comes back as plain WebP and is passed
+       * through untouched. */
+      async migrarFoto(id: string, tipo: 'foto' | 'inspiracion') {
+        const llave = llaveActual()
+        if (!llave) throw new ApiError('Primero desbloqueá con tu frase', 400)
+        const [completa, miniatura] = await Promise.all([
+          fetch(`/api/photos/${id}`).then((r) => r.blob()),
+          fetch(`/api/photos/${id}?tamano=min`).then((r) => r.blob()),
+        ])
+        const form = new FormData()
+        form.append('foto', await protegerBlob(completa), 'foto.webp')
+        form.append('miniatura', await protegerBlob(miniatura), 'min.webp')
+        form.append('tipo', tipo)
+        return enviarFormulario<{ ok: boolean }>(`/cifrado/foto/${id}`, 'POST', form)
       },
 
       /** The image behind a shared link, as a File the rest of the app can
