@@ -114,7 +114,7 @@ export const en: Diccionario = {
     n === 1 ? '1 photo has no folder. Tap it to file it.' : `${n} photos have no folder. Tap one to file it.`,
   insp_subiendo: (n) => `Uploading ${n}...`,
   insp_vacio_titulo: 'Nothing here yet',
-  insp_vacio_texto: 'Save photos you like with the + button, or share them to Pictogether from wherever you found them.',
+  insp_vacio_texto: 'Save photos you like with the + button, from your gallery or by pasting a pin link.',
   insp_renombrar_carpeta_titulo: 'Rename folder',
   insp_nombre_placeholder: 'Poses, Story ideas, Trips...',
   insp_archivar_en: 'File in',
@@ -123,6 +123,20 @@ export const en: Diccionario = {
   insp_archivar: 'File',
   insp_error_crear_carpeta: "Couldn't create the folder",
   insp_ver_en_pinterest: 'View on Pinterest',
+  insp_agregar_titulo: 'Where from?',
+  insp_desde_galeria: 'Pick from gallery',
+  insp_desde_galeria_hint: 'Photos saved on your phone',
+  insp_desde_enlace: 'Paste a pin link',
+  insp_desde_enlace_hint: 'Copied from Pinterest',
+  insp_enlace_titulo: 'Paste a link',
+  insp_enlace_campo: 'Pin link',
+  insp_enlace_pegar: 'Paste',
+  insp_enlace_buscar: 'Fetch the image',
+  insp_enlace_buscando: 'Looking for the image…',
+  // Written for iPhone, where sharing into the app isn't possible and this is
+  // the only way in. Names the menu item literally so it can be followed
+  // without knowing what a link is.
+  insp_enlace_ayuda: 'On Pinterest, tap the pin, then Share and Copy link. Come back here and paste it.',
 
   celebracion_texto: (nombres) => `Today's the day, ${nombres}.`,
   celebracion_boton: 'Celebrate',

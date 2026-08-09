@@ -2216,6 +2216,35 @@ h2 {
   text-transform: none;
   letter-spacing: normal;
 }
+
+/* The link field carries its own paste button. `min-width: 0` because a
+   flex item defaults to its content width, and a pasted pin URL is long
+   enough to push the button off the sheet without it. */
+.enlace-campo {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.enlace-campo input[type='text'] {
+  flex: 1;
+  min-width: 0;
+}
+.enlace-campo__pegar {
+  flex: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(var(--acento-rgb), 0.18);
+  background: var(--superficie-3);
+  color: var(--acento-fuerte);
+}
+.enlace-campo__pegar:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 .sheet__checkbox {
   display: flex;
   align-items: center;

@@ -1173,14 +1173,17 @@ app.delete('/api/inspiraciones/:id', requireAuth, async (req: AuthedRequest, res
  * the list is the feature's boundary, not a nicety. Sharing from anywhere
  * else lands as a plain link, which is what the share sheet already gives us
  * when there's nothing to resolve. */
-const HOSTS_ENLACE = new Set([
-  'pin.it',
-  'pinterest.com',
-  'www.pinterest.com',
-  'ar.pinterest.com',
-  'es.pinterest.com',
-  'i.pinimg.com',
-])
+const HOSTS_ENLACE = new Set(['pin.it', 'i.pinimg.com'])
+
+/** Pinterest serves a pin from a per-country subdomain — br, mx, py, co —
+ * and the link someone copies carries whichever one their app is on. The
+ * list used to name ar and es by hand, so a Brazilian pasting a Brazilian
+ * link was told it couldn't be opened.
+ *
+ * This is an SSRF guard, so it stays anchored at both ends and the prefix is
+ * exactly two letters or `www`: `evil-pinterest.com` and
+ * `pinterest.com.attacker.net` both fail to match. */
+const SUBDOMINIO_PINTEREST = /^([a-z]{2}\.|www\.)?pinterest\.com$/
 
 /** Pinterest shares a pin as a link, never as a file, so the image has to be
  * looked up from the page. Every size of a pin lives at the same path with a
@@ -1198,7 +1201,7 @@ function hostPermitido(u: string): URL | null {
     return null
   }
   if (url.protocol !== 'https:') return null
-  return HOSTS_ENLACE.has(url.hostname) ? url : null
+  return HOSTS_ENLACE.has(url.hostname) || SUBDOMINIO_PINTEREST.test(url.hostname) ? url : null
 }
 
 /** Attribute order isn't fixed — Pinterest emits `content` before

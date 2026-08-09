@@ -588,6 +588,22 @@ function AppContent({
           onAgregarFotos={(lista, categoriaId) =>
             guardarReferencias(Array.from(lista ?? []).filter((f) => f.type.startsWith('image/')), categoriaId)
           }
+          // Same round trip the share target makes, reached by hand. Only the
+          // lookup rethrows: a link that can't be opened is the sheet's
+          // problem to show, while a failed upload is the board's, and
+          // guardarReferencias already reports those there.
+          onAgregarEnlace={async (url, categoriaId) => {
+            let resuelto
+            try {
+              resuelto = await api.imagenDeEnlace(url)
+            } catch (e) {
+              throw new Error(e instanceof Error ? traducirError(e.message, t) : t('app_error_enlace'))
+            }
+            await guardarReferencias([resuelto.archivo], categoriaId, {
+              esVideo: resuelto.esVideo,
+              urlOrigen: url,
+            })
+          }}
           onCrearCategoria={async (nombre) => {
             await crearCarpeta(nombre)
           }}

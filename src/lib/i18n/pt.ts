@@ -114,7 +114,7 @@ export const pt: Diccionario = {
     n === 1 ? 'Tem 1 foto sem pasta. Toque nela para arquivar.' : `Tem ${n} fotos sem pasta. Toque em uma para arquivar.`,
   insp_subiendo: (n) => `Enviando ${n}...`,
   insp_vacio_titulo: 'Ainda não há nada aqui',
-  insp_vacio_texto: 'Guarde fotos que vocês gostem com o botão +, ou compartilhem para o Pictogether de onde as encontrarem.',
+  insp_vacio_texto: 'Guardem fotos de que gostem com o botão +, da galeria ou colando o link de um pin.',
   insp_renombrar_carpeta_titulo: 'Renomear pasta',
   insp_nombre_placeholder: 'Poses, Histórias, Viagens...',
   insp_archivar_en: 'Arquivar em',
@@ -123,6 +123,20 @@ export const pt: Diccionario = {
   insp_archivar: 'Arquivar',
   insp_error_crear_carpeta: 'Não conseguimos criar a pasta',
   insp_ver_en_pinterest: 'Ver no Pinterest',
+  insp_agregar_titulo: 'De onde?',
+  insp_desde_galeria: 'Escolher da galeria',
+  insp_desde_galeria_hint: 'Fotos guardadas no celular',
+  insp_desde_enlace: 'Colar o link de um pin',
+  insp_desde_enlace_hint: 'Copiado do Pinterest',
+  insp_enlace_titulo: 'Colar um link',
+  insp_enlace_campo: 'Link do pin',
+  insp_enlace_pegar: 'Colar',
+  insp_enlace_buscar: 'Buscar a imagem',
+  insp_enlace_buscando: 'Buscando a imagem…',
+  // Written for iPhone, where sharing into the app isn't possible and this is
+  // the only way in. Names the menu item literally so it can be followed
+  // without knowing what a link is.
+  insp_enlace_ayuda: 'No Pinterest, toque no pin, depois Compartilhar e Copiar link. Volte aqui e cole.',
 
   celebracion_texto: (nombres) => `Hoje é o dia, ${nombres}.`,
   celebracion_boton: 'Comemorar',

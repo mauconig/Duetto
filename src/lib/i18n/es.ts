@@ -132,7 +132,7 @@ export const es = {
     n === 1 ? 'Hay 1 foto sin carpeta. Tocá una para archivarla.' : `Hay ${n} fotos sin carpeta. Tocá una para archivarla.`,
   insp_subiendo: (n: number) => `Subiendo ${n}...`,
   insp_vacio_titulo: 'Todavía no hay nada acá',
-  insp_vacio_texto: 'Guardá fotos que les gusten con el botón +, o compartilas a Pictogether desde donde las hayas visto.',
+  insp_vacio_texto: 'Guardá fotos que les gusten con el botón +, desde la galería o pegando el link de un pin.',
   insp_renombrar_carpeta_titulo: 'Renombrar carpeta',
   insp_nombre_placeholder: 'Poses, Historias, Viajes...',
   insp_archivar_en: 'Archivar en',
@@ -141,6 +141,20 @@ export const es = {
   insp_archivar: 'Archivar',
   insp_error_crear_carpeta: 'No pudimos crear la carpeta',
   insp_ver_en_pinterest: 'Ver en Pinterest',
+  insp_agregar_titulo: '¿De dónde la traemos?',
+  insp_desde_galeria: 'Elegir de la galería',
+  insp_desde_galeria_hint: 'Fotos guardadas en el teléfono',
+  insp_desde_enlace: 'Pegar el link de un pin',
+  insp_desde_enlace_hint: 'Copiado desde Pinterest',
+  insp_enlace_titulo: 'Pegar un link',
+  insp_enlace_campo: 'Link del pin',
+  insp_enlace_pegar: 'Pegar',
+  insp_enlace_buscar: 'Traer la imagen',
+  insp_enlace_buscando: 'Buscando la imagen…',
+  // Written for iPhone, where sharing into the app isn't possible and this is
+  // the only way in. Names the menu item literally so it can be followed
+  // without knowing what a link is.
+  insp_enlace_ayuda: 'En Pinterest, tocá el pin, después Compartir y Copiar enlace. Volvé acá y pegalo.',
 
   // Celebración
   celebracion_texto: (nombres: string) => `Hoy es el día, ${nombres}.`,
