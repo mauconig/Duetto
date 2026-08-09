@@ -33,9 +33,16 @@ export const es = {
   comun_tema_oscuro: 'Oscuro',
 
   // Bienvenida
-  bienvenida_subtitulo: 'Su espacio para guardar recuerdos, ideas y momentos juntos.',
-  bienvenida_iniciar_sesion: 'Iniciar sesión',
-  bienvenida_crear_cuenta: 'Crear una cuenta',
+  bienvenida_subtitulo: 'El álbum, los planes y los recuerdos de los dos, en un solo lugar.',
+  bienvenida_punto_album: 'Álbumes que llenan los dos',
+  bienvenida_punto_ruleta: 'Una ruleta que decide la cita',
+  bienvenida_punto_tiempo: 'El tiempo juntos, contado al día',
+  bienvenida_crear_cuenta: 'Crear nuestra cuenta',
+  bienvenida_iniciar_sesion: 'Ya tengo cuenta',
+  // En dos claves porque el enlace va en el medio y el orden de las palabras
+  // cambia por idioma; `t()` devuelve string, así que el <a> se arma en el JSX.
+  bienvenida_legal_previo: 'Al continuar aceptás la',
+  bienvenida_legal_privacidad: 'política de privacidad',
 
   // Onboarding
   onboarding_nombre_titulo: '¿Cómo te llamás?',

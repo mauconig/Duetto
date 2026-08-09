@@ -48,13 +48,20 @@ h2 {
 
 /* ── Welcome (signed-out) ─────────────────────────────────────── */
 
+/* No extra padding: the flag picker is absolutely positioned, so it needs no
+ * space reserved, and centring already keeps the content clear of it. Adding
+ * padding on top of min-height:100vh only pushed the page past the viewport
+ * and produced a scrollbar over empty space. */
+/* The 110px comes off `.duette`, which reserves it for the bottom nav — and
+ * the nav doesn't exist on this screen, so without subtracting it the page is
+ * always exactly that much taller than the viewport and scrolls over nothing. */
 .welcome {
   position: relative;
-  min-height: 100vh;
+  min-height: calc(100vh - 110px);
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 28px;
+  gap: 24px;
 }
 .welcome__idioma {
   position: absolute;
@@ -70,35 +77,115 @@ h2 {
 /* The mark carries its own colour, so it needs no tile behind it — a crimson
  * disc on the crimson-tinted welcome gradient only muddied both. */
 .welcome__marca {
-  width: 148px;
+  width: 118px;
   height: auto;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   filter: drop-shadow(0 8px 18px rgba(var(--sombra-rgb), 0.28));
 }
+/* Lowercase on purpose: this is the logotype, not the app's name. The
+ * manifest, the tab title and Clerk all still say "Pictogether". */
 .welcome__title {
   margin: 0;
   font-family: 'Quicksand', sans-serif;
   font-weight: 700;
-  font-size: 32px;
+  font-size: 38px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 .welcome__subtitle {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--texto-3);
-  max-width: 280px;
+  color: var(--texto-2);
+  max-width: 300px;
+  line-height: 1.45;
 }
-.welcome__signin {
+
+.welcome__puntos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* Left-aligned inside a centred column: three centred lines of different
+ * lengths read as a ragged blob, and the icons stop lining up. */
+.welcome__punto {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+.welcome__punto-icono {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: var(--suave);
+  color: var(--acento-fuerte);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.welcome__punto-texto {
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--texto);
+}
+
+.welcome__acciones {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.welcome__boton {
   width: 100%;
 }
-.welcome__signup {
-  border: none;
-  background: none;
+/* Fixed brand crimson rather than the theme's accent: white on the dark
+ * palette's lighter pink falls under 4.5:1, and this button is the same
+ * gradient as the icon, so it should not drift between themes. */
+/* Doubled class so this wins wherever it sits in the file: `.cta-button`
+ * itself is defined much further down, and a single class would lose to it
+ * on source order alone. */
+.cta-button.cta-button--acento {
+  background: linear-gradient(135deg, #c9455a, #a32f42);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(var(--sombra-rgb), 0.32);
+}
+.cta-button.cta-button--acento:hover {
+  background: linear-gradient(135deg, #d4566d, #b03246);
+}
+.welcome__boton--contorno {
   cursor: pointer;
-  color: var(--acento-fuerte);
+  border-radius: 99px;
+  padding: 16px;
+  background: var(--superficie);
+  color: var(--texto);
+  border: 1.5px solid rgba(var(--acento-rgb), 0.35);
+  font-family: 'Quicksand', sans-serif;
   font-weight: 700;
-  font-size: 14px;
-  padding: 6px;
+  font-size: 16px;
+}
+.welcome__boton--contorno:hover {
+  background: var(--superficie-activa);
+}
+
+.welcome__legal {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--texto-4);
+  max-width: 300px;
+  line-height: 1.5;
+}
+.welcome__legal a {
+  color: var(--texto-3);
+  text-decoration: underline;
 }
 
 /* ── Onboarding ───────────────────────────────────────────────── */

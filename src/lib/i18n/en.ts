@@ -27,9 +27,14 @@ export const en: Diccionario = {
   comun_tema_claro: 'Light',
   comun_tema_oscuro: 'Dark',
 
-  bienvenida_subtitulo: 'Your place to keep memories, ideas and moments together.',
-  bienvenida_iniciar_sesion: 'Log in',
-  bienvenida_crear_cuenta: 'Create an account',
+  bienvenida_subtitulo: 'The album, the plans and the memories of you two, all in one place.',
+  bienvenida_punto_album: 'Albums you both fill',
+  bienvenida_punto_ruleta: 'A wheel that picks the date',
+  bienvenida_punto_tiempo: 'Your time together, counted daily',
+  bienvenida_crear_cuenta: 'Create our account',
+  bienvenida_iniciar_sesion: 'I already have an account',
+  bienvenida_legal_previo: 'By continuing you accept the',
+  bienvenida_legal_privacidad: 'privacy policy',
 
   onboarding_nombre_titulo: "What's your name?",
   onboarding_nombre_subtitulo: "So we know how to greet you every day.",

@@ -27,9 +27,14 @@ export const pt: Diccionario = {
   comun_tema_claro: 'Claro',
   comun_tema_oscuro: 'Escuro',
 
-  bienvenida_subtitulo: 'O espaço de vocês para guardar lembranças, ideias e momentos juntos.',
-  bienvenida_iniciar_sesion: 'Entrar',
-  bienvenida_crear_cuenta: 'Criar uma conta',
+  bienvenida_subtitulo: 'O álbum, os planos e as lembranças dos dois, em um só lugar.',
+  bienvenida_punto_album: 'Álbuns que vocês dois enchem',
+  bienvenida_punto_ruleta: 'Uma roleta que decide o encontro',
+  bienvenida_punto_tiempo: 'O tempo juntos, contado por dia',
+  bienvenida_crear_cuenta: 'Criar nossa conta',
+  bienvenida_iniciar_sesion: 'Já tenho conta',
+  bienvenida_legal_previo: 'Ao continuar você aceita a',
+  bienvenida_legal_privacidad: 'política de privacidade',
 
   onboarding_nombre_titulo: 'Qual é o seu nome?',
   onboarding_nombre_subtitulo: 'Assim sabemos como te chamar todo dia.',
