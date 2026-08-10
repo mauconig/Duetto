@@ -415,22 +415,79 @@ h2 {
 
 /* ── Loading ──────────────────────────────────────────────────── */
 
+/* Kept byte-for-byte in step with the copy inlined in index.html. That one
+   paints before any stylesheet arrives; this one takes over the moment React
+   mounts, and the handover is only invisible while the two agree. */
+.arranque {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--acento);
+}
+.arranque--pantalla {
+  min-height: 40vh;
+}
+.arranque__corazon {
+  width: 42px;
+  height: 42px;
+  animation: arranque-latido 1.6s ease-in-out 0.4s infinite both;
+}
+@keyframes arranque-latido {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .app-loading {
   min-height: 100vh;
   align-items: center;
   justify-content: center;
 }
-.app-loading__spinner {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 3px solid var(--riel);
-  border-top-color: var(--acento);
-  animation: spin 0.8s linear infinite;
+
+/* A photo that hasn't arrived is a hole in the page, and this app is mostly
+   photos — on mobile data the grid used to fill in as a field of blank boxes
+   popping one by one. A calm tint that breathes, then a fade, reads as the
+   photo being on its way rather than as something broken.
+
+   Opacity rather than a travelling gradient: a shimmer on twenty tiles at
+   once is what makes an old Android stutter while scrolling. */
+.image-slot__cargando {
+  position: absolute;
+  inset: 0;
+  background: var(--riel);
+  animation: foto-respira 1.5s ease-in-out infinite;
 }
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+@keyframes foto-respira {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+.image-slot__img {
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.image-slot__img--lista {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arranque__corazon,
+  .image-slot__cargando {
+    animation: none;
+  }
+  .image-slot__img {
+    transition: none;
   }
 }
 

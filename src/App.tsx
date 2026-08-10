@@ -11,6 +11,7 @@ import { Inspiracion } from './screens/Inspiracion'
 import { Profile } from './screens/Profile'
 import { SettingsSheet } from './components/SettingsSheet'
 import { LeaveCoupleSheet } from './components/LeaveCoupleSheet'
+import { Cargando } from './components/Cargando'
 import { SharedPhotosSheet } from './components/SharedPhotosSheet'
 import { EntrySheet } from './components/EntrySheet'
 import { TimelineLightbox } from './components/TimelineLightbox'
@@ -131,12 +132,11 @@ function SignedInApp() {
     setIdeas([])
   }
 
+  // Deliberately the same heart, at the same size, in the same place as the
+  // one index.html paints before any of this existed — so the handover reads
+  // as one continuous wait instead of a blank page, then a ring, then the app.
   if (cargando) {
-    return (
-      <div className="screen app-loading">
-        <div className="app-loading__spinner" />
-      </div>
-    )
+    return <Cargando />
   }
 
   if (error) {

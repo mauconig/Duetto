@@ -10,6 +10,76 @@
     <link rel="apple-touch-icon" href="/icono-192-v2.png" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fdf7f6" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171516" />
+    <!-- The same thing iniciarTema() does, but here, before the first paint of
+         *this* document rather than before React's. Dark mode lives on
+         :root[data-theme='dark'], so until something sets that attribute a
+         dark-mode phone renders the light palette — which nobody saw while
+         #root was empty, and everybody would see now that it isn't.
+
+         Deliberately not a module: those defer, and deferred is exactly what
+         this can't be. -->
+    <script>
+      ;(function () {
+        try {
+          var elegido = localStorage.getItem('duette-tema')
+          var oscuro =
+            elegido === 'oscuro' ||
+            (elegido !== 'claro' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.dataset.theme = oscuro ? 'dark' : 'light'
+        } catch (e) {
+          // Storage blocked (private mode, embedded webview). Light is the
+          // safe default and the app fixes it a moment later anyway.
+        }
+      })()
+    </script>
+
+    <!-- Duplicated from App.css on purpose: this has to paint before any
+         stylesheet has been fetched, which is the one job it has. -->
+    <style>
+      body {
+        margin: 0;
+        background: #fdf7f6;
+      }
+      :root[data-theme='dark'] body {
+        background: #171516;
+      }
+      .arranque {
+        min-height: 100svh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #b03246;
+      }
+      :root[data-theme='dark'] .arranque {
+        color: #e0687d;
+      }
+      .arranque__corazon {
+        width: 42px;
+        height: 42px;
+        /* The delay is the point: a fast connection mounts React before this
+           ever becomes visible, so a quick load stays clean instead of
+           flashing a loader for 80ms. */
+        animation: arranque-latido 1.6s ease-in-out 0.4s infinite both;
+      }
+      @keyframes arranque-latido {
+        0%,
+        100% {
+          opacity: 0.25;
+          transform: scale(0.92);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .arranque__corazon {
+          animation: none;
+          opacity: 0.5;
+        }
+      }
+    </style>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,7 +88,21 @@
     />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Everything between the browser parsing this and React mounting used to
+         be a blank page: the bundle and Clerk both have to arrive first, which
+         on a phone on mobile data is seconds, not milliseconds. This fills that
+         gap with the app's own mark instead of nothing.
+
+         It lives inline rather than in a component because it has to work
+         before any script or stylesheet has arrived — that is the whole point
+         of it. React clears #root on its first render, so it removes itself. -->
+    <div id="root">
+      <div class="arranque" aria-hidden="true">
+        <svg class="arranque__corazon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 20.4S4 14.8 4 9.4A4.8 4.8 0 0 1 8.8 4.6c1.5 0 2.7.8 3.2 1.8.5-1 1.7-1.8 3.2-1.8A4.8 4.8 0 0 1 20 9.4c0 5.4-8 11-8 11Z" />
+        </svg>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

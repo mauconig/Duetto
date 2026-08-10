@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import { useT } from '../lib/i18n/contexto'
 
 interface ImageSlotProps {
@@ -18,6 +19,19 @@ interface ImageSlotProps {
  * would be a trap for whichever one forgets. */
 export function ImageSlot({ shape = 'rounded', radius = 12, placeholder = '', src, className, style, onOpen }: ImageSlotProps) {
   const t = useT()
+  const [lista, setLista] = useState(false)
+
+  /* A photo already in cache can finish loading before React attaches onLoad,
+   * which would leave the tint sitting on top of a picture that is already
+   * there. Reading `complete` when the element mounts catches that; onLoad
+   * catches everything else.
+   *
+   * Paired with key={src} on the <img>: changing the photo remounts it, so
+   * this runs again and the state resets with it — no effect needed. */
+  const alMontar = useCallback((img: HTMLImageElement | null) => {
+    if (img) setLista(img.complete)
+  }, [])
+
   return (
     <div
       className={`image-slot image-slot--${shape}${src ? '' : ' image-slot--empty'}${className ? ' ' + className : ''}`}
@@ -34,7 +48,22 @@ export function ImageSlot({ shape = 'rounded', radius = 12, placeholder = '', sr
       aria-label={onOpen ? t('imageslot_ver_foto') : undefined}
     >
       {src ? (
-        <img src={src} alt="" className="image-slot__img" loading="lazy" decoding="async" />
+        <>
+          {!lista && <div className="image-slot__cargando" />}
+          <img
+            key={src}
+            ref={alMontar}
+            src={src}
+            alt=""
+            className={`image-slot__img${lista ? ' image-slot__img--lista' : ''}`}
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setLista(true)}
+            // A photo that won't load clears the tint too. Leaving it
+            // breathing forever would promise something that is never coming.
+            onError={() => setLista(true)}
+          />
+        </>
       ) : (
         <div className="image-slot__empty">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
