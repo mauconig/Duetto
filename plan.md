@@ -248,10 +248,56 @@ Tres cosas quedaron sin hacer, a propósito o por falta de tiempo:
 
 ---
 
-# Pendiente: cifrado de extremo a extremo
+# A medio hacer: cifrado de extremo a extremo
 
-Anotado el 8/8/2026, sin decidir. La pregunta que lo abrió: garantizar que las
-fotos sean privadas al punto de que **ni el admin pueda verlas**.
+Anotado el 8/8/2026. La pregunta que lo abrió: garantizar que las fotos sean
+privadas al punto de que **ni el admin pueda verlas**.
+
+## Estado al 9/8/2026 — la mitad de abajo está hecha, la de arriba no
+
+Cuatro commits en `main` (`5e8148f`, `216d707`, `e2351b3`, más el arreglo del
+límite de subida). **32 tests en verde.** Nada de esto está desplegado y nada
+es alcanzable todavía desde la app.
+
+**Hecho:**
+
+- `src/lib/cripto.ts` — derivación, envolver/abrir, cifrar/descifrar, código de
+  recuperación. Con `src/lib/cripto.test.ts`.
+- `server/src/db.ts` — las seis columnas de llaves en `couples` y el flag
+  `cifrado` por fila en las siete tablas.
+- `server/src/index.ts` — las cinco rutas (`activar`, `frase`, `pendientes`,
+  `texto`, `foto/:id`), el flag leído y escrito en cada consulta, y la cabecera
+  `X-Cifrado` en la respuesta de las fotos.
+- `src/lib/llave.ts` — la llave en memoria, IndexedDB opcional, y el protocolo
+  con el service worker.
+- `public/sw.js` — descifra las fotos al vuelo. Con `src/lib/swCripto.test.ts`,
+  que **lee `sw.js` de verdad**, le extrae las funciones y las hace interoperar
+  con `cripto.ts`: es la única defensa contra que las dos implementaciones se
+  desincronicen en silencio.
+- `src/lib/api.ts` — cifra al salir y descifra al entrar, todo en esa capa, así
+  que ningún componente sabe que el cifrado existe. Incluye el cliente de
+  migración (`migrarTexto`, `migrarFoto`).
+
+**Falta todo lo que se ve.** No hay ninguna pantalla, y `llave.ts` sólo lo
+importa `api.ts` para preguntar `llaveActual()`. Como esa función siempre
+devuelve `null` mientras nada la setee, **la función está apagada**: cada
+camino se comporta exactamente como antes. Por eso es seguro que esto viva en
+`main` sin desplegar.
+
+## El error del plan original, que habría hecho fotos irrecuperables
+
+El diseño de abajo decía **HKDF(llaveDePareja, idDelArchivo)**. Eso no podía
+funcionar y conviene que quede escrito: una foto entra a `staged_photos` con un
+id y el servidor le asigna **otro** cuando `colocarFotos` la pasa a `photos`.
+El service worker habría derivado, con el id final, una llave que nadie usó
+nunca para cifrar. **Toda foto subida así habría sido imposible de abrir**, y
+sólo se habría notado en el teléfono de alguien, meses después.
+
+El sobre pasó a ser autocontenido: `[versión:1][id:16][iv:12][cifrado+tag]`,
+donde el id de derivación lo sortea el cliente y **viaja adentro**. Así no
+depende de ningún id que asigne el servidor. Son dos versiones de sobre —1 para
+envolver llaves, 2 para archivos y textos— justamente para que mezclarlos falle
+de entrada en vez de descifrar basura.
 
 ## Lo primero: no es un problema de proveedor
 
@@ -320,9 +366,11 @@ de creación, y conviene forzar a confirmar que lo guardaron.
 ## Datos
 
 - **AES-256-GCM** por archivo, IV aleatorio de 96 bits.
-- Llave por archivo con **HKDF(llaveDePareja, idDelArchivo)**: determinística,
-  no guarda nada extra, y evita reusar un nonce entre archivos.
-- Se cifran la foto completa **y** la miniatura.
+- ~~Llave por archivo con **HKDF(llaveDePareja, idDelArchivo)**~~ → corregido,
+  ver arriba: el id lo sortea el cliente y va dentro del sobre. Sigue siendo
+  HKDF y sigue sin guardar nada por foto; lo que cambia es de dónde sale el id.
+- Se cifran la foto completa **y** la miniatura, cada una en su propio sobre y
+  por lo tanto con su propia llave.
 - Se cifran los textos: `entries.nota`, `categorias.nombre`, `ideas.texto`,
   `members.nombre`.
 - **Las fechas quedan en claro.** `entries.fecha` ordena la línea de tiempo y
@@ -367,24 +415,62 @@ Esquema: `couples` gana `llave_envuelta`, `kdf_salt`, `kdf_params`.
 
 ## Pasos
 
-1. `src/lib/cripto.ts`: derivar, envolver/abrir, cifrar/descifrar. Con tests de
-   ida y vuelta **antes** de tocar la app.
-2. Pantallas: crear frase + código de recuperación, y desbloquear en un
-   dispositivo nuevo.
-3. Cifrado en la subida.
-4. Descifrado en el service worker, con el protocolo de pedir la llave.
-5. Textos (notas, categorías, ideas, nombres).
+1. ~~`src/lib/cripto.ts`: derivar, envolver/abrir, cifrar/descifrar, con tests
+   **antes** de tocar la app.~~ **Hecho.**
+2. **Pantallas: crear frase + código de recuperación, y desbloquear en un
+   dispositivo nuevo. ← acá quedó.**
+3. ~~Cifrado en la subida.~~ **Hecho**, en `api.ts`.
+4. ~~Descifrado en el service worker, con el protocolo de pedir la llave.~~
+   **Hecho.**
+5. ~~Textos (notas, categorías, ideas, nombres).~~ **Hecho** salvo
+   `members.nombre`, que quedó afuera: lo lee el partner para saludarte y
+   cifrarlo obliga a resolver que cada uno vea el nombre del otro. Decidir si
+   vale la pena.
 6. Migrar lo que ya existe: bajar, cifrar y volver a subir **desde el
    dispositivo del dueño**. No se puede hacer en el servidor — ése es el punto,
-   y es lo que lo diferencia de `migrar-a-r2.ts`, que sí corrió en el VPS.
-7. Reescribir la política de privacidad, y decidir el punto de `uploads/`.
+   y es lo que lo diferencia de `migrar-a-r2.ts`, que sí corrió en el VPS. *El
+   cliente ya está* (`migrarTexto`, `migrarFoto`); falta la pantalla que los
+   llame en un bucle y muestre el progreso.
+7. Aviso en Inicio de que el cifrado existe, para las parejas que ya están.
+8. Reescribir la política de privacidad, y decidir el punto de `uploads/`.
+
+## Por dónde seguir
+
+Todo lo que falta llama a funciones que ya existen y ya tienen tests. En orden:
+
+1. **Un contexto de React sobre `llave.ts`.** Que en el arranque llame a
+   `leerDeEsteAparato()` y a `atenderPedidosDelWorker()` — hoy nadie los llama,
+   y sin el segundo el service worker se queda sin llave cuando el navegador lo
+   mata.
+2. **Pantalla de activar**, en Perfil. Pide la frase dos veces, llama a
+   `prepararActivacion(frase)`, manda el `cuerpo` a `activarCifrado()`, y
+   **muestra el código de recuperación una sola vez** con una confirmación
+   explícita de que lo guardaron. Sin eufemismos: si pierden los dos, las fotos
+   no vuelven, y yo tampoco puedo.
+3. **Pantalla de desbloquear**, cuando `pareja.cifrado.activo` es true y
+   `llaveActual()` es null. Frase o código, con `desbloquear(...)`, y la
+   casilla de "recordar este dispositivo" que llama a `recordarEnEsteAparato`.
+4. **Pantalla de migración**, con `pendientesDeCifrar()` y un bucle. Es
+   reanudable por diseño: cada fila es una llamada y el flag es por fila, así
+   que cerrar la pestaña a la mitad no rompe nada.
+
+## Por qué no está desplegado
+
+El service worker ahora intercepta **todos** los `/api/photos/*`. Si esa
+intercepción está mal, se rompen las fotos de las dos parejas que no pidieron
+nada de esto. Hay que ejercitarlo contra una sesión real y logueada antes de
+desplegar, y **eso no se puede local**: el `pk_live` de Clerk está atado al
+dominio.
 
 ## Verificación
 
-- **Ida y vuelta:** cifrar y descifrar 1000 blobs al azar sin pérdida.
-- **La prueba que importa:** con la app andando, bajar un objeto del bucket y
-  confirmar que es ruido — `file` no lo reconoce, no hay cabecera WebP. Y que
-  `SELECT nota FROM entries` devuelva texto cifrado.
+- ~~**Ida y vuelta:** cifrar y descifrar 1000 blobs al azar sin pérdida.~~
+  **Hecho**, más una foto de 700 KB que da la vuelta completa pasando por el
+  código real del service worker.
+- **La prueba que importa** (pendiente, necesita estar desplegado): con la app
+  andando, bajar un objeto del bucket y confirmar que es ruido — `file` no lo
+  reconoce, no hay cabecera WebP. Y que `SELECT nota FROM entries` devuelva
+  texto cifrado.
 - **Dispositivo nuevo:** entrar desde otro navegador, escribir la frase, ver
   las fotos.
 - **Frase equivocada:** falla al abrir, no muestra nada y **no borra nada**.
