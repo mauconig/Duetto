@@ -95,7 +95,6 @@ export const en: Diccionario = {
   inicio_unidad_dias: 'days',
   inicio_es_hoy: "It's today!",
   inicio_proximo_hito: 'Next milestone',
-  inicio_girar_ruleta: 'Spin the date wheel',
   inicio_ultimo_recuerdo: 'Latest memory',
   inicio_sumar_primer_recuerdo: 'Add your first memory',
   inicio_insp_guardadas: (n) => (n === 1 ? '1 saved' : `${n} saved`),

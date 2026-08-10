@@ -95,7 +95,6 @@ export const pt: Diccionario = {
   inicio_unidad_dias: 'dias',
   inicio_es_hoy: 'É hoje!',
   inicio_proximo_hito: 'Próxima data especial',
-  inicio_girar_ruleta: 'Girar a roleta de encontros',
   inicio_ultimo_recuerdo: 'Última lembrança',
   inicio_sumar_primer_recuerdo: 'Adicione a primeira lembrança de vocês',
   inicio_insp_guardadas: (n) => (n === 1 ? '1 salva' : `${n} salvas`),

@@ -112,7 +112,6 @@ export const es = {
   inicio_unidad_dias: 'días',
   inicio_es_hoy: '¡Es hoy!',
   inicio_proximo_hito: 'Próximo hito',
-  inicio_girar_ruleta: 'Girar la ruleta de citas',
   inicio_ultimo_recuerdo: 'Último recuerdo',
   inicio_sumar_primer_recuerdo: 'Sumá su primer recuerdo',
   inicio_insp_guardadas: (n: number) => (n === 1 ? '1 guardada' : `${n} guardadas`),

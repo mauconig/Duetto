@@ -145,17 +145,6 @@ export function Home({
         )}
       </div>
 
-      <button type="button" className="cta-button" onClick={onIrRuleta}>
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <circle cx="12" cy="12" r="2.5" />
-          <path d="M12 2v7.5" />
-          <path d="m19 17-4.9-2.8" />
-          <path d="m5 17 4.9-2.8" />
-        </svg>
-        {t('inicio_girar_ruleta')}
-      </button>
-
       <div className="grid-2">
         <div
           className="mini-card mini-card--album"
