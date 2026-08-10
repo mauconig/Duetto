@@ -1,0 +1,66 @@
+<!-- The mark on its own — the two polaroids and the heart, without the rounded
+     square behind them.
+
+     Used as a CSS mask, never as a picture: the shapes are what matter and the
+     colour comes from whatever `background-color` the page sets on the element.
+     That is what lets one file serve both themes, and follow the app's manual
+     theme toggle rather than only the OS setting — which is what an <img> or a
+     prefers-color-scheme rule inside the file would have been stuck with.
+
+     Same structure as favicon.svg: solid cards with their photo window cut out
+     of them, not outlines. The icon reads because of where colour changes, and
+     once everything is one colour those changes have to be cut out of the alpha
+     instead — white keeps, black cuts, and grey leaves a lighter tint, which is
+     what the photo windows use.
+
+     Three cuts, each replacing something the icon gets from colour for free:
+     the photo windows, a thin band along card B's edge so the pair doesn't
+     merge into one blob, and a halo around the heart so it doesn't dissolve
+     into the cards it sits on. Cropped to the mark's own bounds so it fills the
+     box it is given. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="13 21 74 47">
+  <defs>
+    <path
+      id="corazon"
+      d="M12 20.4S4 14.8 4 9.4A4.8 4.8 0 0 1 8.8 4.6c1.5 0 2.7.8 3.2 1.8.5-1 1.7-1.8 3.2-1.8A4.8 4.8 0 0 1 20 9.4c0 5.4-8 11-8 11Z"
+    />
+    <g id="tarjeta-a" transform="translate(36 44) rotate(-7)">
+      <rect x="-18" y="-19" width="36" height="38" rx="4.5" />
+    </g>
+    <g id="tarjeta-b" transform="translate(64 44) rotate(7)">
+      <rect x="-18" y="-19" width="36" height="38" rx="4.5" />
+    </g>
+
+    <mask id="huecos" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+      <rect x="0" y="0" width="100" height="100" fill="#fff" />
+
+      <!-- The photo windows. Grey rather than black: a hole would read as two
+           empty frames, and the icon's windows are a lighter pink, not the
+           background. -->
+      <g fill="#000" fill-opacity="0.6">
+        <g transform="translate(36 44) rotate(-7)"><rect x="-13" y="-13.5" width="26" height="22" rx="2" /></g>
+        <g transform="translate(64 44) rotate(7)"><rect x="-13" y="-13.5" width="26" height="22" rx="2" /></g>
+      </g>
+
+      <!-- Stroke only, never filled: filling it would erase every part of card
+           A that sits under card B rather than just drawing a seam between
+           them. -->
+      <use href="#tarjeta-b" fill="none" stroke="#000" stroke-width="3.2" />
+
+      <g transform="translate(50 58) scale(0.95) translate(-12 -12.5)">
+        <use href="#corazon" fill="#000" stroke="#000" stroke-width="5.5" stroke-linejoin="round" />
+      </g>
+    </mask>
+  </defs>
+
+  <g fill="#000" mask="url(#huecos)">
+    <use href="#tarjeta-a" />
+    <use href="#tarjeta-b" />
+  </g>
+
+  <!-- Last and unmasked: it sits over the join, which is what makes the pair
+       read as one object instead of two cards side by side. -->
+  <g transform="translate(50 58) scale(0.95) translate(-12 -12.5)">
+    <use href="#corazon" fill="#000" />
+  </g>
+</svg>

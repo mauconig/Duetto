@@ -49,13 +49,21 @@
         align-items: center;
         justify-content: center;
       }
+      /* The mark is a mask, not a picture, so it takes the theme's accent
+         instead of carrying the icon's own colours. */
       .arranque__logo {
-        width: 64px;
-        height: 64px;
+        width: 76px;
+        height: 49px;
+        background-color: #b03246;
+        -webkit-mask: url(/logo-marca.svg) center / contain no-repeat;
+        mask: url(/logo-marca.svg) center / contain no-repeat;
         /* The delay is the point: a fast connection mounts React before this
            ever becomes visible, so a quick load stays clean instead of
            flashing a loader for 80ms. */
         animation: arranque-latido 1.6s ease-in-out 0.4s infinite both;
+      }
+      :root[data-theme='dark'] .arranque__logo {
+        background-color: #e0687d;
       }
       @keyframes arranque-latido {
         0%,
@@ -94,7 +102,7 @@
          of it. React clears #root on its first render, so it removes itself. -->
     <div id="root">
       <div class="arranque" aria-hidden="true">
-        <img class="arranque__logo" src="/favicon.svg" alt="" />
+        <div class="arranque__logo"></div>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>

@@ -428,8 +428,13 @@ h2 {
   min-height: 40vh;
 }
 .arranque__logo {
-  width: 64px;
-  height: 64px;
+  width: 76px;
+  height: 49px;
+  /* A mask rather than an <img>, so the mark takes the theme's accent — and
+     follows the app's own light/dark toggle, which an image would not. */
+  background-color: var(--acento);
+  -webkit-mask: url(/logo-marca.svg) center / contain no-repeat;
+  mask: url(/logo-marca.svg) center / contain no-repeat;
   animation: arranque-latido 1.6s ease-in-out 0.4s infinite both;
 }
 @keyframes arranque-latido {

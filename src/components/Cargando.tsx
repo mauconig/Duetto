@@ -5,13 +5,13 @@
  * this one is invisible. Two different loaders back to back is what made the
  * old boot read as a stutter: a blank page, then a grey ring, then the app.
  *
- * Pulled from `/favicon.svg` rather than inlined, so the logo lives in one
- * file instead of being pasted here and into index.html as well. The browser
- * has already fetched it for the tab icon by the time this shows. */
+ * The mark lives in `/logo-marca.svg` and is pulled in as a CSS mask, so it
+ * exists once rather than being pasted here and into index.html as well — and
+ * takes the theme's accent, which an <img> could not. */
 export function Cargando({ pantalla = false }: { pantalla?: boolean }) {
   return (
     <div className={`arranque${pantalla ? ' arranque--pantalla' : ''}`} aria-hidden="true">
-      <img className="arranque__logo" src="/favicon.svg" alt="" />
+      <div className="arranque__logo" />
     </div>
   )
 }
