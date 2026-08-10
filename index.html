@@ -48,14 +48,10 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #b03246;
       }
-      :root[data-theme='dark'] .arranque {
-        color: #e0687d;
-      }
-      .arranque__corazon {
-        width: 42px;
-        height: 42px;
+      .arranque__logo {
+        width: 64px;
+        height: 64px;
         /* The delay is the point: a fast connection mounts React before this
            ever becomes visible, so a quick load stays clean instead of
            flashing a loader for 80ms. */
@@ -73,9 +69,9 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .arranque__corazon {
+        .arranque__logo {
           animation: none;
-          opacity: 0.5;
+          opacity: 0.6;
         }
       }
     </style>
@@ -98,9 +94,7 @@
          of it. React clears #root on its first render, so it removes itself. -->
     <div id="root">
       <div class="arranque" aria-hidden="true">
-        <svg class="arranque__corazon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 20.4S4 14.8 4 9.4A4.8 4.8 0 0 1 8.8 4.6c1.5 0 2.7.8 3.2 1.8.5-1 1.7-1.8 3.2-1.8A4.8 4.8 0 0 1 20 9.4c0 5.4-8 11-8 11Z" />
-        </svg>
+        <img class="arranque__logo" src="/favicon.svg" alt="" />
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>

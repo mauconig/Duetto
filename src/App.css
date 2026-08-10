@@ -423,14 +423,13 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--acento);
 }
 .arranque--pantalla {
   min-height: 40vh;
 }
-.arranque__corazon {
-  width: 42px;
-  height: 42px;
+.arranque__logo {
+  width: 64px;
+  height: 64px;
   animation: arranque-latido 1.6s ease-in-out 0.4s infinite both;
 }
 @keyframes arranque-latido {
@@ -482,7 +481,7 @@ h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .arranque__corazon,
+  .arranque__logo,
   .image-slot__cargando {
     animation: none;
   }
