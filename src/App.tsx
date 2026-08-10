@@ -221,6 +221,11 @@ function AppContent({
   // for an existing one. The board takes its photos without going through
   // here — there's no sheet to open for it.
   const [compartidas, setCompartidas] = useState<File[]>([])
+  // Tells the two ways a photo can reach the sheet apart. A share from the
+  // Pinterest app lands with no context and has to be asked where it goes; a
+  // link pasted into the moodboard was pasted by someone already looking at
+  // the moodboard, and asking them again reads as not having noticed.
+  const [pegadoEnMoodboard, setPegadoEnMoodboard] = useState(false)
   const [destino, setDestino] = useState<{ entry?: Album } | null>(null)
   // A shared *link* — what Pinterest sends instead of a file — takes a round
   // trip through the server before there's anything to show. Without this the
@@ -349,6 +354,7 @@ function AppContent({
     setErrorEnlace(null)
     setEnlaceEsVideo(false)
     setEnlaceOrigen(null)
+    setPegadoEnMoodboard(false)
     await limpiarFotosCompartidas()
   }
 
@@ -607,6 +613,7 @@ function AppContent({
             }
             setEnlaceEsVideo(resuelto.esVideo)
             setEnlaceOrigen(url)
+            setPegadoEnMoodboard(true)
             setCompartidas([resuelto.archivo])
           }}
           onCrearCategoria={async (nombre) => {
@@ -729,6 +736,7 @@ function AppContent({
           albumes={albumes}
           categorias={categorias}
           onCrearCarpeta={crearCarpeta}
+          yaEnMoodboard={pegadoEnMoodboard}
           onNuevo={() => setDestino({})}
           onExistente={(entry) => setDestino({ entry })}
           onInspiracion={async (categoriaId) => {

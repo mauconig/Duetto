@@ -15,6 +15,11 @@ interface SharedPhotosSheetProps {
   onExistente: (entry: Album) => void
   onInspiracion: (categoriaId: string | null) => void
   onDescartar: () => void
+  /** Skips the "where do we save these?" question and goes straight to
+   * picking a carpeta. Set when the photo got here by being pasted into the
+   * moodboard: someone standing on the moodboard, pasting a link, has already
+   * answered that question by being there. */
+  yaEnMoodboard?: boolean
 }
 
 /** Shown when photos arrive from Android's share sheet. Three destinations:
@@ -31,6 +36,7 @@ export function SharedPhotosSheet({
   onExistente,
   onInspiracion,
   onDescartar,
+  yaEnMoodboard = false,
 }: SharedPhotosSheetProps) {
   const { t, resuelto } = useIdiomaContexto()
   const recientes = sortByFecha(albumes).slice(-6).reverse()
@@ -38,7 +44,10 @@ export function SharedPhotosSheet({
   // skipped because the question arrived before the photo did — here the
   // photo is on screen while it's asked, so it's a question about something
   // the user can see.
-  const [eligiendoCarpeta, setEligiendoCarpeta] = useState(false)
+  //
+  // A pasted link starts here, because the first question is already answered
+  // by where the person was standing when they pasted.
+  const [eligiendoCarpeta, setEligiendoCarpeta] = useState(yaEnMoodboard)
   const [nombreNuevo, setNombreNuevo] = useState<string | null>(null)
   const [creando, setCreando] = useState(false)
 
@@ -76,7 +85,15 @@ export function SharedPhotosSheet({
           <div className="sheet__handle" />
           <div className="sheet__header">
             <h3>{t('compartir_que_carpeta')}</h3>
-            <button type="button" className="sheet__close" aria-label={t('comun_volver')} onClick={() => setEligiendoCarpeta(false)}>
+            {/* There's only something to go back *to* when the destination was
+                actually asked. A pasted link skipped that step, so here the
+                same button is the way out of the sheet entirely. */}
+            <button
+              type="button"
+              className="sheet__close"
+              aria-label={yaEnMoodboard ? t('compartir_descartar') : t('comun_volver')}
+              onClick={() => (yaEnMoodboard ? onDescartar() : setEligiendoCarpeta(false))}
+            >
               ×
             </button>
           </div>
