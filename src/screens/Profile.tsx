@@ -1,11 +1,12 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SignOutButton, useUser } from '@clerk/react'
 import { Avatar } from '../components/Avatar'
 import { RecortarFoto } from '../components/RecortarFoto'
 import { useTema, type Tema } from '../lib/tema'
 import { useIdiomaContexto } from '../lib/i18n/contexto'
 import { OPCIONES_IDIOMA } from '../lib/idioma'
-import type { ClaveTexto } from '../lib/i18n/index'
+import type { ClaveTexto, FuncionT } from '../lib/i18n/index'
+import type { PerfilDatos, PerfilMiembro } from '../lib/api'
 
 const OPCIONES_TEMA: { valor: Tema; clave: ClaveTexto }[] = [
   { valor: 'auto', clave: 'comun_tema_auto' },
@@ -30,6 +31,12 @@ interface ProfileProps {
   premium: boolean
   espacioUsado: number
   espacioLimite: number
+  perfilPropio: PerfilMiembro | null
+  perfilPareja: PerfilMiembro | null
+  perfilesCargando: boolean
+  errorPerfiles: string | null
+  onReintentarPerfiles: () => void
+  onEditarPerfil: () => void
   onAbrirAjustes: () => void
   onDesvincular: () => void
 }
@@ -39,6 +46,127 @@ interface ProfileProps {
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
+
+function PortadaCancion({ url, titulo, t }: { url: string | null; titulo: string; t: FuncionT }) {
+  const [fallida, setFallida] = useState(false)
+  useEffect(() => setFallida(false), [url])
+  if (!url || fallida) return <div className="partner-profile-song-cover partner-profile-song-cover--placeholder">♫</div>
+  return <img className="partner-profile-song-cover" src={url} alt={t('perfil_portada_alt', titulo)} onError={() => setFallida(true)} />
+}
+
+function DatosPerfilVista({ datos, t }: { datos: PerfilDatos; t: FuncionT }) {
+  const filas: { etiqueta: string; valor: string | null }[] = [
+    { etiqueta: t('perfil_color_favorito'), valor: datos.colorFavorito },
+    { etiqueta: t('perfil_comida_favorita'), valor: datos.comidaFavorita },
+    { etiqueta: t('perfil_bebida_favorita'), valor: datos.bebidaFavorita },
+    { etiqueta: t('perfil_hobbies'), valor: datos.hobbies },
+    { etiqueta: t('perfil_gustos'), valor: datos.gustos },
+    { etiqueta: t('perfil_disgustos'), valor: datos.disgustos },
+    { etiqueta: t('perfil_ideas_regalo'), valor: datos.ideasRegalo },
+    { etiqueta: t('perfil_talle_arriba'), valor: datos.talles.arriba },
+    { etiqueta: t('perfil_talle_abajo'), valor: datos.talles.abajo },
+    { etiqueta: t('perfil_talle_zapatos'), valor: datos.talles.zapatos },
+    { etiqueta: t('perfil_talle_abrigo'), valor: datos.talles.abrigo },
+    { etiqueta: t('perfil_talle_prenda'), valor: datos.talles.prenda },
+    { etiqueta: t('perfil_talle_otro'), valor: datos.talles.otro },
+  ]
+  const tieneCancion = Boolean(datos.cancion.url || datos.cancion.titulo || datos.cancion.artista || datos.cancion.album)
+  const tieneAlgo = tieneCancion || filas.some((fila) => fila.valor) || datos.personalizados.length > 0
+
+  if (!tieneAlgo) return <p className="partner-profile-empty">{t('perfil_sin_datos')}</p>
+
+  return (
+    <div className="partner-profile-data">
+      {tieneCancion && (
+        <div className="partner-profile-song">
+          <PortadaCancion url={datos.cancion.portadaUrl} titulo={datos.cancion.titulo || t('perfil_cancion_favorita')} t={t} />
+          <div className="partner-profile-song__info">
+            {datos.cancion.titulo && <strong>{datos.cancion.titulo}</strong>}
+            {datos.cancion.artista && <span>{datos.cancion.artista}</span>}
+            {datos.cancion.album && <small>{datos.cancion.album}</small>}
+            {datos.cancion.url && (
+              <a href={datos.cancion.url} target="_blank" rel="noopener noreferrer">
+                {datos.cancion.proveedor === 'spotify'
+                  ? t('perfil_cancion_proveedor_spotify')
+                  : datos.cancion.proveedor === 'apple'
+                    ? t('perfil_cancion_proveedor_apple')
+                    : t('perfil_cancion_proveedor_youtube')}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="partner-profile-data-grid">
+        {filas.filter((fila) => fila.valor).map((fila) => (
+          <div className="partner-profile-data-row" key={fila.etiqueta}>
+            <span>{fila.etiqueta}</span>
+            <strong>{fila.valor}</strong>
+          </div>
+        ))}
+      </div>
+      {datos.personalizados.length > 0 && (
+        <div className="partner-profile-custom-data">
+          {datos.personalizados.map((dato) => (
+            <div className="partner-profile-data-row" key={dato.id}>
+              <span>{dato.etiqueta}</span>
+              <strong>{dato.valor}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DatosPareja({
+  propio,
+  pareja,
+  vinculada,
+  cargando,
+  error,
+  onReintentar,
+  onEditar,
+  t,
+}: {
+  propio: PerfilMiembro | null
+  pareja: PerfilMiembro | null
+  vinculada: boolean
+  cargando: boolean
+  error: string | null
+  onReintentar: () => void
+  onEditar: () => void
+  t: FuncionT
+}) {
+  return (
+    <section className="partner-profile-section">
+      <div className="partner-profile-section__heading">
+        <h3>{t('perfil_datos_pareja')}</h3>
+        <button type="button" className="partner-profile-edit" onClick={onEditar}>{t('perfil_editar_datos')}</button>
+      </div>
+      {cargando && <p className="partner-profile-status">{t('perfil_cargando_datos')}</p>}
+      {error && (
+        <div className="partner-profile-status partner-profile-status--error">
+          <span>{error}</span>
+          <button type="button" onClick={onReintentar}>{t('perfil_reintentar_datos')}</button>
+        </div>
+      )}
+      {!cargando && !error && (
+        <div className="partner-profile-cards">
+          {propio && (
+            <article className="partner-profile-card partner-profile-card--mine">
+              <div className="partner-profile-card__header"><h4>{t('perfil_mis_datos')}</h4><span>✦</span></div>
+              <DatosPerfilVista datos={propio.datos} t={t} />
+            </article>
+          )}
+          <article className="partner-profile-card">
+            <div className="partner-profile-card__header"><h4>{pareja ? t('perfil_datos_de', pareja.nombre) : t('perfil_datos_de', t('salir_pareja_generica'))}</h4><span>♡</span></div>
+            {pareja ? <DatosPerfilVista datos={pareja.datos} t={t} /> : <p className="partner-profile-empty">{vinculada ? t('perfil_sin_datos') : t('perfil_pareja_esperando')}</p>}
+          </article>
+        </div>
+      )}
+    </section>
+  )
 }
 
 export function Profile({
@@ -57,6 +185,12 @@ export function Profile({
   premium,
   espacioUsado,
   espacioLimite,
+  perfilPropio,
+  perfilPareja,
+  perfilesCargando,
+  errorPerfiles,
+  onReintentarPerfiles,
+  onEditarPerfil,
   onAbrirAjustes,
   onDesvincular,
 }: ProfileProps) {
@@ -182,6 +316,17 @@ export function Profile({
           <div className="stat-card__label">{t('perfil_stat_ideas')}</div>
         </div>
       </div>
+
+      <DatosPareja
+        propio={perfilPropio}
+        pareja={perfilPareja}
+        vinculada={vinculada}
+        cargando={perfilesCargando}
+        error={errorPerfiles}
+        onReintentar={onReintentarPerfiles}
+        onEditar={onEditarPerfil}
+        t={t}
+      />
 
       <div className="settings-panel">
         <div className="settings-row" role="button" onClick={onAbrirAjustes}>

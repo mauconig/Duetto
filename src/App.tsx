@@ -10,6 +10,7 @@ import { Roulette } from './screens/Roulette'
 import { Inspiracion } from './screens/Inspiracion'
 import { Profile } from './screens/Profile'
 import { SettingsSheet } from './components/SettingsSheet'
+import { PartnerProfileSheet } from './components/PartnerProfileSheet'
 import { LeaveCoupleSheet } from './components/LeaveCoupleSheet'
 import { Cargando } from './components/Cargando'
 import { SharedPhotosSheet } from './components/SharedPhotosSheet'
@@ -18,7 +19,7 @@ import { TimelineLightbox } from './components/TimelineLightbox'
 import { limpiarFotosCompartidas, recogerFotosCompartidas } from './lib/compartir'
 import { fileToWebpBlob, photoUrl, PRESET_REFERENCIA } from './lib/photoStorage'
 import type { Album, Tab } from './types'
-import { useApi, type Categoria, type Idea, type Inspiracion as Referencia, type Pareja } from './lib/api'
+import { useApi, type Categoria, type Idea, type Inspiracion as Referencia, type Pareja, type PerfilesPareja } from './lib/api'
 import {
   calcularEdad,
   calcularHito,
@@ -239,6 +240,26 @@ function AppContent({
   // client anything by itself.
   const [enlaceEsVideo, setEnlaceEsVideo] = useState(false)
   const [enlaceOrigen, setEnlaceOrigen] = useState<string | null>(null)
+  const [perfiles, setPerfiles] = useState<PerfilesPareja | null>(null)
+  const [perfilesCargando, setPerfilesCargando] = useState(true)
+  const [errorPerfiles, setErrorPerfiles] = useState<string | null>(null)
+  const [editandoPerfil, setEditandoPerfil] = useState(false)
+
+  const cargarPerfiles = useCallback(async () => {
+    setPerfilesCargando(true)
+    setErrorPerfiles(null)
+    try {
+      setPerfiles(await api.obtenerPerfiles())
+    } catch {
+      setErrorPerfiles(t('perfil_error_cargar_datos'))
+    } finally {
+      setPerfilesCargando(false)
+    }
+  }, [api, t])
+
+  useEffect(() => {
+    if (tab === 'perfil') void cargarPerfiles()
+  }, [tab, cargarPerfiles])
 
   // Which milestone this device has already celebrated. Read once: a
   // celebration that came back on every render would be a strobe light, and
@@ -666,6 +687,12 @@ function AppContent({
           premium={pareja.premium}
           espacioUsado={pareja.espacioUsado}
           espacioLimite={pareja.espacioLimite}
+          perfilPropio={perfiles?.propio ?? null}
+          perfilPareja={perfiles?.pareja ?? null}
+          perfilesCargando={perfilesCargando}
+          errorPerfiles={errorPerfiles}
+          onReintentarPerfiles={() => void cargarPerfiles()}
+          onEditarPerfil={() => setEditandoPerfil(true)}
           onAbrirAjustes={() => setAjustesAbiertos(true)}
           onDesvincular={() => setDesvinculando(true)}
         />
@@ -678,6 +705,17 @@ function AppContent({
           onGuardar={(p) => {
             onActualizarPareja(p)
             setAjustesAbiertos(false)
+          }}
+        />
+      )}
+
+      {editandoPerfil && (
+        <PartnerProfileSheet
+          perfil={perfiles?.propio ?? null}
+          onClose={() => setEditandoPerfil(false)}
+          onGuardar={(actualizados) => {
+            setPerfiles(actualizados)
+            setEditandoPerfil(false)
           }}
         />
       )}

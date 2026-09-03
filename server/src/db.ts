@@ -45,6 +45,46 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_members_couple ON members(couple_id);
 
+  -- Each member owns one profile that their partner can read. Keeping this
+  -- separate from members lets the couple/profile metadata evolve without
+  -- making authentication and consent rows carry presentation data.
+  CREATE TABLE IF NOT EXISTS member_profiles (
+    user_id             TEXT PRIMARY KEY REFERENCES members(user_id) ON DELETE CASCADE,
+    color_favorito      TEXT,
+    cancion_titulo      TEXT,
+    cancion_artista     TEXT,
+    cancion_album       TEXT,
+    cancion_proveedor   TEXT,
+    cancion_url         TEXT,
+    cancion_portada_url TEXT,
+    comida_favorita     TEXT,
+    bebida_favorita     TEXT,
+    hobbies             TEXT,
+    gustos              TEXT,
+    disgustos           TEXT,
+    ideas_regalo        TEXT,
+    talle_arriba        TEXT,
+    talle_abajo         TEXT,
+    talle_zapatos       TEXT,
+    talle_abrigo        TEXT,
+    talle_prenda        TEXT,
+    talle_otro          TEXT,
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS member_profile_facts (
+    id                  TEXT PRIMARY KEY,
+    user_id             TEXT NOT NULL REFERENCES member_profiles(user_id) ON DELETE CASCADE,
+    etiqueta            TEXT NOT NULL,
+    valor               TEXT NOT NULL,
+    posicion            INTEGER NOT NULL,
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_member_profile_facts_user ON member_profile_facts(user_id, posicion);
+
   CREATE TABLE IF NOT EXISTS entries (
     id         TEXT PRIMARY KEY,
     couple_id  TEXT NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
@@ -194,6 +234,14 @@ addColumnIfMissing('entries', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('categorias', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('ideas', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('members', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
+
+// Profiles are optional, so existing members can be backfilled with an empty
+// profile without inventing any values. The INSERT is idempotent and keeps
+// profile creation independent from the login/couple flow.
+db.prepare(`
+  INSERT OR IGNORE INTO member_profiles (user_id, created_at, updated_at)
+  SELECT user_id, joined_at, joined_at FROM members
+`).run()
 
 /** What the wheel used to be hardcoded with on the client. */
 const IDEAS_INICIALES = [

@@ -23,6 +23,13 @@ const DEMASIADAS = `No podés subir más de ${MAX_FOTOS} fotos por recuerdo`
 // Past ~30 slices the wheel labels stop being readable.
 const MAX_IDEAS = 30
 const MAX_LARGO_IDEA = 60
+const MAX_DATOS_PERSONALIZADOS = 10
+const MAX_LARGO_CAMPO_PERFIL = 120
+const MAX_LARGO_CAMPO_PERFIL_LARGO = 500
+const MAX_LARGO_ETIQUETA_PERFIL = 40
+const MAX_LARGO_VALOR_PERSONALIZADO = 300
+const MAX_LARGO_URL_MUSICA = 500
+const MAX_LARGO_PORTADA_MUSICA = 1000
 
 // `files` counts every file part in the request, not photos, and each photo
 // is sent twice — full size and thumbnail. Leaving it at MAX_FOTOS silently
@@ -75,6 +82,22 @@ const limiteEnlace = rateLimit({ windowMs: 60 * 1000, limit: 20, standardHeaders
  * bounds how fast a script can try to fill it. */
 const limiteSubida = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false })
 
+const HOSTS_MUSICA = new Set([
+  'open.spotify.com',
+  'spotify.link',
+  'music.youtube.com',
+  'youtube.com',
+  'www.youtube.com',
+  'youtu.be',
+  'music.apple.com',
+  'itunes.apple.com',
+])
+const HOSTS_PORTADA_MUSICA = new Set(['i.scdn.co', 'i.ytimg.com', 'img.youtube.com'])
+const RE_HOST_PORTADA_SPOTIFY = /^image-cdn-[a-z0-9-]+\.spotifycdn\.com$/
+const RE_HOST_PORTADA_APPLE = /^is[1-5]-ssl\.mzstatic\.com$/
+const MAX_BYTES_METADATA_MUSICA = 768 * 1024
+const TIEMPO_METADATA_MUSICA = 8_000
+
 const q = {
   memberByUser: db.prepare('SELECT * FROM members WHERE user_id = ?'),
   coupleById: db.prepare('SELECT * FROM couples WHERE id = ?'),
@@ -86,6 +109,27 @@ const q = {
   insertCouple: db.prepare('INSERT INTO couples (id, code, created_at) VALUES (?, ?, ?)'),
   insertMember: db.prepare(
     'INSERT INTO members (user_id, couple_id, nombre, joined_at, privacidad_version, privacidad_at, cifrado) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  ),
+
+  /* Partner profiles. The authenticated user is the only profile that can be
+   * written; the read route joins both rows back to members for display. */
+  profileByUser: db.prepare('SELECT * FROM member_profiles WHERE user_id = ?'),
+  profileFactsByUser: db.prepare(
+    'SELECT id, etiqueta, valor, posicion FROM member_profile_facts WHERE user_id = ? ORDER BY posicion, created_at',
+  ),
+  insertProfile: db.prepare('INSERT OR IGNORE INTO member_profiles (user_id, created_at, updated_at) VALUES (?, ?, ?)'),
+  updateProfile: db.prepare(`
+    UPDATE member_profiles SET
+      color_favorito = ?, cancion_titulo = ?, cancion_artista = ?, cancion_album = ?,
+      cancion_proveedor = ?, cancion_url = ?, cancion_portada_url = ?, comida_favorita = ?,
+      bebida_favorita = ?, hobbies = ?, gustos = ?, disgustos = ?, ideas_regalo = ?,
+      talle_arriba = ?, talle_abajo = ?, talle_zapatos = ?, talle_abrigo = ?,
+      talle_prenda = ?, talle_otro = ?, updated_at = ?
+    WHERE user_id = ?
+  `),
+  deleteProfileFacts: db.prepare('DELETE FROM member_profile_facts WHERE user_id = ?'),
+  insertProfileFact: db.prepare(
+    'INSERT INTO member_profile_facts (id, user_id, etiqueta, valor, posicion, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
   ),
 
   /* Encryption. The server stores these and hands them back; it never derives
@@ -437,6 +481,7 @@ app.post('/api/couple', requireAuth, (req: AuthedRequest, res) => {
   try {
     q.insertCouple.run(id, code, ahora)
     q.insertMember.run(req.userId!, id, nombre, ahora, versionPrivacidad(req), ahora, banderaCifrado(req))
+    q.insertProfile.run(req.userId!, ahora, ahora)
     sembrarIdeas(id)
     db.exec('COMMIT')
   } catch (e) {
@@ -479,6 +524,7 @@ app.post('/api/couple/join', requireAuth, limiteJoin, (req: AuthedRequest, res) 
 
   const ahoraJoin = new Date().toISOString()
   q.insertMember.run(req.userId!, couple.id, nombre, ahoraJoin, versionPrivacidad(req), ahoraJoin, banderaCifrado(req))
+  q.insertProfile.run(req.userId!, ahoraJoin, ahoraJoin)
   res.json(estadoPareja(couple.id, req.userId!))
 })
 
@@ -746,6 +792,510 @@ function coupleIdDe(userId: string): string | null {
   const member = q.memberByUser.get(userId) as { couple_id: string } | undefined
   return member?.couple_id ?? null
 }
+
+type ProveedorMusica = 'spotify' | 'youtube' | 'apple'
+
+interface PerfilCancion {
+  titulo: string | null
+  artista: string | null
+  album: string | null
+  proveedor: ProveedorMusica | null
+  url: string | null
+  portadaUrl: string | null
+}
+
+interface PerfilDatos {
+  colorFavorito: string | null
+  cancion: PerfilCancion
+  comidaFavorita: string | null
+  bebidaFavorita: string | null
+  hobbies: string | null
+  gustos: string | null
+  disgustos: string | null
+  ideasRegalo: string | null
+  talles: {
+    arriba: string | null
+    abajo: string | null
+    zapatos: string | null
+    abrigo: string | null
+    prenda: string | null
+    otro: string | null
+  }
+  personalizados: { id: string; etiqueta: string; valor: string; posicion: number }[]
+}
+
+function textoPerfil(valor: unknown, limite: number): string | null | undefined {
+  if (valor === undefined || valor === null) return null
+  if (typeof valor !== 'string') return undefined
+  const texto = String(valor).trim()
+  if (!texto) return null
+  if (texto.length > limite) return undefined
+  return texto
+}
+
+function urlMusicaPermitida(valor: unknown, limite = MAX_LARGO_URL_MUSICA): URL | null {
+  if (typeof valor !== 'string' || !valor.trim()) return null
+  try {
+    const url = new URL(valor.trim())
+    if (url.protocol !== 'https:' || url.port || url.href.length > limite || !HOSTS_MUSICA.has(url.hostname.toLowerCase())) return null
+    return url
+  } catch {
+    return null
+  }
+}
+
+function proveedorDeUrl(url: URL): ProveedorMusica {
+  const host = url.hostname.toLowerCase()
+  if (host.includes('spotify')) return 'spotify'
+  if (host.includes('apple')) return 'apple'
+  return 'youtube'
+}
+
+function portadaPermitida(valor: unknown): string | null | undefined {
+  if (valor === undefined || valor === null || String(valor).trim() === '') return null
+  try {
+    const url = new URL(String(valor).trim())
+    const host = url.hostname.toLowerCase()
+    const permitida = url.protocol === 'https:' && (HOSTS_PORTADA_MUSICA.has(host) || RE_HOST_PORTADA_SPOTIFY.test(host) || RE_HOST_PORTADA_APPLE.test(host))
+    if (!permitida || url.href.length > MAX_LARGO_PORTADA_MUSICA) return undefined
+    return url.href
+  } catch {
+    return undefined
+  }
+}
+
+function perfilVacio(): PerfilDatos {
+  return {
+    colorFavorito: null,
+    cancion: { titulo: null, artista: null, album: null, proveedor: null, url: null, portadaUrl: null },
+    comidaFavorita: null,
+    bebidaFavorita: null,
+    hobbies: null,
+    gustos: null,
+    disgustos: null,
+    ideasRegalo: null,
+    talles: { arriba: null, abajo: null, zapatos: null, abrigo: null, prenda: null, otro: null },
+    personalizados: [],
+  }
+}
+
+function asegurarPerfil(userId: string) {
+  const ahora = new Date().toISOString()
+  q.insertProfile.run(userId, ahora, ahora)
+}
+
+function perfilVisible(userId: string, nombre: string, imagenUrl: string | null) {
+  asegurarPerfil(userId)
+  const fila = q.profileByUser.get(userId) as
+    | {
+        color_favorito: string | null
+        cancion_titulo: string | null
+        cancion_artista: string | null
+        cancion_album: string | null
+        cancion_proveedor: ProveedorMusica | null
+        cancion_url: string | null
+        cancion_portada_url: string | null
+        comida_favorita: string | null
+        bebida_favorita: string | null
+        hobbies: string | null
+        gustos: string | null
+        disgustos: string | null
+        ideas_regalo: string | null
+        talle_arriba: string | null
+        talle_abajo: string | null
+        talle_zapatos: string | null
+        talle_abrigo: string | null
+        talle_prenda: string | null
+        talle_otro: string | null
+      }
+    | undefined
+  if (!fila) return { nombre, imagenUrl, datos: perfilVacio() }
+  return {
+    nombre,
+    imagenUrl,
+    datos: {
+      colorFavorito: fila.color_favorito,
+      cancion: {
+        titulo: fila.cancion_titulo,
+        artista: fila.cancion_artista,
+        album: fila.cancion_album,
+        proveedor: fila.cancion_proveedor,
+        url: fila.cancion_url,
+        portadaUrl: fila.cancion_portada_url,
+      },
+      comidaFavorita: fila.comida_favorita,
+      bebidaFavorita: fila.bebida_favorita,
+      hobbies: fila.hobbies,
+      gustos: fila.gustos,
+      disgustos: fila.disgustos,
+      ideasRegalo: fila.ideas_regalo,
+      talles: {
+        arriba: fila.talle_arriba,
+        abajo: fila.talle_abajo,
+        zapatos: fila.talle_zapatos,
+        abrigo: fila.talle_abrigo,
+        prenda: fila.talle_prenda,
+        otro: fila.talle_otro,
+      },
+      personalizados: q.profileFactsByUser.all(userId) as { id: string; etiqueta: string; valor: string; posicion: number }[],
+    } satisfies PerfilDatos,
+  }
+}
+
+function perfilesDePareja(coupleId: string, userId: string) {
+  const miembros = q.membersOfCouple.all(coupleId) as { user_id: string; nombre: string; imagen_url: string | null }[]
+  const yo = miembros.find((m) => m.user_id === userId)
+  const pareja = miembros.find((m) => m.user_id !== userId)
+  return {
+    propio: yo ? perfilVisible(yo.user_id, yo.nombre, yo.imagen_url) : null,
+    pareja: pareja ? perfilVisible(pareja.user_id, pareja.nombre, pareja.imagen_url) : null,
+  }
+}
+
+function leerPerfil(body: Record<string, unknown> | undefined):
+  | {
+      datos: Omit<PerfilDatos, 'personalizados'>
+      personalizados: { etiqueta: string; valor: string }[]
+    }
+  | null {
+  const b = body ?? {}
+  const corto = [
+    'colorFavorito',
+    'comidaFavorita',
+    'bebidaFavorita',
+    'talleArriba',
+    'talleAbajo',
+    'talleZapatos',
+    'talleAbrigo',
+    'tallePrenda',
+    'talleOtro',
+  ]
+  const largo = ['hobbies', 'gustos', 'disgustos', 'ideasRegalo']
+  const valores: Record<string, string | null> = {}
+  for (const campo of corto) {
+    const valor = textoPerfil(b[campo], MAX_LARGO_CAMPO_PERFIL)
+    if (valor === undefined) return null
+    valores[campo] = valor
+  }
+  for (const campo of largo) {
+    const valor = textoPerfil(b[campo], MAX_LARGO_CAMPO_PERFIL_LARGO)
+    if (valor === undefined) return null
+    valores[campo] = valor
+  }
+
+  const cancion = (b.cancion && typeof b.cancion === 'object' ? b.cancion : {}) as Record<string, unknown>
+  const titulo = textoPerfil(cancion.titulo, MAX_LARGO_CAMPO_PERFIL)
+  const artista = textoPerfil(cancion.artista, MAX_LARGO_CAMPO_PERFIL)
+  const album = textoPerfil(cancion.album, MAX_LARGO_CAMPO_PERFIL)
+  const urlCruda = typeof cancion.url === 'string' ? cancion.url.trim() : ''
+  const url = urlCruda ? urlMusicaPermitida(urlCruda) : null
+  const portadaUrl = portadaPermitida(cancion.portadaUrl)
+  if (titulo === undefined || artista === undefined || album === undefined || (urlCruda && !url) || portadaUrl === undefined) return null
+  const personalizadosCrudos = Array.isArray(b.personalizados) ? b.personalizados : []
+  if (personalizadosCrudos.length > MAX_DATOS_PERSONALIZADOS) return null
+  const personalizados: { etiqueta: string; valor: string }[] = []
+  for (const item of personalizadosCrudos) {
+    if (!item || typeof item !== 'object') return null
+    const fila = item as Record<string, unknown>
+    const etiqueta = textoPerfil(fila.etiqueta, MAX_LARGO_ETIQUETA_PERFIL)
+    const valor = textoPerfil(fila.valor, MAX_LARGO_VALOR_PERSONALIZADO)
+    if (etiqueta === undefined || valor === undefined) return null
+    if (!etiqueta && !valor) continue
+    if (!etiqueta || !valor) return null
+    personalizados.push({ etiqueta, valor })
+  }
+
+  return {
+    datos: {
+      colorFavorito: valores.colorFavorito ?? null,
+      cancion: {
+        titulo: titulo ?? null,
+        artista: artista ?? null,
+        album: album ?? null,
+        proveedor: url ? proveedorDeUrl(url) : null,
+        url: url?.href ?? null,
+        portadaUrl: portadaUrl ?? null,
+      },
+      comidaFavorita: valores.comidaFavorita ?? null,
+      bebidaFavorita: valores.bebidaFavorita ?? null,
+      hobbies: valores.hobbies ?? null,
+      gustos: valores.gustos ?? null,
+      disgustos: valores.disgustos ?? null,
+      ideasRegalo: valores.ideasRegalo ?? null,
+      talles: {
+        arriba: valores.talleArriba ?? null,
+        abajo: valores.talleAbajo ?? null,
+        zapatos: valores.talleZapatos ?? null,
+        abrigo: valores.talleAbrigo ?? null,
+        prenda: valores.tallePrenda ?? null,
+        otro: valores.talleOtro ?? null,
+      },
+    },
+    personalizados,
+  }
+}
+
+function metaContenido(html: string, clave: string): string | null {
+  for (const m of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const tag = m[0]
+    const property = /(?:property|name)=["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase()
+    if (property !== clave.toLowerCase()) continue
+    const contenido = /content=["']([^"']*)["']/i.exec(tag)?.[1]
+    if (contenido !== undefined) return decodificarHtml(contenido)
+  }
+  return null
+}
+
+function decodificarHtml(texto: string): string {
+  return texto
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
+}
+
+function limitarTextoMetadata(texto: string | null): string | null {
+  if (!texto) return null
+  const limpio = texto.replace(/\s+/g, ' ').trim()
+  return limpio ? limpio.slice(0, MAX_LARGO_CAMPO_PERFIL) : null
+}
+
+function separarTituloArtista(titulo: string | null): { titulo: string | null; artista: string | null } {
+  const limpio = limitarTextoMetadata(titulo)
+  if (!limpio) return { titulo: null, artista: null }
+  const separador = limpio.match(/\s+(?:[-–—|·]|by)\s+/i)
+  if (!separador || separador.index === undefined) return { titulo: limpio, artista: null }
+  return {
+    titulo: limpio.slice(0, separador.index).trim() || null,
+    artista: limpio.slice(separador.index + separador[0].length).trim() || null,
+  }
+}
+
+function urlPortadaMetadata(valor: string | null): string | null {
+  return portadaPermitida(valor) ?? null
+}
+
+async function leerBytesMetadata(respuesta: Response): Promise<Buffer | null> {
+  if (!respuesta.body) return Buffer.from(await respuesta.arrayBuffer())
+  const lector = respuesta.body.getReader()
+  const partes: Buffer[] = []
+  let total = 0
+  while (true) {
+    const siguiente = await lector.read()
+    if (siguiente.done) break
+    const parte = Buffer.from(siguiente.value)
+    total += parte.length
+    if (total > MAX_BYTES_METADATA_MUSICA) {
+      await lector.cancel()
+      return null
+    }
+    partes.push(parte)
+  }
+  return Buffer.concat(partes)
+}
+
+async function obtenerRespuestaMetadata(url: string, limiteUrl = MAX_LARGO_URL_MUSICA): Promise<{ cuerpo: string; url: string } | null> {
+  const control = new AbortController()
+  const timer = setTimeout(() => control.abort(), TIEMPO_METADATA_MUSICA)
+  try {
+    const inicial = urlMusicaPermitida(url, limiteUrl)
+    if (!inicial) return null
+    let actual: URL = inicial
+    for (let salto = 0; salto < 5; salto++) {
+      const respuesta = await fetch(actual.href, {
+        redirect: 'manual',
+        signal: control.signal,
+        headers: { Accept: 'text/html, application/json;q=0.9', 'User-Agent': 'Duetto/1.0 metadata resolver' },
+      })
+      if (respuesta.status >= 300 && respuesta.status < 400) {
+        const destino = respuesta.headers.get('location')
+        const siguiente: URL | null = destino ? urlMusicaPermitida(new URL(destino, actual.href).href, limiteUrl) : null
+        // Validate every hop before fetching it. This keeps a permitted short
+        // link from being used as a bridge to localhost or another private host.
+        if (!siguiente) return null
+        actual = siguiente
+        continue
+      }
+      if (!respuesta.ok || !urlMusicaPermitida(actual.href, limiteUrl)) return null
+      const largo = Number(respuesta.headers.get('content-length') ?? 0)
+      if (largo > MAX_BYTES_METADATA_MUSICA) return null
+      const bytes = await leerBytesMetadata(respuesta)
+      if (!bytes) return null
+      return { cuerpo: bytes.toString('utf8'), url: actual.href }
+    }
+    return null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function metadataMusica(url: URL): Promise<{
+  titulo: string | null
+  artista: string | null
+  album: string | null
+  proveedor: ProveedorMusica
+  url: string
+  portadaUrl: string | null
+} | null> {
+  const proveedor = proveedorDeUrl(url)
+  const final = await obtenerRespuestaMetadata(url.href)
+  if (!final && (proveedor === 'spotify' || proveedor === 'youtube')) {
+    const oembed = new URL(proveedor === 'spotify' ? 'https://open.spotify.com/oembed' : 'https://www.youtube.com/oembed')
+    oembed.searchParams.set('url', url.href)
+    if (proveedor === 'youtube') oembed.searchParams.set('format', 'json')
+    const respuesta = await obtenerRespuestaMetadata(oembed.href, 2_000)
+    if (respuesta) {
+      try {
+        const dato = JSON.parse(respuesta.cuerpo) as { title?: string; author_name?: string; thumbnail_url?: string }
+        return {
+          titulo: limitarTextoMetadata(dato.title ?? null),
+          artista: limitarTextoMetadata(dato.author_name ?? null),
+          album: null,
+          proveedor,
+          url: url.href,
+          portadaUrl: urlPortadaMetadata(dato.thumbnail_url ?? null),
+        }
+      } catch {
+        return null
+      }
+    }
+  }
+  if (!final) return null
+
+  let titulo: string | null = null
+  let artista: string | null = null
+  let album: string | null = null
+  let portadaUrl: string | null = null
+
+  if (proveedor === 'spotify') {
+    const oembed = new URL('https://open.spotify.com/oembed')
+    oembed.searchParams.set('url', final.url)
+    const respuesta = await obtenerRespuestaMetadata(oembed.href, 2_000)
+    if (respuesta) {
+      try {
+        const dato = JSON.parse(respuesta.cuerpo) as { title?: string; thumbnail_url?: string }
+        titulo = limitarTextoMetadata(dato.title ?? null)
+        portadaUrl = urlPortadaMetadata(dato.thumbnail_url ?? null)
+      } catch {
+        // The page metadata below is still useful when oEmbed is unavailable.
+      }
+    }
+  }
+
+  const ogTitle = metaContenido(final.cuerpo, 'og:title') ?? metaContenido(final.cuerpo, 'twitter:title')
+  const separado = separarTituloArtista(ogTitle)
+  titulo ??= separado.titulo
+  artista ??= separado.artista
+  album = limitarTextoMetadata(metaContenido(final.cuerpo, 'music:album') ?? metaContenido(final.cuerpo, 'og:album'))
+  portadaUrl ??= urlPortadaMetadata(metaContenido(final.cuerpo, 'og:image') ?? metaContenido(final.cuerpo, 'twitter:image'))
+
+  if (proveedor === 'youtube') {
+    const oembed = new URL('https://www.youtube.com/oembed')
+    oembed.searchParams.set('url', final.url)
+    oembed.searchParams.set('format', 'json')
+    const respuesta = await obtenerRespuestaMetadata(oembed.href, 2_000)
+    if (respuesta) {
+      try {
+        const dato = JSON.parse(respuesta.cuerpo) as { title?: string; author_name?: string; thumbnail_url?: string }
+        titulo = limitarTextoMetadata(dato.title ?? titulo)
+        artista = limitarTextoMetadata(dato.author_name ?? artista)
+        portadaUrl = urlPortadaMetadata(dato.thumbnail_url ?? portadaUrl)
+      } catch {
+        // Fall back to Open Graph metadata.
+      }
+    }
+  }
+
+  if (proveedor === 'apple') {
+    const descripcion = metaContenido(final.cuerpo, 'og:description')
+    const desdeDescripcion = descripcion?.match(/\bby\s+(.+?)(?:\s+on\s+Apple Music|$)/i)?.[1]
+    artista ??= limitarTextoMetadata(desdeDescripcion ?? null)
+  }
+
+  if (!titulo && !artista && !portadaUrl) return null
+  // Keep the URL the user pasted. `final.url` is only used for resolving a
+  // shortened link and must not silently replace the original link stored in
+  // the profile.
+  return { titulo, artista, album, proveedor, url: url.href, portadaUrl }
+}
+
+// Readable profile data is returned after the existing couple has loaded.
+app.get('/api/couple/profiles', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  res.json(perfilesDePareja(coupleId, req.userId!))
+})
+
+app.put('/api/couple/profile/me', requireAuth, (req: AuthedRequest, res) => {
+  const coupleId = coupleIdDe(req.userId!)
+  if (!coupleId) {
+    res.status(404).json({ error: 'Todavía no estás en una pareja' })
+    return
+  }
+  const leido = leerPerfil(req.body)
+  if (!leido) {
+    res.status(400).json({ error: 'Revisá los datos del perfil y probá de nuevo' })
+    return
+  }
+  const ahora = new Date().toISOString()
+  db.exec('BEGIN')
+  try {
+    q.insertProfile.run(req.userId!, ahora, ahora)
+    q.updateProfile.run(
+      leido.datos.colorFavorito,
+      leido.datos.cancion.titulo,
+      leido.datos.cancion.artista,
+      leido.datos.cancion.album,
+      leido.datos.cancion.proveedor,
+      leido.datos.cancion.url,
+      leido.datos.cancion.portadaUrl,
+      leido.datos.comidaFavorita,
+      leido.datos.bebidaFavorita,
+      leido.datos.hobbies,
+      leido.datos.gustos,
+      leido.datos.disgustos,
+      leido.datos.ideasRegalo,
+      leido.datos.talles.arriba,
+      leido.datos.talles.abajo,
+      leido.datos.talles.zapatos,
+      leido.datos.talles.abrigo,
+      leido.datos.talles.prenda,
+      leido.datos.talles.otro,
+      ahora,
+      req.userId!,
+    )
+    q.deleteProfileFacts.run(req.userId!)
+    leido.personalizados.forEach((fact, posicion) =>
+      q.insertProfileFact.run(randomUUID(), req.userId!, fact.etiqueta, fact.valor, posicion, ahora, ahora),
+    )
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+  res.json(perfilesDePareja(coupleId, req.userId!))
+})
+
+app.get('/api/music/metadata', requireAuth, limiteEnlace, async (req: AuthedRequest, res) => {
+  const url = urlMusicaPermitida(String(req.query.url ?? ''))
+  if (!url) {
+    res.status(400).json({ error: 'Ese enlace musical no es compatible' })
+    return
+  }
+  const metadata = await metadataMusica(url)
+  if (!metadata) {
+    res.status(404).json({ error: 'No pudimos leer los datos de esa canción' })
+    return
+  }
+  res.json(metadata)
+})
 
 interface FilaEntry {
   id: string

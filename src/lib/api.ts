@@ -117,6 +117,64 @@ export interface Tablero {
   fotos: Inspiracion[]
 }
 
+export type ProveedorMusica = 'spotify' | 'youtube' | 'apple'
+
+export interface PerfilCancion {
+  titulo: string | null
+  artista: string | null
+  album: string | null
+  proveedor: ProveedorMusica | null
+  url: string | null
+  portadaUrl: string | null
+}
+
+export interface PerfilDatoPersonalizado {
+  id: string
+  etiqueta: string
+  valor: string
+  posicion: number
+}
+
+export interface PerfilDatos {
+  colorFavorito: string | null
+  cancion: PerfilCancion
+  comidaFavorita: string | null
+  bebidaFavorita: string | null
+  hobbies: string | null
+  gustos: string | null
+  disgustos: string | null
+  ideasRegalo: string | null
+  talles: {
+    arriba: string | null
+    abajo: string | null
+    zapatos: string | null
+    abrigo: string | null
+    prenda: string | null
+    otro: string | null
+  }
+  personalizados: PerfilDatoPersonalizado[]
+}
+
+export interface PerfilMiembro {
+  nombre: string
+  imagenUrl: string | null
+  datos: PerfilDatos
+}
+
+export interface PerfilesPareja {
+  propio: PerfilMiembro | null
+  pareja: PerfilMiembro | null
+}
+
+export interface MetadataMusica {
+  titulo: string | null
+  artista: string | null
+  album: string | null
+  proveedor: ProveedorMusica
+  url: string
+  portadaUrl: string | null
+}
+
 /** Error carrying the HTTP status so callers can tell "no couple yet"
  * (404) apart from a real failure. */
 export class ApiError extends Error {
@@ -193,6 +251,18 @@ export function useApi() {
       /** Any subset of the fields; omitted ones are left untouched. */
       guardarPerfil(cambios: { fechaAniversario?: string; proximoHito?: Pareja['proximoHito']; nombre?: string }) {
         return call<Pareja>('/couple', { method: 'PATCH', body: JSON.stringify(cambios) })
+      },
+
+      obtenerPerfiles() {
+        return call<PerfilesPareja>('/couple/profiles')
+      },
+
+      guardarPerfilPareja(datos: PerfilDatos) {
+        return call<PerfilesPareja>('/couple/profile/me', { method: 'PUT', body: JSON.stringify(datos) })
+      },
+
+      obtenerMetadataMusica(url: string) {
+        return call<MetadataMusica>(`/music/metadata?url=${encodeURIComponent(url)}`)
       },
 
       /** Leaves the couple. `parejaBorrada` tells whether the couple itself
