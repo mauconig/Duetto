@@ -68,8 +68,15 @@ function tieneDatosPerfil(datos: PerfilDatos): boolean {
 function FilaPerfil({ perfil, propio, t, onVerMas, onCompletar }: { perfil: PerfilMiembro | null; propio: boolean; t: FuncionT; onVerMas: () => void; onCompletar: () => void }) {
   if (!perfil) return null
   const { datos } = perfil
-  const tieneCancion = Boolean(datos.cancion.url || datos.cancion.titulo || datos.cancion.artista)
-  const resumenGustos = datos.gustos || datos.hobbies
+  const tieneCancion = Boolean(datos.cancion.url || datos.cancion.titulo || datos.cancion.artista || datos.cancion.album)
+  const colorFavorito = datos.colorFavorito.nombre || datos.colorFavorito.hex
+  const resumenGustos = [datos.gustos, datos.hobbies].filter(Boolean).join(' · ')
+  const talles = [
+    { etiqueta: t('perfil_talle_arriba'), valor: datos.talles.arriba },
+    { etiqueta: t('perfil_talle_abajo'), valor: datos.talles.abajo },
+    { etiqueta: t('perfil_talle_zapatos'), valor: datos.talles.zapatos },
+    { etiqueta: t('perfil_talle_otro'), valor: datos.talles.otro },
+  ].filter((talle) => talle.valor)
   const tieneDatos = tieneDatosPerfil(datos)
   return (
     <article className={`partner-profile-row${propio ? ' partner-profile-row--mine' : ''}`}>
@@ -91,7 +98,13 @@ function FilaPerfil({ perfil, propio, t, onVerMas, onCompletar }: { perfil: Perf
               </div>
             </div>
           )}
-          {resumenGustos && <p className="partner-profile-row__taste"><span>{t('perfil_gustos')}</span>{resumenGustos}</p>}
+          {(colorFavorito || resumenGustos || talles.length > 0) && (
+            <div className="partner-profile-row__meta">
+              {colorFavorito && <div className="partner-profile-row__color"><i className="partner-profile-color-dot" style={{ backgroundColor: datos.colorFavorito.hex ?? undefined }} /><span>{t('perfil_color_favorito')}</span><strong>{colorFavorito}</strong></div>}
+              {resumenGustos && <p className="partner-profile-row__taste"><span>{t('perfil_gustos')}</span>{resumenGustos}</p>}
+              {talles.length > 0 && <p className="partner-profile-row__sizes"><span>{t('perfil_talles')}</span>{talles.map((talle) => `${talle.etiqueta}: ${talle.valor}`).join(' · ')}</p>}
+            </div>
+          )}
         </div>
       ) : propio ? (
         <button type="button" className="partner-profile-row__complete" onClick={onCompletar}>{t('perfil_completar_datos')}</button>
@@ -282,6 +295,18 @@ export function Profile({
           <div className="stat-card__label">{t('perfil_stat_ideas')}</div>
         </div>
       </div>
+
+      <DatosPareja
+        propio={perfilPropio}
+        pareja={perfilPareja}
+        vinculada={vinculada}
+        cargando={perfilesCargando}
+        error={errorPerfiles}
+        onReintentar={onReintentarPerfiles}
+        onVerMas={onAbrirDetalle}
+        onCompletar={onCompletarPerfil}
+        t={t}
+      />
 
       <div className="settings-panel">
         <div className="settings-row" role="button" onClick={onAbrirAjustes}>
