@@ -217,18 +217,6 @@ export function Profile({
     <div className="screen">
       <h2>{t('nav_perfil')}</h2>
 
-      <DatosPareja
-        propio={perfilPropio}
-        pareja={perfilPareja}
-        vinculada={vinculada}
-        cargando={perfilesCargando}
-        error={errorPerfiles}
-        onReintentar={onReintentarPerfiles}
-        onVerMas={onAbrirDetalle}
-        onCompletar={onCompletarPerfil}
-        t={t}
-      />
-
       <div className="profile-card">
         <div className="profile-card__avatars">
           {/* Only ours is editable, and it says so: a camera badge on one
