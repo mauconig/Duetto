@@ -51,6 +51,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS member_profiles (
     user_id             TEXT PRIMARY KEY REFERENCES members(user_id) ON DELETE CASCADE,
     color_favorito      TEXT,
+    color_favorito_hex  TEXT,
+    proveedor_preferido TEXT,
     cancion_titulo      TEXT,
     cancion_artista     TEXT,
     cancion_album       TEXT,
@@ -234,6 +236,12 @@ addColumnIfMissing('entries', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('categorias', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('ideas', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
 addColumnIfMissing('members', 'cifrado', 'INTEGER NOT NULL DEFAULT 0')
+addColumnIfMissing('member_profiles', 'color_favorito_hex', 'TEXT')
+addColumnIfMissing('member_profiles', 'proveedor_preferido', 'TEXT')
+
+// The compact profile no longer exposes these legacy clothing fields. Clear
+// their values once while keeping the nullable columns for old databases.
+db.prepare('UPDATE member_profiles SET talle_abrigo = NULL, talle_prenda = NULL').run()
 
 // Profiles are optional, so existing members can be backfilled with an empty
 // profile without inventing any values. The INSERT is idempotent and keeps

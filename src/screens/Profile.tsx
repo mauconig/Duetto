@@ -36,7 +36,8 @@ interface ProfileProps {
   perfilesCargando: boolean
   errorPerfiles: string | null
   onReintentarPerfiles: () => void
-  onEditarPerfil: () => void
+  onAbrirDetalle: (perfil: PerfilMiembro, propio: boolean) => void
+  onCompletarPerfil: () => void
   onAbrirAjustes: () => void
   onDesvincular: () => void
 }
@@ -55,114 +56,66 @@ function PortadaCancion({ url, titulo, t }: { url: string | null; titulo: string
   return <img className="partner-profile-song-cover" src={url} alt={t('perfil_portada_alt', titulo)} onError={() => setFallida(true)} />
 }
 
-function DatosPerfilVista({ datos, t }: { datos: PerfilDatos; t: FuncionT }) {
-  const filas: { etiqueta: string; valor: string | null }[] = [
-    { etiqueta: t('perfil_color_favorito'), valor: datos.colorFavorito },
-    { etiqueta: t('perfil_comida_favorita'), valor: datos.comidaFavorita },
-    { etiqueta: t('perfil_bebida_favorita'), valor: datos.bebidaFavorita },
-    { etiqueta: t('perfil_hobbies'), valor: datos.hobbies },
-    { etiqueta: t('perfil_gustos'), valor: datos.gustos },
-    { etiqueta: t('perfil_disgustos'), valor: datos.disgustos },
-    { etiqueta: t('perfil_ideas_regalo'), valor: datos.ideasRegalo },
-    { etiqueta: t('perfil_talle_arriba'), valor: datos.talles.arriba },
-    { etiqueta: t('perfil_talle_abajo'), valor: datos.talles.abajo },
-    { etiqueta: t('perfil_talle_zapatos'), valor: datos.talles.zapatos },
-    { etiqueta: t('perfil_talle_abrigo'), valor: datos.talles.abrigo },
-    { etiqueta: t('perfil_talle_prenda'), valor: datos.talles.prenda },
-    { etiqueta: t('perfil_talle_otro'), valor: datos.talles.otro },
-  ]
-  const tieneCancion = Boolean(datos.cancion.url || datos.cancion.titulo || datos.cancion.artista || datos.cancion.album)
-  const tieneAlgo = tieneCancion || filas.some((fila) => fila.valor) || datos.personalizados.length > 0
-
-  if (!tieneAlgo) return <p className="partner-profile-empty">{t('perfil_sin_datos')}</p>
-
-  return (
-    <div className="partner-profile-data">
-      {tieneCancion && (
-        <div className="partner-profile-song">
-          <PortadaCancion url={datos.cancion.portadaUrl} titulo={datos.cancion.titulo || t('perfil_cancion_favorita')} t={t} />
-          <div className="partner-profile-song__info">
-            {datos.cancion.titulo && <strong>{datos.cancion.titulo}</strong>}
-            {datos.cancion.artista && <span>{datos.cancion.artista}</span>}
-            {datos.cancion.album && <small>{datos.cancion.album}</small>}
-            {datos.cancion.url && (
-              <a href={datos.cancion.url} target="_blank" rel="noopener noreferrer">
-                {datos.cancion.proveedor === 'spotify'
-                  ? t('perfil_cancion_proveedor_spotify')
-                  : datos.cancion.proveedor === 'apple'
-                    ? t('perfil_cancion_proveedor_apple')
-                    : t('perfil_cancion_proveedor_youtube')}
-              </a>
-            )}
-          </div>
-        </div>
-      )}
-      <div className="partner-profile-data-grid">
-        {filas.filter((fila) => fila.valor).map((fila) => (
-          <div className="partner-profile-data-row" key={fila.etiqueta}>
-            <span>{fila.etiqueta}</span>
-            <strong>{fila.valor}</strong>
-          </div>
-        ))}
-      </div>
-      {datos.personalizados.length > 0 && (
-        <div className="partner-profile-custom-data">
-          {datos.personalizados.map((dato) => (
-            <div className="partner-profile-data-row" key={dato.id}>
-              <span>{dato.etiqueta}</span>
-              <strong>{dato.valor}</strong>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+function tieneDatosPerfil(datos: PerfilDatos): boolean {
+  return Boolean(
+    datos.cancion.url || datos.cancion.titulo || datos.cancion.artista || datos.cancion.album ||
+      datos.colorFavorito.nombre || datos.colorFavorito.hex || datos.comidaFavorita || datos.bebidaFavorita ||
+      datos.hobbies || datos.gustos || datos.disgustos || datos.ideasRegalo || datos.talles.arriba ||
+      datos.talles.abajo || datos.talles.zapatos || datos.talles.otro || datos.personalizados.length,
   )
 }
 
-function DatosPareja({
-  propio,
-  pareja,
-  vinculada,
-  cargando,
-  error,
-  onReintentar,
-  onEditar,
-  t,
-}: {
-  propio: PerfilMiembro | null
-  pareja: PerfilMiembro | null
-  vinculada: boolean
-  cargando: boolean
-  error: string | null
-  onReintentar: () => void
-  onEditar: () => void
-  t: FuncionT
-}) {
+function FilaPerfil({ perfil, propio, t, onVerMas, onCompletar }: { perfil: PerfilMiembro | null; propio: boolean; t: FuncionT; onVerMas: () => void; onCompletar: () => void }) {
+  if (!perfil) return null
+  const { datos } = perfil
+  const tieneCancion = Boolean(datos.cancion.url || datos.cancion.titulo || datos.cancion.artista)
+  const resumenGustos = datos.gustos || datos.hobbies
+  const tieneDatos = tieneDatosPerfil(datos)
+  return (
+    <article className={`partner-profile-row${propio ? ' partner-profile-row--mine' : ''}`}>
+      <div className="partner-profile-row__top">
+        <div className="partner-profile-row__identity">
+          <span>{propio ? t('perfil_mis_datos') : perfil.nombre}</span>
+          {propio && <strong>{perfil.nombre}</strong>}
+        </div>
+        {tieneDatos && <button type="button" className="partner-profile-row__more" onClick={onVerMas}>{t('perfil_ver_mas')}</button>}
+      </div>
+      {tieneDatos ? (
+        <div className="partner-profile-row__content">
+          {tieneCancion && (
+            <div className="partner-profile-row__song">
+              <PortadaCancion url={datos.cancion.portadaUrl} titulo={datos.cancion.titulo || t('perfil_cancion_favorita')} t={t} />
+              <div>
+                {datos.cancion.titulo && <strong>{datos.cancion.titulo}</strong>}
+                {datos.cancion.artista && <span>{datos.cancion.artista}</span>}
+              </div>
+            </div>
+          )}
+          {resumenGustos && <p className="partner-profile-row__taste"><span>{t('perfil_gustos')}</span>{resumenGustos}</p>}
+        </div>
+      ) : propio ? (
+        <button type="button" className="partner-profile-row__complete" onClick={onCompletar}>{t('perfil_completar_datos')}</button>
+      ) : (
+        <p className="partner-profile-row__empty">{t('perfil_sin_datos')}</p>
+      )}
+    </article>
+  )
+}
+
+function DatosPareja({ propio, pareja, vinculada, cargando, error, onReintentar, onVerMas, onCompletar, t }: { propio: PerfilMiembro | null; pareja: PerfilMiembro | null; vinculada: boolean; cargando: boolean; error: string | null; onReintentar: () => void; onVerMas: (perfil: PerfilMiembro, propio: boolean) => void; onCompletar: () => void; t: FuncionT }) {
   return (
     <section className="partner-profile-section">
-      <div className="partner-profile-section__heading">
-        <h3>{t('perfil_datos_pareja')}</h3>
-        <button type="button" className="partner-profile-edit" onClick={onEditar}>{t('perfil_editar_datos')}</button>
-      </div>
+      <h3>{t('perfil_datos_pareja')}</h3>
       {cargando && <p className="partner-profile-status">{t('perfil_cargando_datos')}</p>}
-      {error && (
-        <div className="partner-profile-status partner-profile-status--error">
-          <span>{error}</span>
-          <button type="button" onClick={onReintentar}>{t('perfil_reintentar_datos')}</button>
-        </div>
-      )}
+      {error && <div className="partner-profile-status partner-profile-status--error"><span>{error}</span><button type="button" onClick={onReintentar}>{t('perfil_reintentar_datos')}</button></div>}
       {!cargando && !error && (
-        <div className="partner-profile-cards">
-          {propio && (
-            <article className="partner-profile-card partner-profile-card--mine">
-              <div className="partner-profile-card__header"><h4>{t('perfil_mis_datos')}</h4><span>✦</span></div>
-              <DatosPerfilVista datos={propio.datos} t={t} />
-            </article>
+        <div className="partner-profile-rows">
+          <FilaPerfil perfil={propio} propio t={t} onVerMas={() => propio && onVerMas(propio, true)} onCompletar={onCompletar} />
+          {pareja ? (
+            <FilaPerfil perfil={pareja} propio={false} t={t} onVerMas={() => onVerMas(pareja, false)} onCompletar={() => undefined} />
+          ) : (
+            <article className="partner-profile-row"><div className="partner-profile-row__top"><div className="partner-profile-row__identity"><span>{t('perfil_datos_de', t('salir_pareja_generica'))}</span></div></div><p className="partner-profile-row__empty">{vinculada ? t('perfil_sin_datos') : t('perfil_pareja_esperando')}</p></article>
           )}
-          <article className="partner-profile-card">
-            <div className="partner-profile-card__header"><h4>{pareja ? t('perfil_datos_de', pareja.nombre) : t('perfil_datos_de', t('salir_pareja_generica'))}</h4><span>♡</span></div>
-            {pareja ? <DatosPerfilVista datos={pareja.datos} t={t} /> : <p className="partner-profile-empty">{vinculada ? t('perfil_sin_datos') : t('perfil_pareja_esperando')}</p>}
-          </article>
         </div>
       )}
     </section>
@@ -190,7 +143,8 @@ export function Profile({
   perfilesCargando,
   errorPerfiles,
   onReintentarPerfiles,
-  onEditarPerfil,
+  onAbrirDetalle,
+  onCompletarPerfil,
   onAbrirAjustes,
   onDesvincular,
 }: ProfileProps) {
@@ -249,6 +203,18 @@ export function Profile({
   return (
     <div className="screen">
       <h2>{t('nav_perfil')}</h2>
+
+      <DatosPareja
+        propio={perfilPropio}
+        pareja={perfilPareja}
+        vinculada={vinculada}
+        cargando={perfilesCargando}
+        error={errorPerfiles}
+        onReintentar={onReintentarPerfiles}
+        onVerMas={onAbrirDetalle}
+        onCompletar={onCompletarPerfil}
+        t={t}
+      />
 
       <div className="profile-card">
         <div className="profile-card__avatars">
@@ -316,17 +282,6 @@ export function Profile({
           <div className="stat-card__label">{t('perfil_stat_ideas')}</div>
         </div>
       </div>
-
-      <DatosPareja
-        propio={perfilPropio}
-        pareja={perfilPareja}
-        vinculada={vinculada}
-        cargando={perfilesCargando}
-        error={errorPerfiles}
-        onReintentar={onReintentarPerfiles}
-        onEditar={onEditarPerfil}
-        t={t}
-      />
 
       <div className="settings-panel">
         <div className="settings-row" role="button" onClick={onAbrirAjustes}>

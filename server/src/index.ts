@@ -120,11 +120,12 @@ const q = {
   insertProfile: db.prepare('INSERT OR IGNORE INTO member_profiles (user_id, created_at, updated_at) VALUES (?, ?, ?)'),
   updateProfile: db.prepare(`
     UPDATE member_profiles SET
-      color_favorito = ?, cancion_titulo = ?, cancion_artista = ?, cancion_album = ?,
+      color_favorito = ?, color_favorito_hex = ?, proveedor_preferido = ?,
+      cancion_titulo = ?, cancion_artista = ?, cancion_album = ?,
       cancion_proveedor = ?, cancion_url = ?, cancion_portada_url = ?, comida_favorita = ?,
       bebida_favorita = ?, hobbies = ?, gustos = ?, disgustos = ?, ideas_regalo = ?,
-      talle_arriba = ?, talle_abajo = ?, talle_zapatos = ?, talle_abrigo = ?,
-      talle_prenda = ?, talle_otro = ?, updated_at = ?
+      talle_arriba = ?, talle_abajo = ?, talle_zapatos = ?, talle_abrigo = NULL,
+      talle_prenda = NULL, talle_otro = ?, updated_at = ?
     WHERE user_id = ?
   `),
   deleteProfileFacts: db.prepare('DELETE FROM member_profile_facts WHERE user_id = ?'),
@@ -795,6 +796,11 @@ function coupleIdDe(userId: string): string | null {
 
 type ProveedorMusica = 'spotify' | 'youtube' | 'apple'
 
+interface PerfilColor {
+  hex: string | null
+  nombre: string | null
+}
+
 interface PerfilCancion {
   titulo: string | null
   artista: string | null
@@ -805,7 +811,8 @@ interface PerfilCancion {
 }
 
 interface PerfilDatos {
-  colorFavorito: string | null
+  colorFavorito: PerfilColor
+  proveedorMusicaPreferido: ProveedorMusica | null
   cancion: PerfilCancion
   comidaFavorita: string | null
   bebidaFavorita: string | null
@@ -817,8 +824,6 @@ interface PerfilDatos {
     arriba: string | null
     abajo: string | null
     zapatos: string | null
-    abrigo: string | null
-    prenda: string | null
     otro: string | null
   }
   personalizados: { id: string; etiqueta: string; valor: string; posicion: number }[]
@@ -831,6 +836,26 @@ function textoPerfil(valor: unknown, limite: number): string | null | undefined 
   if (!texto) return null
   if (texto.length > limite) return undefined
   return texto
+}
+
+function colorPerfil(valor: unknown): PerfilColor | undefined {
+  if (valor === undefined || valor === null || valor === '') return { hex: null, nombre: null }
+  if (typeof valor === 'string') {
+    const nombre = textoPerfil(valor, MAX_LARGO_CAMPO_PERFIL)
+    return nombre === undefined ? undefined : { hex: null, nombre }
+  }
+  if (typeof valor !== 'object') return undefined
+  const crudo = valor as Record<string, unknown>
+  const nombre = textoPerfil(crudo.nombre, MAX_LARGO_CAMPO_PERFIL)
+  const hexTexto = textoPerfil(crudo.hex, 7)
+  if (nombre === undefined || hexTexto === undefined) return undefined
+  if (hexTexto && !/^#[0-9a-f]{6}$/i.test(hexTexto)) return undefined
+  return { hex: hexTexto ? hexTexto.toUpperCase() : null, nombre }
+}
+
+function proveedorPreferido(valor: unknown): ProveedorMusica | null | undefined {
+  if (valor === undefined || valor === null || valor === '') return null
+  return valor === 'spotify' || valor === 'youtube' || valor === 'apple' ? valor : undefined
 }
 
 function urlMusicaPermitida(valor: unknown, limite = MAX_LARGO_URL_MUSICA): URL | null {
@@ -866,7 +891,8 @@ function portadaPermitida(valor: unknown): string | null | undefined {
 
 function perfilVacio(): PerfilDatos {
   return {
-    colorFavorito: null,
+    colorFavorito: { hex: null, nombre: null },
+    proveedorMusicaPreferido: null,
     cancion: { titulo: null, artista: null, album: null, proveedor: null, url: null, portadaUrl: null },
     comidaFavorita: null,
     bebidaFavorita: null,
@@ -874,7 +900,7 @@ function perfilVacio(): PerfilDatos {
     gustos: null,
     disgustos: null,
     ideasRegalo: null,
-    talles: { arriba: null, abajo: null, zapatos: null, abrigo: null, prenda: null, otro: null },
+    talles: { arriba: null, abajo: null, zapatos: null, otro: null },
     personalizados: [],
   }
 }
@@ -887,8 +913,10 @@ function asegurarPerfil(userId: string) {
 function perfilVisible(userId: string, nombre: string, imagenUrl: string | null) {
   asegurarPerfil(userId)
   const fila = q.profileByUser.get(userId) as
-    | {
+      | {
         color_favorito: string | null
+        color_favorito_hex: string | null
+        proveedor_preferido: ProveedorMusica | null
         cancion_titulo: string | null
         cancion_artista: string | null
         cancion_album: string | null
@@ -904,8 +932,6 @@ function perfilVisible(userId: string, nombre: string, imagenUrl: string | null)
         talle_arriba: string | null
         talle_abajo: string | null
         talle_zapatos: string | null
-        talle_abrigo: string | null
-        talle_prenda: string | null
         talle_otro: string | null
       }
     | undefined
@@ -914,7 +940,8 @@ function perfilVisible(userId: string, nombre: string, imagenUrl: string | null)
     nombre,
     imagenUrl,
     datos: {
-      colorFavorito: fila.color_favorito,
+      colorFavorito: { hex: fila.color_favorito_hex, nombre: fila.color_favorito },
+      proveedorMusicaPreferido: fila.proveedor_preferido,
       cancion: {
         titulo: fila.cancion_titulo,
         artista: fila.cancion_artista,
@@ -933,8 +960,6 @@ function perfilVisible(userId: string, nombre: string, imagenUrl: string | null)
         arriba: fila.talle_arriba,
         abajo: fila.talle_abajo,
         zapatos: fila.talle_zapatos,
-        abrigo: fila.talle_abrigo,
-        prenda: fila.talle_prenda,
         otro: fila.talle_otro,
       },
       personalizados: q.profileFactsByUser.all(userId) as { id: string; etiqueta: string; valor: string; posicion: number }[],
@@ -959,15 +984,15 @@ function leerPerfil(body: Record<string, unknown> | undefined):
     }
   | null {
   const b = body ?? {}
+  const colorFavorito = colorPerfil(b.colorFavorito)
+  const proveedorMusicaPreferido = proveedorPreferido(b.proveedorMusicaPreferido)
+  if (!colorFavorito || proveedorMusicaPreferido === undefined) return null
   const corto = [
-    'colorFavorito',
     'comidaFavorita',
     'bebidaFavorita',
     'talleArriba',
     'talleAbajo',
     'talleZapatos',
-    'talleAbrigo',
-    'tallePrenda',
     'talleOtro',
   ]
   const largo = ['hobbies', 'gustos', 'disgustos', 'ideasRegalo']
@@ -1007,7 +1032,8 @@ function leerPerfil(body: Record<string, unknown> | undefined):
 
   return {
     datos: {
-      colorFavorito: valores.colorFavorito ?? null,
+      colorFavorito,
+      proveedorMusicaPreferido,
       cancion: {
         titulo: titulo ?? null,
         artista: artista ?? null,
@@ -1026,8 +1052,6 @@ function leerPerfil(body: Record<string, unknown> | undefined):
         arriba: valores.talleArriba ?? null,
         abajo: valores.talleAbajo ?? null,
         zapatos: valores.talleZapatos ?? null,
-        abrigo: valores.talleAbrigo ?? null,
-        prenda: valores.tallePrenda ?? null,
         otro: valores.talleOtro ?? null,
       },
     },
@@ -1249,7 +1273,9 @@ app.put('/api/couple/profile/me', requireAuth, (req: AuthedRequest, res) => {
   try {
     q.insertProfile.run(req.userId!, ahora, ahora)
     q.updateProfile.run(
-      leido.datos.colorFavorito,
+      leido.datos.colorFavorito.nombre,
+      leido.datos.colorFavorito.hex,
+      leido.datos.proveedorMusicaPreferido,
       leido.datos.cancion.titulo,
       leido.datos.cancion.artista,
       leido.datos.cancion.album,
@@ -1265,8 +1291,6 @@ app.put('/api/couple/profile/me', requireAuth, (req: AuthedRequest, res) => {
       leido.datos.talles.arriba,
       leido.datos.talles.abajo,
       leido.datos.talles.zapatos,
-      leido.datos.talles.abrigo,
-      leido.datos.talles.prenda,
       leido.datos.talles.otro,
       ahora,
       req.userId!,

@@ -136,7 +136,11 @@ export interface PerfilDatoPersonalizado {
 }
 
 export interface PerfilDatos {
-  colorFavorito: string | null
+  colorFavorito: {
+    hex: string | null
+    nombre: string | null
+  }
+  proveedorMusicaPreferido: ProveedorMusica | null
   cancion: PerfilCancion
   comidaFavorita: string | null
   bebidaFavorita: string | null
@@ -148,8 +152,6 @@ export interface PerfilDatos {
     arriba: string | null
     abajo: string | null
     zapatos: string | null
-    abrigo: string | null
-    prenda: string | null
     otro: string | null
   }
   personalizados: PerfilDatoPersonalizado[]

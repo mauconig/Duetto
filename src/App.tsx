@@ -11,6 +11,7 @@ import { Inspiracion } from './screens/Inspiracion'
 import { Profile } from './screens/Profile'
 import { SettingsSheet } from './components/SettingsSheet'
 import { PartnerProfileSheet } from './components/PartnerProfileSheet'
+import { PartnerProfileDetailSheet } from './components/PartnerProfileDetailSheet'
 import { LeaveCoupleSheet } from './components/LeaveCoupleSheet'
 import { Cargando } from './components/Cargando'
 import { SharedPhotosSheet } from './components/SharedPhotosSheet'
@@ -244,6 +245,7 @@ function AppContent({
   const [perfilesCargando, setPerfilesCargando] = useState(true)
   const [errorPerfiles, setErrorPerfiles] = useState<string | null>(null)
   const [editandoPerfil, setEditandoPerfil] = useState(false)
+  const [detallePerfil, setDetallePerfil] = useState<{ perfil: NonNullable<PerfilesPareja['propio']>; propio: boolean } | null>(null)
 
   const cargarPerfiles = useCallback(async () => {
     setPerfilesCargando(true)
@@ -692,7 +694,8 @@ function AppContent({
           perfilesCargando={perfilesCargando}
           errorPerfiles={errorPerfiles}
           onReintentarPerfiles={() => void cargarPerfiles()}
-          onEditarPerfil={() => setEditandoPerfil(true)}
+          onAbrirDetalle={(perfil, esPropio) => setDetallePerfil({ perfil, propio: esPropio })}
+          onCompletarPerfil={() => setEditandoPerfil(true)}
           onAbrirAjustes={() => setAjustesAbiertos(true)}
           onDesvincular={() => setDesvinculando(true)}
         />
@@ -717,6 +720,15 @@ function AppContent({
             setPerfiles(actualizados)
             setEditandoPerfil(false)
           }}
+        />
+      )}
+
+      {detallePerfil && (
+        <PartnerProfileDetailSheet
+          perfil={detallePerfil.perfil}
+          propio={detallePerfil.propio}
+          onClose={() => setDetallePerfil(null)}
+          onEditar={detallePerfil.propio ? () => { setDetallePerfil(null); setEditandoPerfil(true) } : undefined}
         />
       )}
 
