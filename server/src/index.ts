@@ -996,9 +996,20 @@ function leerPerfil(body: Record<string, unknown> | undefined):
     'talleOtro',
   ]
   const largo = ['hobbies', 'gustos', 'disgustos', 'ideasRegalo']
+  // The app sends sizes the way it reads them, nested under `talles`. Only
+  // the flat names used to be read here, so every save stored them as null.
+  // The flat names are still accepted, in case an older client sends them.
+  const talles = (b.talles && typeof b.talles === 'object' ? b.talles : {}) as Record<string, unknown>
+  const entrada: Record<string, unknown> = {
+    ...b,
+    talleArriba: talles.arriba ?? b.talleArriba,
+    talleAbajo: talles.abajo ?? b.talleAbajo,
+    talleZapatos: talles.zapatos ?? b.talleZapatos,
+    talleOtro: talles.otro ?? b.talleOtro,
+  }
   const valores: Record<string, string | null> = {}
   for (const campo of corto) {
-    const valor = textoPerfil(b[campo], MAX_LARGO_CAMPO_PERFIL)
+    const valor = textoPerfil(entrada[campo], MAX_LARGO_CAMPO_PERFIL)
     if (valor === undefined) return null
     valores[campo] = valor
   }
