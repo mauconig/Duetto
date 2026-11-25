@@ -33,8 +33,12 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.DUETTE_DEPLOY_HOST }}
           SSH_USER: ${{ secrets.DUETTE_DEPLOY_USER }}
+        # --omit-dir-times: the deploy user can write into /var/www/duette but
+        # doesn't own its directories, so setting their mtimes fails with
+        # "Operation not permitted" and rsync exits 23 — failing the run even
+        # though every file landed. Directory times don't matter here.
         run: |
-          rsync -az --delete --chmod=D755,F644 \
+          rsync -az --delete --omit-dir-times --chmod=D755,F644 \
             -e "ssh -i ~/.ssh/deploy_key" \
             dist/ "$SSH_USER@$SSH_HOST:/var/www/duette/"
 
@@ -60,7 +64,7 @@ jobs:
           SERVER_PATH: ${{ vars.DUETTE_SERVER_PATH }}
           SERVER_UNIT: ${{ vars.DUETTE_SERVER_UNIT }}
         run: |
-          rsync -az --delete --chmod=D755,F644 \
+          rsync -az --delete --omit-dir-times --chmod=D755,F644 \
             --exclude 'data/' --exclude 'node_modules/' \
             -e "ssh -i ~/.ssh/deploy_key" \
             server/ "$SSH_USER@$SSH_HOST:$SERVER_PATH/"
