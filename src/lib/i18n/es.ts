@@ -293,7 +293,9 @@ export const es = {
   recuerdo_subiendo_fotos: 'Subiendo fotos...',
   recuerdo_guardar_nuevo: 'Guardar recuerdo',
   recuerdo_confirmar_borrado: (n: number) =>
-    n === 1 ? 'Se borra para los dos, con su foto. No se puede deshacer.' : `Se borra para los dos, con sus ${n} fotos. No se puede deshacer.`,
+    n === 0
+      ? 'Se borra para los dos. No se puede deshacer.'
+      : n === 1 ? 'Se borra para los dos, con su foto. No se puede deshacer.' : `Se borra para los dos, con sus ${n} fotos. No se puede deshacer.`,
   recuerdo_borrando: 'Borrando...',
   recuerdo_confirmar_si: 'Sí, borrar',
   recuerdo_borrar_boton: 'Borrar recuerdo',

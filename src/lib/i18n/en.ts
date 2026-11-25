@@ -268,7 +268,9 @@ export const en: Diccionario = {
   recuerdo_subiendo_fotos: 'Uploading photos...',
   recuerdo_guardar_nuevo: 'Save memory',
   recuerdo_confirmar_borrado: (n) =>
-    n === 1
+    n === 0
+      ? "This deletes it for both of you. This can't be undone."
+      : n === 1
       ? "This deletes it for both of you, with its photo. This can't be undone."
       : `This deletes it for both of you, with its ${n} photos. This can't be undone.`,
   recuerdo_borrando: 'Deleting...',

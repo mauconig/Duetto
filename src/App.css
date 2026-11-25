@@ -1163,6 +1163,10 @@ h2 {
   height: 160px;
 }
 .timeline__photo-fallback {
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
   border-radius: 18px;
   display: flex;
   align-items: center;

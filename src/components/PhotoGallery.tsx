@@ -24,11 +24,19 @@ export function PhotoGallery({ slots, fondo, onEditar }: PhotoGalleryProps) {
   const t = useT()
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
+  // With no photo there's no lightbox to go through, so the placeholder opens
+  // the edit sheet itself — otherwise an empty album can't be edited or deleted.
   if (slots.length === 0) {
     return (
-      <div className="timeline__photo timeline__photo-fallback" style={{ background: fondo }}>
+      <button
+        type="button"
+        className="timeline__photo timeline__photo-fallback"
+        style={{ background: fondo }}
+        aria-label={t('lightbox_editar_recuerdo')}
+        onClick={onEditar}
+      >
         {FALLBACK_ICON}
-      </div>
+      </button>
     )
   }
 
