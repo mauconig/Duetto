@@ -466,17 +466,22 @@ export function useApi() {
         return enviarFormulario<{ ok: boolean }>(`/cifrado/foto/${id}`, 'POST', form)
       },
 
+      /** What the link is, without fetching the picture behind it — for when
+       * the share already handed us the image as a file and only the pin's
+       * nature is missing. For a TikTok link it is the whole answer: TikToks
+       * have no picture to fetch, and `tiktok` carries what the player needs. */
+      infoDeEnlace(enlace: string) {
+        return call<{
+          esVideo: boolean
+          titulo?: string
+          tiktok?: { id: string; url: string; autor: string | null }
+        }>(`/enlace/info?url=${encodeURIComponent(enlace)}`)
+      },
+
       /** The image behind a shared link, as a File the rest of the app can
        * treat like any picked photo. Pinterest shares a pin as a URL and
        * never as a file, and i.pinimg.com sends no CORS headers, so the
        * server is the only one that can go get the bytes. */
-      /** What the link is, without fetching the picture behind it — for when
-       * the share already handed us the image as a file and only the pin's
-       * nature is missing. */
-      infoDeEnlace(enlace: string) {
-        return call<{ esVideo: boolean; titulo?: string }>(`/enlace/info?url=${encodeURIComponent(enlace)}`)
-      },
-
       async imagenDeEnlace(enlace: string): Promise<{ archivo: File; titulo: string | null; esVideo: boolean }> {
         const token = await getToken()
         const res = await fetch(`/api/enlace/imagen?url=${encodeURIComponent(enlace)}`, {

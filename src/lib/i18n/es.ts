@@ -140,20 +140,21 @@ export const es = {
   insp_archivar: 'Archivar',
   insp_error_crear_carpeta: 'No pudimos crear la carpeta',
   insp_ver_en_pinterest: 'Ver en Pinterest',
+  insp_ver_en_tiktok: 'Ver en TikTok',
   insp_agregar_titulo: '¿De dónde la traemos?',
   insp_desde_galeria: 'Elegir de la galería',
   insp_desde_galeria_hint: 'Fotos guardadas en el teléfono',
-  insp_desde_enlace: 'Pegar el link de un pin',
-  insp_desde_enlace_hint: 'Copiado desde Pinterest',
+  insp_desde_enlace: 'Pegar un link',
+  insp_desde_enlace_hint: 'Copiado desde Pinterest o TikTok',
   insp_enlace_titulo: 'Pegar un link',
-  insp_enlace_campo: 'Link del pin',
+  insp_enlace_campo: 'Link de Pinterest o TikTok',
   insp_enlace_pegar: 'Pegar',
   insp_enlace_buscar: 'Traer la imagen',
   insp_enlace_buscando: 'Buscando la imagen…',
   // Written for iPhone, where sharing into the app isn't possible and this is
   // the only way in. Names the menu item literally so it can be followed
   // without knowing what a link is.
-  insp_enlace_ayuda: 'En Pinterest, tocá el pin, después Compartir y Copiar enlace. Volvé acá y pegalo.',
+  insp_enlace_ayuda: 'En Pinterest o TikTok, tocá Compartir y después Copiar enlace. Volvé acá y pegalo.',
 
   // Celebración
   celebracion_texto: (nombres: string) => `Hoy es el día, ${nombres}.`,

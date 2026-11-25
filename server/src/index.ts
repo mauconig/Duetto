@@ -2245,7 +2245,71 @@ app.get('/api/enlace/imagen', requireAuth, limiteEnlace, async (req: AuthedReque
  * hands over a cover image as a file *and* the link, and in that case the
  * bytes are already on the phone — only the pin's nature is missing. Asking
  * /enlace/imagen for that would re-download a picture we already have. */
+/** TikTok's hosts, including the short links its share sheet hands out (vm.,
+ * vt.), which redirect into www. Kept apart from HOSTS_ENLACE on purpose:
+ * TikTok pages are never fetched for an image. A TikTok is saved as a link
+ * and played through TikTok's own embed player, so all the server needs is
+ * the video's id. */
+const HOSTS_TIKTOK = new Set(['tiktok.com', 'www.tiktok.com', 'm.tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com'])
+
+/** `/@user/video/7301234567890123456`, or `/photo/` for a photo post. */
+const RE_ID_TIKTOK = /\/(?:video|photo)\/(\d{8,25})\/?$/
+
+function urlTikTok(u: string): URL | null {
+  try {
+    const url = new URL(u.trim())
+    return url.protocol === 'https:' && HOSTS_TIKTOK.has(url.hostname) ? url : null
+  } catch {
+    return null
+  }
+}
+
+/** Turns any TikTok link into the post's own address and id. A short link is
+ * followed one redirect at a time, reading only the Location header, and
+ * any hop that leaves TikTok ends it — the same SSRF boundary as the
+ * Pinterest list, enforced on every hop rather than only at the end. */
+async function resolverTikTok(url: URL): Promise<{ id: string; url: string } | null> {
+  let actual = url
+  for (let saltos = 0; saltos <= 5; saltos++) {
+    const id = RE_ID_TIKTOK.exec(actual.pathname)?.[1]
+    // The query string is share tracking (sender, app version); the path is
+    // the post.
+    if (id) return { id, url: `https://www.tiktok.com${actual.pathname}` }
+    const r = await fetch(actual.href, { redirect: 'manual' })
+    const destino = r.headers.get('location')
+    if (r.status < 300 || r.status >= 400 || !destino) return null
+    const siguiente = urlTikTok(new URL(destino, actual).href)
+    if (!siguiente) return null
+    actual = siguiente
+  }
+  return null
+}
+
+/** TikTok's public oEmbed: no key, and a 4xx for a post that is private,
+ * deleted or not embeddable — exactly the ones the player couldn't show
+ * either. Title and author are often missing now; the card does without. */
+async function oembedTikTok(url: string): Promise<{ titulo: string | null; autor: string | null } | null> {
+  const r = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`)
+  if (!r.ok) return null
+  const datos = (await r.json().catch(() => null)) as Record<string, unknown> | null
+  if (!datos || typeof datos !== 'object') return null
+  const texto = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 300) : null)
+  return { titulo: texto(datos.title), autor: texto(datos.author_name) }
+}
+
 app.get('/api/enlace/info', requireAuth, limiteEnlace, async (req: AuthedRequest, res) => {
+  const tiktok = urlTikTok(String(req.query.url ?? ''))
+  if (tiktok) {
+    const post = await resolverTikTok(tiktok)
+    const datos = post && (await oembedTikTok(post.url))
+    if (!post || !datos) {
+      res.status(404).json({ error: 'No pudimos leer ese enlace' })
+      return
+    }
+    res.json({ esVideo: true, titulo: datos.titulo ?? undefined, tiktok: { id: post.id, url: post.url, autor: datos.autor } })
+    return
+  }
+
   const pedido = hostPermitido(String(req.query.url ?? ''))
   if (!pedido) {
     res.status(400).json({ error: 'Ese enlace no se puede abrir desde acá' })

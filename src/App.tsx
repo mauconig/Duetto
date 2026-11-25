@@ -31,8 +31,10 @@ import {
   parseFecha,
   photoSlots,
   pickDaily,
+  sitioDeOrigen,
   sortByFecha,
 } from './lib/duette'
+import { tarjetaTikTok } from './lib/tiktok'
 import { Celebracion } from './components/Celebracion'
 import { useIdiomaContexto } from './lib/i18n/contexto'
 import { traducirError } from './lib/i18n/erroresServidor'
@@ -336,10 +338,12 @@ function AppContent({
         if (enlace) {
           api
             .infoDeEnlace(enlace)
-            .then(({ esVideo }) => {
+            .then(({ esVideo, tiktok }) => {
               if (cancelado) return
               setEnlaceEsVideo(esVideo)
-              setEnlaceOrigen(enlace)
+              // A TikTok's canonical address, never its short link: the
+              // player is found from the id in it.
+              setEnlaceOrigen(tiktok?.url ?? enlace)
             })
             .catch(() => {
               // Nothing to tell anyone: the photo saves as an ordinary one,
@@ -351,11 +355,11 @@ function AppContent({
       if (!enlace) return
       setResolviendoEnlace(true)
       try {
-        const { archivo, esVideo } = await api.imagenDeEnlace(enlace)
+        const { archivo, esVideo, urlOrigen } = await resolverEnlace(enlace)
         if (!cancelado) {
           setCompartidas([archivo])
           setEnlaceEsVideo(esVideo)
-          setEnlaceOrigen(enlace)
+          setEnlaceOrigen(urlOrigen)
         }
       } catch (e) {
         if (!cancelado) setErrorEnlace(e instanceof Error ? traducirError(e.message, t) : t('app_error_enlace'))
@@ -370,6 +374,21 @@ function AppContent({
     // error branch, and this runs once per app open regardless of language.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api])
+
+  /** A shared or pasted link, as the File the rest of the app takes plus the
+   * address to save as its origin. Pinterest gives up its image; a TikTok
+   * gives none, so it gets the card drawn for it and is played through
+   * TikTok's player when opened. */
+  async function resolverEnlace(enlace: string): Promise<{ archivo: File; esVideo: boolean; urlOrigen: string }> {
+    if (sitioDeOrigen(enlace) === 'tiktok') {
+      const { tiktok, titulo } = await api.infoDeEnlace(enlace)
+      if (!tiktok) throw new Error(t('app_error_enlace'))
+      const archivo = await tarjetaTikTok({ titulo: titulo ?? null, autor: tiktok.autor })
+      return { archivo, esVideo: true, urlOrigen: tiktok.url }
+    }
+    const { archivo, esVideo } = await api.imagenDeEnlace(enlace)
+    return { archivo, esVideo, urlOrigen: enlace }
+  }
 
   async function cerrarCompartido() {
     setCompartidas([])
@@ -630,12 +649,12 @@ function AppContent({
           onAgregarEnlace={async (url) => {
             let resuelto
             try {
-              resuelto = await api.imagenDeEnlace(url)
+              resuelto = await resolverEnlace(url.trim())
             } catch (e) {
               throw new Error(e instanceof Error ? traducirError(e.message, t) : t('app_error_enlace'))
             }
             setEnlaceEsVideo(resuelto.esVideo)
-            setEnlaceOrigen(url)
+            setEnlaceOrigen(resuelto.urlOrigen)
             setPegadoEnMoodboard(true)
             setCompartidas([resuelto.archivo])
           }}

@@ -122,20 +122,21 @@ export const pt: Diccionario = {
   insp_archivar: 'Arquivar',
   insp_error_crear_carpeta: 'Não conseguimos criar a pasta',
   insp_ver_en_pinterest: 'Ver no Pinterest',
+  insp_ver_en_tiktok: 'Ver no TikTok',
   insp_agregar_titulo: 'De onde?',
   insp_desde_galeria: 'Escolher da galeria',
   insp_desde_galeria_hint: 'Fotos guardadas no celular',
-  insp_desde_enlace: 'Colar o link de um pin',
-  insp_desde_enlace_hint: 'Copiado do Pinterest',
+  insp_desde_enlace: 'Colar um link',
+  insp_desde_enlace_hint: 'Copiado do Pinterest ou TikTok',
   insp_enlace_titulo: 'Colar um link',
-  insp_enlace_campo: 'Link do pin',
+  insp_enlace_campo: 'Link do Pinterest ou TikTok',
   insp_enlace_pegar: 'Colar',
   insp_enlace_buscar: 'Buscar a imagem',
   insp_enlace_buscando: 'Buscando a imagem…',
   // Written for iPhone, where sharing into the app isn't possible and this is
   // the only way in. Names the menu item literally so it can be followed
   // without knowing what a link is.
-  insp_enlace_ayuda: 'No Pinterest, toque no pin, depois Compartilhar e Copiar link. Volte aqui e cole.',
+  insp_enlace_ayuda: 'No Pinterest ou TikTok, toque em Compartilhar e depois Copiar link. Volte aqui e cole.',
 
   celebracion_texto: (nombres) => `Hoje é o dia, ${nombres}.`,
   celebracion_boton: 'Comemorar',

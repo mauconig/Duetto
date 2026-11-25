@@ -122,20 +122,21 @@ export const en: Diccionario = {
   insp_archivar: 'File',
   insp_error_crear_carpeta: "Couldn't create the folder",
   insp_ver_en_pinterest: 'View on Pinterest',
+  insp_ver_en_tiktok: 'View on TikTok',
   insp_agregar_titulo: 'Where from?',
   insp_desde_galeria: 'Pick from gallery',
   insp_desde_galeria_hint: 'Photos saved on your phone',
-  insp_desde_enlace: 'Paste a pin link',
-  insp_desde_enlace_hint: 'Copied from Pinterest',
+  insp_desde_enlace: 'Paste a link',
+  insp_desde_enlace_hint: 'Copied from Pinterest or TikTok',
   insp_enlace_titulo: 'Paste a link',
-  insp_enlace_campo: 'Pin link',
+  insp_enlace_campo: 'Pinterest or TikTok link',
   insp_enlace_pegar: 'Paste',
   insp_enlace_buscar: 'Fetch the image',
   insp_enlace_buscando: 'Looking for the image…',
   // Written for iPhone, where sharing into the app isn't possible and this is
   // the only way in. Names the menu item literally so it can be followed
   // without knowing what a link is.
-  insp_enlace_ayuda: 'On Pinterest, tap the pin, then Share and Copy link. Come back here and paste it.',
+  insp_enlace_ayuda: 'On Pinterest or TikTok, tap Share, then Copy link. Come back here and paste it.',
 
   celebracion_texto: (nombres) => `Today's the day, ${nombres}.`,
   celebracion_boton: 'Celebrate',

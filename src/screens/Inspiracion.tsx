@@ -320,7 +320,7 @@ export function Inspiracion({
                     autoCorrect="off"
                     spellCheck={false}
                     value={enlace.valor}
-                    placeholder="https://pin.it/..."
+                    placeholder="https://..."
                     disabled={enlace.cargando}
                     onChange={(e) => setEnlace({ ...enlace, valor: e.target.value, error: null })}
                   />

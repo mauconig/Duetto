@@ -195,10 +195,22 @@ export interface PhotoSlot {
   /** True when the moodboard slot was saved from a Pinterest *video* pin —
    * the file is still just its cover frame. Informational only. */
   esVideo?: boolean
-  /** Where the pin this slot was saved from lives, set on any moodboard slot
-   * that came from Pinterest — photo pin or video pin alike. This is what
-   * tells the lightbox to offer "Ver en Pinterest". */
+  /** Where the post this slot was saved from lives, set on any moodboard slot
+   * that came from a Pinterest or TikTok link. This is what tells the
+   * lightbox to offer "Ver en Pinterest" / "Ver en TikTok". */
   urlOrigen?: string | null
+}
+
+/** Which site a saved `urlOrigen` points at, for the label and colors of the
+ * way back to it. Everything saved before TikTok existed here is Pinterest,
+ * so that stays the default. */
+export function sitioDeOrigen(url: string): 'tiktok' | 'pinterest' {
+  try {
+    const host = new URL(url).hostname
+    return host === 'tiktok.com' || host.endsWith('.tiktok.com') ? 'tiktok' : 'pinterest'
+  } catch {
+    return 'pinterest'
+  }
 }
 
 export function photoSlots(album: Album): PhotoSlot[] {
